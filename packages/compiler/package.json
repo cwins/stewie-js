@@ -13,5 +13,11 @@
   "scripts": {
     "build": "tsc --build",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "typescript": "^5.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
   }
 }
