@@ -1,13 +1,20 @@
 {
-  "name": "new-web-ui-framework",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "stewie",
+  "version": "0.0.1",
+  "description": "A TypeScript web rendering framework",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc --build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "find packages -name dist -type d -prune -exec rm -rf {} + 2>/dev/null; true"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  },
   "packageManager": "pnpm@10.28.2"
 }
