@@ -20,7 +20,11 @@ importers:
 
   packages/adapter-bun: {}
 
-  packages/adapter-node: {}
+  packages/adapter-node:
+    dependencies:
+      '@stewie/server':
+        specifier: workspace:*
+        version: link:../server
 
   packages/compiler:
     dependencies:
