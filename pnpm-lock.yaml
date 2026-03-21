@@ -40,7 +40,14 @@ importers:
 
   packages/create-stewie: {}
 
-  packages/router: {}
+  packages/router:
+    dependencies:
+      '@stewie/core':
+        specifier: workspace:*
+        version: link:../core
+      '@stewie/router-spi':
+        specifier: workspace:*
+        version: link:../router-spi
 
   packages/router-spi: {}
 

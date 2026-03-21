@@ -7,6 +7,8 @@ export default defineConfig({
       '@stewie/core': resolve(__dirname, 'packages/core/src/index.ts'),
       '@stewie/compiler': resolve(__dirname, 'packages/compiler/src/index.ts'),
       '@stewie/server': resolve(__dirname, 'packages/server/src/index.ts'),
+      '@stewie/router-spi': resolve(__dirname, 'packages/router-spi/src/index.ts'),
+      '@stewie/router': resolve(__dirname, 'packages/router/src/index.ts'),
     },
   },
   test: {
