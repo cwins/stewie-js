@@ -1,7 +1,7 @@
 import type { JSXElement } from '@stewie/core'
 import { Fragment, Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly, provide } from '@stewie/core'
 import type { RenderToStringOptions } from './types.js'
-import { createHydrationRegistry, HydrationRegistryContext } from './hydration.js'
+import { createHydrationRegistry, HydrationRegistryContext, type HydrationRegistry } from './hydration.js'
 
 // ---------------------------------------------------------------------------
 // Void elements — self-closing in HTML
@@ -83,6 +83,7 @@ function serializeAttrs(props: Record<string, unknown>): string {
 
 interface InternalRenderOptions {
   nonce?: string
+  registry: HydrationRegistry
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +106,7 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   }
 
   if (typeof node === 'number') {
-    return String(node)
+    return escapeHtml(String(node))
   }
 
   // Arrays (multiple children)
@@ -209,9 +210,12 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     return ''
   }
 
-  // Component function
+  // Component function — provide registry context synchronously during the call
   if (typeof type === 'function') {
-    const result = (type as (props: Record<string, unknown>) => JSXElement | null)(props)
+    let result: JSXElement | null = null
+    provide(HydrationRegistryContext, opts.registry, () => {
+      result = (type as (props: Record<string, unknown>) => JSXElement | null)(props)
+    })
     return renderNode(result, opts)
   }
 
@@ -242,17 +246,14 @@ export async function renderToString(
   options?: RenderToStringOptions
 ): Promise<string> {
   const registry = createHydrationRegistry()
-  const opts: InternalRenderOptions = { nonce: options?.nonce }
+  // Thread registry through opts — avoids relying on the async-unsafe context stack
+  const opts: InternalRenderOptions = { nonce: options?.nonce, registry }
 
   const rootEl = typeof root === 'function' ? root() : root
+  const html = await renderNode(rootEl, opts)
 
-  let html = ''
-  await provide(HydrationRegistryContext, registry, async () => {
-    html = await renderNode(rootEl, opts)
-  })
-
-  // Serialize hydration state and append script tag
-  const stateJson = registry.serialize()
+  // Serialize hydration state — escape </script> to prevent XSS breakout
+  const stateJson = registry.serialize().replace(/<\//g, '<\\/')
   const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : ''
   const stateScript = `<script${nonceAttr}>__STEWIE_STATE__ = ${stateJson}</script>`
 

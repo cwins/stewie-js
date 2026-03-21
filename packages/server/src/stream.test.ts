@@ -11,11 +11,12 @@ describe('renderToStream', () => {
   it('streams complete HTML', async () => {
     const stream = renderToStream(jsx('p', { children: 'world' }))
     const reader = stream.getReader()
+    const decoder = new TextDecoder()
     let html = ''
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      html += value
+      html += decoder.decode(value, { stream: true })
     }
     expect(html).toContain('<p>world</p>')
   })

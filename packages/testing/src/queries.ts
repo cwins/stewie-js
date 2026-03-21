@@ -37,7 +37,7 @@ function buildHandle(tagName: string, openTag: string, innerHTML: string): Eleme
   const attrs = parseAttributes(openTag)
   // Strip all HTML tags to get text content
   const textContent = innerHTML.replace(/<[^>]*>/g, '')
-  const outerHTML = `${openTag}</${tagName}>`
+  const outerHTML = `${openTag}${innerHTML}</${tagName}>`
 
   return {
     tagName,
@@ -161,6 +161,15 @@ export function findByRole(
   for (const tag of tags) {
     const elements = extractElements(html, tag)
     for (const el of elements) {
+      // For roles that require a specific input type, verify the type attribute
+      if (role === 'checkbox' && el.getAttribute('type') !== 'checkbox') continue
+      if (role === 'radio' && el.getAttribute('type') !== 'radio') continue
+      if (role === 'textbox' && el.tagName === 'input') {
+        const type = el.getAttribute('type')
+        // textbox role applies to text-like inputs; exclude button/submit/checkbox etc.
+        const NON_TEXTBOX = ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color']
+        if (type && NON_TEXTBOX.includes(type)) continue
+      }
       if (options?.name) {
         // Filter by accessible name: check text content or aria-label
         const ariaLabel = el.getAttribute('aria-label')

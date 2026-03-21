@@ -8,6 +8,8 @@ export {
   computed,
   effect,
   batch,
+  untrack,
+  createRoot,
   getCurrentScope,
   createScope,
   _allowReactiveCreation,

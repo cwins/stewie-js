@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { signal, computed, effect, batch, getCurrentScope, createScope } from './reactive.js'
+import { signal, computed, effect, batch, untrack, createRoot, getCurrentScope, createScope } from './reactive.js'
 
 // ---------------------------------------------------------------------------
 // signal
@@ -335,5 +335,98 @@ describe('createScope', () => {
     })()
 
     expect(deps.size).toBe(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// untrack
+// ---------------------------------------------------------------------------
+
+describe('untrack', () => {
+  it('reads a signal without subscribing the current effect', () => {
+    const s = signal(1)
+    const other = signal(10)
+    let runCount = 0
+
+    const dispose = effect(() => {
+      other() // subscribe to other
+      untrack(() => s()) // read s without subscribing
+      runCount++
+    })
+
+    expect(runCount).toBe(1)
+    s.set(99)       // should NOT re-run effect
+    expect(runCount).toBe(1)
+    other.set(20)   // SHOULD re-run effect
+    expect(runCount).toBe(2)
+    dispose()
+  })
+
+  it('returns the value from the untracked function', () => {
+    const s = signal(42)
+    const val = untrack(() => s())
+    expect(val).toBe(42)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// signal.update — no unwanted subscription
+// ---------------------------------------------------------------------------
+
+describe('signal.update tracking', () => {
+  it('calling update inside an effect does not subscribe the effect to itself', () => {
+    const s = signal(0)
+    const trigger = signal(false)
+    let runCount = 0
+
+    const dispose = effect(() => {
+      trigger() // subscribe to trigger
+      if (trigger()) {
+        s.update(n => n + 1) // update should NOT subscribe effect to s
+      }
+      runCount++
+    })
+
+    expect(runCount).toBe(1)
+    trigger.set(true)     // triggers effect, which calls s.update
+    expect(runCount).toBe(2)
+    expect(s()).toBe(1)
+    // s changed but effect should NOT re-run (not subscribed to s)
+    expect(runCount).toBe(2)
+    dispose()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// createRoot
+// ---------------------------------------------------------------------------
+
+describe('createRoot', () => {
+  it('allows signal creation without module-scope warning', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    let sig: ReturnType<typeof signal<number>> | undefined
+    createRoot(() => {
+      sig = signal(5)
+    })
+    expect(sig!()).toBe(5)
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('returns the value from fn', () => {
+    const result = createRoot(() => {
+      const s = signal(99)
+      return s()
+    })
+    expect(result).toBe(99)
+  })
+
+  it('restores previous _allowReactiveCreation state after fn', () => {
+    // After createRoot finishes, creating signals outside should warn again
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    createRoot(() => signal(1))
+    signal(2) // should warn (module scope)
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
   })
 })

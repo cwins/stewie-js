@@ -56,8 +56,15 @@ export function createNodeHandler(
   app: StewieApp,
 ): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const webReq = await nodeRequestToWebRequest(req)
-    const webRes = await app(webReq)
-    await webResponseToNodeResponse(webRes, res)
+    try {
+      const webReq = await nodeRequestToWebRequest(req)
+      const webRes = await app(webReq)
+      await webResponseToNodeResponse(webRes, res)
+    } catch (err) {
+      if (!res.headersSent) {
+        res.statusCode = 500
+        res.end('Internal Server Error')
+      }
+    }
   }
 }

@@ -351,7 +351,8 @@ export function signal<T>(initialValue: T): Signal<T> {
   }
 
   sig.update = function (fn: (current: T) => T): void {
-    node.write(fn(node.read()))
+    // Use untrack to avoid subscribing the current scope to this signal
+    node.write(untrack(() => fn(node.read())))
   }
 
   return sig
@@ -368,4 +369,26 @@ export function computed<T>(fn: () => T): Computed<T> {
 export function effect(fn: () => void | (() => void)): Dispose {
   const node = new EffectNode(fn)
   return () => node.dispose()
+}
+
+// Run fn without registering any reactive subscriptions in the current scope.
+export function untrack<T>(fn: () => T): T {
+  const saved = _scopeStack.splice(0)
+  try {
+    return fn()
+  } finally {
+    _scopeStack.push(...saved)
+  }
+}
+
+// Create a reactive root scope — clean alternative to _setAllowReactiveCreation.
+// All signal()/store()/computed()/effect() calls inside fn are allowed.
+export function createRoot<T>(fn: () => T): T {
+  const prev = _allowReactiveCreation
+  _allowReactiveCreation = true
+  try {
+    return fn()
+  } finally {
+    _allowReactiveCreation = prev
+  }
 }
