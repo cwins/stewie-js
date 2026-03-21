@@ -13,5 +13,14 @@
   "scripts": {
     "build": "tsc --build",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@stewie/compiler": "workspace:*"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
   }
 }
