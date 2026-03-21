@@ -57,7 +57,14 @@ importers:
         specifier: workspace:*
         version: link:../core
 
-  packages/testing: {}
+  packages/testing:
+    dependencies:
+      '@stewie/core':
+        specifier: workspace:*
+        version: link:../core
+      '@stewie/server':
+        specifier: workspace:*
+        version: link:../server
 
   packages/vite:
     dependencies:
