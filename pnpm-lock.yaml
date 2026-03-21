@@ -18,6 +18,33 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.15)
 
+  examples/basic-ssr:
+    dependencies:
+      '@stewie/adapter-node':
+        specifier: workspace:*
+        version: link:../../packages/adapter-node
+      '@stewie/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@stewie/router':
+        specifier: workspace:*
+        version: link:../../packages/router
+      '@stewie/server':
+        specifier: workspace:*
+        version: link:../../packages/server
+      '@stewie/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+
+  examples/static:
+    dependencies:
+      '@stewie/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@stewie/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+
   packages/adapter-bun: {}
 
   packages/adapter-node:

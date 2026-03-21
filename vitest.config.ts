@@ -9,11 +9,17 @@ export default defineConfig({
       '@stewie/server': resolve(__dirname, 'packages/server/src/index.ts'),
       '@stewie/router-spi': resolve(__dirname, 'packages/router-spi/src/index.ts'),
       '@stewie/router': resolve(__dirname, 'packages/router/src/index.ts'),
+      '@stewie/adapter-node': resolve(__dirname, 'packages/adapter-node/src/index.ts'),
       '@stewie/testing': resolve(__dirname, 'packages/testing/src/index.ts'),
     },
   },
   test: {
-    include: ['packages/*/src/**/*.test.ts', 'packages/*/src/**/*.test.tsx'],
+    include: [
+      'packages/*/src/**/*.test.ts',
+      'packages/*/src/**/*.test.tsx',
+      'examples/*/src/**/*.test.ts',
+      'examples/*/src/**/*.test.tsx',
+    ],
     environment: 'node',
   },
 })

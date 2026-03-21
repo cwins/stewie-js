@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stewie Static Example</title>
+  </head>
+  <body>
+    <h1>Stewie Static Example</h1>
+    <div id="counter">
+      <p>Count: <span id="count-display">0</span></p>
+      <p>Doubled: <span id="doubled-display">0</span></p>
+      <button onclick="counter.increment()">+</button>
+      <button onclick="counter.decrement()">-</button>
+      <button onclick="counter.reset()">Reset</button>
+    </div>
+    <script type="module">
+      import { createCounter } from './src/counter.js'
+      import { effect } from '@stewie/core'
+
+      const counter = window.counter = createCounter(0)
+
+      // Update DOM on change
+      effect(() => {
+        document.getElementById('count-display').textContent = counter.count()
+        document.getElementById('doubled-display').textContent = counter.doubled()
+      })
+    </script>
+  </body>
+</html>

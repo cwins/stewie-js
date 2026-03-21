@@ -1,0 +1,13 @@
+{
+  "name": "static-example",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@stewie/core": "workspace:*",
+    "@stewie/testing": "workspace:*"
+  }
+}
