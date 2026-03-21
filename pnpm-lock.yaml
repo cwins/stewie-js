@@ -40,7 +40,11 @@ importers:
 
   packages/router-spi: {}
 
-  packages/server: {}
+  packages/server:
+    dependencies:
+      '@stewie/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/testing: {}
 
