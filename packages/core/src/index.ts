@@ -36,6 +36,13 @@ export type {
 export { jsx, jsxs, Fragment } from './jsx-runtime.js'
 export type { JSX } from './jsx-runtime.js'
 
+// Client-side DOM renderer + hydration
+export type { Disposer } from './dom-renderer.js'
+export { mount } from './dom-renderer.js'
+export type { HydrationRegistry } from './hydration.js'
+export { HydrationRegistryContext, useHydrationRegistry } from './hydration.js'
+export { hydrate } from './hydrate.js'
+
 // Built-in control flow components
 export type {
   ShowProps,
