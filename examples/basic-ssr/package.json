@@ -4,8 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node src/server.js",
-    "build": "echo 'No build step for this example'",
+    "dev": "tsx src/server.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -16,6 +15,7 @@
     "@stewie/testing": "workspace:*"
   },
   "devDependencies": {
+    "tsx": "^4.0.0",
     "vitest": "^3.0.0"
   }
 }

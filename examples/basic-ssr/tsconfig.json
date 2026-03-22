@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@stewie/core": ["../../packages/core/src/index.ts"],
+      "@stewie/core/jsx-runtime": ["../../packages/core/src/jsx-runtime.ts"],
+      "@stewie/server": ["../../packages/server/src/index.ts"],
+      "@stewie/adapter-node": ["../../packages/adapter-node/src/index.ts"],
+      "@stewie/router": ["../../packages/router/src/index.ts"],
+      "@stewie/testing": ["../../packages/testing/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

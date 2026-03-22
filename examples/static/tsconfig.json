@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@stewie/core": ["../../packages/core/src/index.ts"],
+      "@stewie/core/jsx-runtime": ["../../packages/core/src/jsx-runtime.ts"],
+      "@stewie/core/dom/jsx-runtime": ["../../packages/core/src/dom/jsx-runtime.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}
