@@ -16,14 +16,14 @@
 //   ↑ The function form of mount() activates the render scope that collects
 //     all effect disposers created during JSX evaluation.
 
-import { Fragment as _Fragment } from '../src/jsx-runtime.js'
-import { _createNode, mount as _mount } from '../src/dom-renderer.js'
-import type { JSXElement } from '../src/jsx-runtime.js'
+import { Fragment as _Fragment } from '../jsx-runtime.js'
+import { _createNode, mount as _mount } from '../dom-renderer.js'
+import type { JSXElement } from '../jsx-runtime.js'
 
 export { _Fragment as Fragment }
 
 // Re-export JSX namespace so TS type-checking works with this runtime
-export type { JSX } from '../src/jsx-runtime.js'
+export type { JSX } from '../jsx-runtime.js'
 
 /**
  * Create a real DOM element. Called by TypeScript's JSX transform for every

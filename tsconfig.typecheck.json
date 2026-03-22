@@ -17,7 +17,7 @@
     "paths": {
       "@stewie/core": ["packages/core/src/index.ts"],
       "@stewie/core/jsx-runtime": ["packages/core/src/jsx-runtime.ts"],
-      "@stewie/core/dom/jsx-runtime": ["packages/core/dom/jsx-runtime.ts"],
+      "@stewie/core/dom/jsx-runtime": ["packages/core/src/dom/jsx-runtime.ts"],
       "@stewie/compiler": ["packages/compiler/src/index.ts"],
       "@stewie/server": ["packages/server/src/index.ts"],
       "@stewie/adapter-node": ["packages/adapter-node/src/index.ts"],
@@ -33,8 +33,6 @@
     "vitest.config.ts",
     "packages/*/src/**/*.ts",
     "packages/*/src/**/*.tsx",
-    "packages/*/dom/**/*.ts",
-    "packages/*/dom/**/*.tsx",
     "examples/*/src/**/*.ts",
     "examples/*/src/**/*.tsx"
   ]

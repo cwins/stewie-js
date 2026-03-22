@@ -4,9 +4,9 @@
 
 import { describe, it, expect } from 'vitest'
 import { jsx, jsxs, Fragment, mount } from './jsx-runtime.js'
-import { signal, createRoot } from '../src/reactive.js'
-import { Show, For } from '../src/components.js'
-import type { JSXElement } from '../src/jsx-runtime.js'
+import { signal, createRoot } from '../reactive.js'
+import { Show, For } from '../components.js'
+import type { JSXElement } from '../jsx-runtime.js'
 
 // In the DOM runtime, jsx() returns Node, not JSXElement.
 // When passing DOM nodes to descriptor-based control flow (Show/For) we cast.

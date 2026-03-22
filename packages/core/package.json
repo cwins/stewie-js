@@ -12,6 +12,10 @@
     "./jsx-runtime": {
       "types": "./dist/jsx-runtime.d.ts",
       "default": "./dist/jsx-runtime.js"
+    },
+    "./dom/jsx-runtime": {
+      "types": "./dist/dom/jsx-runtime.d.ts",
+      "default": "./dist/dom/jsx-runtime.js"
     }
   },
   "scripts": {

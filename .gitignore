@@ -3,3 +3,11 @@ dist/
 .turbo/
 *.tsbuildinfo
 .DS_Store
+vitest.config.js
+vitest.config.js.map
+vitest.config.d.ts
+vitest.config.d.ts.map
+examples/*/src/*.js
+examples/*/src/*.js.map
+examples/*/src/*.d.ts
+examples/*/src/*.d.ts.map

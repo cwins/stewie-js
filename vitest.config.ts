@@ -4,7 +4,7 @@ import { resolve } from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@stewie/core/dom/jsx-runtime': resolve(__dirname, 'packages/core/dom/jsx-runtime.ts'),
+      '@stewie/core/dom/jsx-runtime': resolve(__dirname, 'packages/core/src/dom/jsx-runtime.ts'),
       '@stewie/core': resolve(__dirname, 'packages/core/src/index.ts'),
       '@stewie/compiler': resolve(__dirname, 'packages/compiler/src/index.ts'),
       '@stewie/server': resolve(__dirname, 'packages/server/src/index.ts'),
@@ -18,8 +18,6 @@ export default defineConfig({
     include: [
       'packages/*/src/**/*.test.ts',
       'packages/*/src/**/*.test.tsx',
-      'packages/*/dom/**/*.test.ts',
-      'packages/*/dom/**/*.test.tsx',
       'examples/*/src/**/*.test.ts',
       'examples/*/src/**/*.test.tsx',
     ],
