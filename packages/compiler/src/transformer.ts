@@ -35,7 +35,7 @@ function lineColToOffset(source: string, line: number, column: number): number {
 function findDollarPropAttr(
   source: string,
   propName: string,
-  searchFrom: number
+  searchFrom: number,
 ): { start: number; end: number; expression: string } | null {
   const attrName = `$${propName}`
   // We look forward from searchFrom for `$propName={`
@@ -43,7 +43,13 @@ function findDollarPropAttr(
   while (idx !== -1) {
     // Make sure this is a whole attribute name (preceded by whitespace or start)
     const before = source[idx - 1]
-    if (before !== undefined && before !== ' ' && before !== '\t' && before !== '\n' && before !== '\r') {
+    if (
+      before !== undefined &&
+      before !== ' ' &&
+      before !== '\t' &&
+      before !== '\n' &&
+      before !== '\r'
+    ) {
       idx = source.indexOf(attrName, idx + 1)
       continue
     }

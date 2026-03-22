@@ -4,7 +4,7 @@ import { renderToString } from './renderer.js'
 
 export function renderToStream(
   root: JSXElement | (() => JSXElement | null),
-  options?: RenderToStreamOptions
+  options?: RenderToStreamOptions,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
   return new ReadableStream({
@@ -16,6 +16,6 @@ export function renderToStream(
       } catch (err) {
         controller.error(err)
       }
-    }
+    },
   })
 }

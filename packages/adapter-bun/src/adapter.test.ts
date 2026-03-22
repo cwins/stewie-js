@@ -27,7 +27,7 @@ describe('createBunHandler', () => {
         controller.enqueue('chunk1')
         controller.enqueue('chunk2')
         controller.close()
-      }
+      },
     })
     const app = async (_req: Request) => new Response(stream as any)
     const options = createBunHandler(app)

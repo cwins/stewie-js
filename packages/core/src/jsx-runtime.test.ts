@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { jsx, jsxs, Fragment } from './jsx-runtime.js'
-import type { JSXElement, Component } from './jsx-runtime.js'
+import type { Component } from './jsx-runtime.js'
 
 describe('jsx', () => {
   it('returns correct element descriptor for a string tag', () => {

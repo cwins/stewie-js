@@ -90,7 +90,11 @@ function App() {
   return <div class="hello" />
 }
 `
-    const result = compile(source, { filename: 'test.tsx', sourcemap: true, inlineSourcemap: false })
+    const result = compile(source, {
+      filename: 'test.tsx',
+      sourcemap: true,
+      inlineSourcemap: false,
+    })
     expect(result.map).toBeTruthy()
     expect(typeof result.map).toBe('string')
 

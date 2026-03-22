@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -18,7 +18,7 @@
       import { createCounter } from './src/counter.js'
       import { effect } from '@stewie/core'
 
-      const counter = window.counter = createCounter(0)
+      const counter = (window.counter = createCounter(0))
 
       // Update DOM on change
       effect(() => {

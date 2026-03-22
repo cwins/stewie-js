@@ -32,14 +32,16 @@ describe('renderToString', () => {
   })
 
   it('renders Fragment', async () => {
-    const el = jsx(Fragment, { children: [jsx('span', { children: 'a' }), jsx('span', { children: 'b' })] })
+    const el = jsx(Fragment, {
+      children: [jsx('span', { children: 'a' }), jsx('span', { children: 'b' })],
+    })
     const html = await renderToString(el)
     expect(html).toContain('<span>a</span><span>b</span>')
   })
 
   it('renders component function', async () => {
-    function MyComp({ name }: { name: string }) {
-      return jsx('p', { children: `Hello ${name}` })
+    function MyComp({ name }: Record<string, unknown>) {
+      return jsx('p', { children: `Hello ${name as string}` })
     }
     const el = jsx(MyComp, { name: 'world' })
     const html = await renderToString(el)
@@ -53,14 +55,21 @@ describe('renderToString', () => {
   })
 
   it('Show renders fallback when false', async () => {
-    const el = Show({ when: false, children: jsx('span', { children: 'hidden' }), fallback: jsx('span', { children: 'fallback' }) })
+    const el = Show({
+      when: false,
+      children: jsx('span', { children: 'hidden' }),
+      fallback: jsx('span', { children: 'fallback' }),
+    })
     const html = await renderToString(el)
     expect(html).toContain('<span>fallback</span>')
     expect(html).not.toContain('hidden')
   })
 
   it('For renders list items', async () => {
-    const el = For({ each: ['a', 'b', 'c'], children: (item: string) => jsx('li', { children: item }) })
+    const el = For({
+      each: ['a', 'b', 'c'],
+      children: (item: string) => jsx('li', { children: item }),
+    })
     const html = await renderToString(el)
     expect(html).toContain('<li>a</li>')
     expect(html).toContain('<li>b</li>')
@@ -90,7 +99,9 @@ describe('renderToString', () => {
   })
 
   it('ErrorBoundary catches errors and renders fallback', async () => {
-    function Broken() { throw new Error('boom') }
+    function Broken() {
+      throw new Error('boom')
+    }
     const el = ErrorBoundary({
       fallback: (err: unknown) => jsx('div', { children: `Error: ${(err as Error).message}` }),
       children: jsx(Broken as any, {}),

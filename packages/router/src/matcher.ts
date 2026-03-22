@@ -14,9 +14,7 @@ export function matchRoute(pattern: string, pathname: string): MatchResult | nul
 
   // Check for wildcard at the end
   const hasWildcard = patternSegments[patternSegments.length - 1] === '*'
-  const effectivePatternSegments = hasWildcard
-    ? patternSegments.slice(0, -1)
-    : patternSegments
+  const effectivePatternSegments = hasWildcard ? patternSegments.slice(0, -1) : patternSegments
 
   // Segment count must match exactly unless there's a wildcard
   if (hasWildcard) {

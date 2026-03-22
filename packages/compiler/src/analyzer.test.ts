@@ -49,7 +49,7 @@ describe('analyzeFile()', () => {
     const parsed = parseFile(source, 'test.tsx')
     const result = analyzeFile(parsed)
     // Static string literal attributes have no JsxExpression initializer, so not in reactiveAttributes
-    expect(result.reactiveAttributes.filter(a => a.isReactive)).toHaveLength(0)
+    expect(result.reactiveAttributes.filter((a) => a.isReactive)).toHaveLength(0)
   })
 
   it('detects $value two-way binding', () => {
@@ -69,7 +69,7 @@ describe('analyzeFile()', () => {
     const parsed = parseFile(source, 'test.tsx')
     const result = analyzeFile(parsed)
     expect(result.twoWayBindings[0].hasConflictingValue).toBe(true)
-    expect(result.bindingConflicts.some(c => c.type === 'conflict')).toBe(true)
+    expect(result.bindingConflicts.some((c) => c.type === 'conflict')).toBe(true)
   })
 
   it('detects readonly flag on $value binding', () => {
@@ -77,7 +77,7 @@ describe('analyzeFile()', () => {
     const parsed = parseFile(source, 'test.tsx')
     const result = analyzeFile(parsed)
     expect(result.twoWayBindings[0].hasReadonly).toBe(true)
-    expect(result.bindingConflicts.some(c => c.type === 'readonly')).toBe(true)
+    expect(result.bindingConflicts.some((c) => c.type === 'readonly')).toBe(true)
   })
 
   it('detects disabled flag on $value binding', () => {
@@ -85,7 +85,7 @@ describe('analyzeFile()', () => {
     const parsed = parseFile(source, 'test.tsx')
     const result = analyzeFile(parsed)
     expect(result.twoWayBindings[0].hasDisabled).toBe(true)
-    expect(result.bindingConflicts.some(c => c.type === 'disabled')).toBe(true)
+    expect(result.bindingConflicts.some((c) => c.type === 'disabled')).toBe(true)
   })
 
   it('store path tracking — reads store.a.b', () => {

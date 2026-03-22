@@ -4,10 +4,7 @@ import type { ParsedFile } from './parser.js'
 import type { AnalysisResult } from './analyzer.js'
 import type { CompilerDiagnostic } from './types.js'
 
-export function validateFile(
-  _parsed: ParsedFile,
-  analysis: AnalysisResult
-): CompilerDiagnostic[] {
+export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): CompilerDiagnostic[] {
   const diagnostics: CompilerDiagnostic[] = []
 
   // Hard error for each module-scope reactive call

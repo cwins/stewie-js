@@ -5,7 +5,7 @@ export interface StewiePluginOptions {
   // Future: custom compiler options
 }
 
-export function stewie(options?: StewiePluginOptions): Plugin {
+export function stewie(_options?: StewiePluginOptions): Plugin {
   return {
     name: 'stewie',
 
@@ -30,7 +30,7 @@ export function stewie(options?: StewiePluginOptions): Plugin {
           loc: {
             file: id,
             line: firstError.line,
-            column: firstError.column - 1,  // Vite uses 0-based columns
+            column: firstError.column - 1, // Vite uses 0-based columns
           },
         })
       }

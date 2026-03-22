@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@stewie/core",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "baseUrl": ".",
+    "paths": {
+      "@stewie/core": ["packages/core/src/index.ts"],
+      "@stewie/core/jsx-runtime": ["packages/core/src/jsx-runtime.ts"],
+      "@stewie/compiler": ["packages/compiler/src/index.ts"],
+      "@stewie/server": ["packages/server/src/index.ts"],
+      "@stewie/adapter-node": ["packages/adapter-node/src/index.ts"],
+      "@stewie/adapter-bun": ["packages/adapter-bun/src/index.ts"],
+      "@stewie/router-spi": ["packages/router-spi/src/index.ts"],
+      "@stewie/router": ["packages/router/src/index.ts"],
+      "@stewie/vite": ["packages/vite/src/index.ts"],
+      "@stewie/testing": ["packages/testing/src/index.ts"],
+      "create-stewie": ["packages/create-stewie/src/index.ts"]
+    }
+  },
+  "include": [
+    "vitest.config.ts",
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx",
+    "examples/*/src/**/*.ts",
+    "examples/*/src/**/*.tsx"
+  ]
+}

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { mount, assertSignal, assertStore, renderToString, withContext, flushEffects } from './index.js'
+import {
+  mount,
+  assertSignal,
+  assertStore,
+  renderToString,
+  withContext,
+  flushEffects,
+} from './index.js'
 import { jsx, signal, store, createContext, inject, _setAllowReactiveCreation } from '@stewie/core'
 
 describe('mount', () => {

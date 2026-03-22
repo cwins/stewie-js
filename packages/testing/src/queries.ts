@@ -23,10 +23,14 @@ function parseAttributes(tagStr: string): Record<string, string> {
   while ((match = attrRegex.exec(withoutTag)) !== null) {
     const name = match[1]
     // The value is whichever capture group matched (double-quote, single-quote, unquoted)
-    const value = match[2] !== undefined ? match[2]
-      : match[3] !== undefined ? match[3]
-      : match[4] !== undefined ? match[4]
-      : ''
+    const value =
+      match[2] !== undefined
+        ? match[2]
+        : match[3] !== undefined
+          ? match[3]
+          : match[4] !== undefined
+            ? match[4]
+            : ''
     attrs[name] = value
   }
   return attrs
@@ -115,10 +119,35 @@ export function findByText(html: string, text: string): ElementHandle | null {
 
   // Common block/inline tags to search through
   const tags = [
-    'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'button', 'a', 'li', 'td', 'th', 'label', 'section',
-    'article', 'header', 'footer', 'main', 'nav', 'aside',
-    'strong', 'em', 'small', 'b', 'i', 'code', 'pre',
+    'div',
+    'span',
+    'p',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'button',
+    'a',
+    'li',
+    'td',
+    'th',
+    'label',
+    'section',
+    'article',
+    'header',
+    'footer',
+    'main',
+    'nav',
+    'aside',
+    'strong',
+    'em',
+    'small',
+    'b',
+    'i',
+    'code',
+    'pre',
   ]
 
   for (const tag of tags) {
@@ -153,7 +182,7 @@ export function findByTestId(html: string, id: string): ElementHandle | null {
 export function findByRole(
   html: string,
   role: string,
-  options?: { name?: string }
+  options?: { name?: string },
 ): ElementHandle | null {
   const tags = ROLE_TO_TAGS[role]
   if (!tags) return null
@@ -167,14 +196,24 @@ export function findByRole(
       if (role === 'textbox' && el.tagName === 'input') {
         const type = el.getAttribute('type')
         // textbox role applies to text-like inputs; exclude button/submit/checkbox etc.
-        const NON_TEXTBOX = ['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color']
+        const NON_TEXTBOX = [
+          'checkbox',
+          'radio',
+          'button',
+          'submit',
+          'reset',
+          'file',
+          'image',
+          'range',
+          'color',
+        ]
         if (type && NON_TEXTBOX.includes(type)) continue
       }
       if (options?.name) {
         // Filter by accessible name: check text content or aria-label
         const ariaLabel = el.getAttribute('aria-label')
-        const matchesName = (ariaLabel && ariaLabel.includes(options.name))
-          || hasText(el, options.name)
+        const matchesName =
+          (ariaLabel && ariaLabel.includes(options.name)) || hasText(el, options.name)
         if (!matchesName) continue
       }
       return el

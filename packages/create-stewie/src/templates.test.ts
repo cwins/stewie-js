@@ -8,7 +8,7 @@ describe('generateFiles', () => {
       mode: 'static',
       includeRouter: false,
     })
-    const paths = files.map(f => f.path)
+    const paths = files.map((f) => f.path)
     expect(paths).toContain('package.json')
     expect(paths).toContain('vite.config.ts')
     expect(paths).toContain('tsconfig.json')
@@ -25,7 +25,7 @@ describe('generateFiles', () => {
       ssrRuntime: 'node',
       includeRouter: false,
     })
-    const paths = files.map(f => f.path)
+    const paths = files.map((f) => f.path)
     expect(paths).toContain('src/server.ts')
   })
 
@@ -35,7 +35,7 @@ describe('generateFiles', () => {
       mode: 'static',
       includeRouter: false,
     })
-    const paths = files.map(f => f.path)
+    const paths = files.map((f) => f.path)
     expect(paths).not.toContain('src/server.ts')
   })
 
@@ -45,7 +45,7 @@ describe('generateFiles', () => {
       mode: 'static',
       includeRouter: true,
     })
-    const pkgJson = files.find(f => f.path === 'package.json')!
+    const pkgJson = files.find((f) => f.path === 'package.json')!
     expect(pkgJson.content).toContain('@stewie/router')
   })
 
@@ -55,7 +55,7 @@ describe('generateFiles', () => {
       mode: 'static',
       includeRouter: false,
     })
-    const pkgJson = files.find(f => f.path === 'package.json')!
+    const pkgJson = files.find((f) => f.path === 'package.json')!
     expect(JSON.parse(pkgJson.content).name).toBe('awesome-project')
   })
 
@@ -66,7 +66,7 @@ describe('generateFiles', () => {
       ssrRuntime: 'bun',
       includeRouter: false,
     })
-    const server = files.find(f => f.path === 'src/server.ts')!
+    const server = files.find((f) => f.path === 'src/server.ts')!
     expect(server.content).toContain('createBunHandler')
   })
 
@@ -76,7 +76,7 @@ describe('generateFiles', () => {
       mode: 'static',
       includeRouter: false,
     })
-    const html = files.find(f => f.path === 'index.html')!
+    const html = files.find((f) => f.path === 'index.html')!
     expect(html.content).toContain('<title>my-app</title>')
   })
 })

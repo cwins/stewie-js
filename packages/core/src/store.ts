@@ -55,11 +55,7 @@ function trackNode(nodeMap: PathNodeMap, path: string): void {
   scope.dependencies.add(node)
 }
 
-function makeProxy<T extends object>(
-  target: T,
-  nodeMap: PathNodeMap,
-  path: string
-): T {
+function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: string): T {
   return new Proxy(target, {
     get(obj: T, key: string | symbol): unknown {
       // Pass through symbols (like Symbol.iterator, Symbol.toPrimitive, etc.)
@@ -77,8 +73,15 @@ function makeProxy<T extends object>(
       // Handle array mutation methods — intercept to trigger notifications
       if (Array.isArray(obj) && typeof value === 'function') {
         const mutatingMethods = new Set([
-          'push', 'pop', 'shift', 'unshift', 'splice',
-          'sort', 'reverse', 'fill', 'copyWithin'
+          'push',
+          'pop',
+          'shift',
+          'unshift',
+          'splice',
+          'sort',
+          'reverse',
+          'fill',
+          'copyWithin',
         ])
         if (mutatingMethods.has(key)) {
           return function (this: unknown, ...args: unknown[]) {
@@ -129,7 +132,7 @@ function makeProxy<T extends object>(
       }
 
       return true
-    }
+    },
   })
 }
 
@@ -140,7 +143,7 @@ function makeProxy<T extends object>(
 export function store<T extends object>(initial: T): T {
   if (isDev && !_allowReactiveCreation && getCurrentScope() === null) {
     console.warn(
-      '[stewie] signal()/store() called at module scope. Reactive primitives must be created inside components or lifecycle hooks.'
+      '[stewie] signal()/store() called at module scope. Reactive primitives must be created inside components or lifecycle hooks.',
     )
   }
 

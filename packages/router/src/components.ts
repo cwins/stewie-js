@@ -3,7 +3,6 @@
 import { jsx } from '@stewie/core'
 import type { JSXElement, Component } from '@stewie/core'
 import { createRouter } from './router.js'
-import type { RouterStore } from './location.js'
 
 export interface RouterProps {
   initialUrl?: string

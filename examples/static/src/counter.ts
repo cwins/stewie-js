@@ -1,4 +1,4 @@
-import { signal, computed, effect, _setAllowReactiveCreation } from '@stewie/core'
+import { signal, computed, _setAllowReactiveCreation } from '@stewie/core'
 
 export interface Counter {
   count: () => number
@@ -18,8 +18,14 @@ export function createCounter(initialValue = 0): Counter {
   return {
     count,
     doubled,
-    increment() { count.update(n => n + 1) },
-    decrement() { count.update(n => n - 1) },
-    reset() { count.set(initialValue) },
+    increment() {
+      count.update((n) => n + 1)
+    },
+    decrement() {
+      count.update((n) => n - 1)
+    },
+    reset() {
+      count.set(initialValue)
+    },
   }
 }

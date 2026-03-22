@@ -46,7 +46,7 @@ export interface MountResult {
 
 function wrapWithContexts(
   root: JSXElement | (() => JSXElement | null),
-  contexts: Array<{ context: Context<unknown>; value: unknown }>
+  contexts: Array<{ context: Context<unknown>; value: unknown }>,
 ): () => Promise<string> {
   return () => {
     // Nest the provide calls recursively
@@ -67,7 +67,7 @@ function wrapWithContexts(
 
 export async function mount(
   component: JSXElement | (() => JSXElement | null),
-  options?: MountOptions
+  options?: MountOptions,
 ): Promise<MountResult> {
   let html: string
 

@@ -25,9 +25,7 @@ describe('scaffoldProject', () => {
   })
 
   it('creates nested directories as needed', async () => {
-    await scaffoldProject(testDir, [
-      { path: 'a/b/c/deep.ts', content: 'export {}' },
-    ])
+    await scaffoldProject(testDir, [{ path: 'a/b/c/deep.ts', content: 'export {}' }])
     const content = await readFile(join(testDir, 'a/b/c/deep.ts'), 'utf-8')
     expect(content).toBe('export {}')
   })

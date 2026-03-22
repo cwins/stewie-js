@@ -35,7 +35,9 @@ describe('store — basic', () => {
   it('effect re-runs when read property changes', () => {
     const s = store({ count: 0 })
     const observed: number[] = []
-    effect(() => { observed.push(s.count) })
+    effect(() => {
+      observed.push(s.count)
+    })
     s.count = 1
     s.count = 2
     expect(observed).toEqual([0, 1, 2])
@@ -52,7 +54,7 @@ describe('store — subscription isolation', () => {
     let bReads = 0
 
     effect(() => {
-      s.b // only read b
+      void s.b // only read b
       bReads++
     })
 
@@ -66,7 +68,7 @@ describe('store — subscription isolation', () => {
     let cReads = 0
 
     effect(() => {
-      s.a.c // only read a.c
+      void s.a.c // only read a.c
       cReads++
     })
 
@@ -79,7 +81,9 @@ describe('store — subscription isolation', () => {
     const s = store({ a: 1, b: 2 })
     const aValues: number[] = []
 
-    effect(() => { aValues.push(s.a) })
+    effect(() => {
+      aValues.push(s.a)
+    })
 
     s.a = 5
     expect(aValues).toEqual([1, 5])
@@ -100,7 +104,9 @@ describe('store — deep nesting', () => {
     const s = store({ a: { b: { c: 0 } } })
     const values: number[] = []
 
-    effect(() => { values.push(s.a.b.c) })
+    effect(() => {
+      values.push(s.a.b.c)
+    })
 
     s.a.b.c = 1
     s.a.b.c = 2
@@ -112,7 +118,7 @@ describe('store — deep nesting', () => {
     let dReads = 0
 
     effect(() => {
-      s.a.b.d
+      void s.a.b.d
       dReads++
     })
 
@@ -124,10 +130,13 @@ describe('store — deep nesting', () => {
   it('setting a.b notifies only a.b subscribers, not a.b.c subscribers', () => {
     const s = store({ a: { b: { c: 1 } } })
     const abValues: unknown[] = []
-    let abcRuns = 0
 
-    effect(() => { abValues.push(s.a.b) })
-    effect(() => { s.a.b.c; abcRuns++ })
+    effect(() => {
+      abValues.push(s.a.b)
+    })
+    effect(() => {
+      void s.a.b.c
+    })
 
     const newB = { c: 99 }
     s.a.b = newB as { c: number }
@@ -216,7 +225,9 @@ describe('store — object replacement', () => {
     const s = store({ data: { value: 0 } })
     const values: number[] = []
 
-    effect(() => { values.push(s.data.value) })
+    effect(() => {
+      values.push(s.data.value)
+    })
 
     // Replace the whole data object
     s.data = { value: 42 }

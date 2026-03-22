@@ -22,7 +22,9 @@ describe('inject', () => {
 
   it('throws when no provider and no default', () => {
     const ctx = createContext<string>()
-    expect(() => inject(ctx)).toThrow('[stewie] inject() called with no matching provider and no default value')
+    expect(() => inject(ctx)).toThrow(
+      '[stewie] inject() called with no matching provider and no default value',
+    )
   })
 })
 
@@ -65,7 +67,7 @@ describe('provide + inject', () => {
       provide(ctx, 'provided', () => {
         throw new Error('oops')
       })
-    } catch (_) {
+    } catch {
       // expected
     }
     // Should have restored: inject returns default, not throw

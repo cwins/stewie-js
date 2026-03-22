@@ -24,7 +24,7 @@ export function createDataFetcher<T>(): DataFetcher<T> {
       try {
         const res = await globalThis.fetch(url)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json() as T
+        const data = (await res.json()) as T
         state.set({ status: 'success', data })
       } catch (err) {
         state.set({ status: 'error', error: err as Error })

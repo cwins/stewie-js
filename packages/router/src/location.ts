@@ -27,7 +27,11 @@ export function parseQuery(search: string): Record<string, string> {
   return result
 }
 
-export function parseUrl(url: string): { pathname: string; query: Record<string, string>; hash: string } {
+export function parseUrl(url: string): {
+  pathname: string
+  query: Record<string, string>
+  hash: string
+} {
   // Handle relative URLs like '/path?a=1#hash'
   let rest = url
   let hash = ''

@@ -1,6 +1,6 @@
 // router.ts — router context + navigation
 
-import { createContext, inject, provide } from '@stewie/core'
+import { createContext, inject } from '@stewie/core'
 import { createLocationStore, parseUrl } from './location.js'
 import type { RouterStore } from './location.js'
 import type { StewieRouterSPI, NavigateOptions, RouteMatch } from '@stewie/router-spi'
@@ -26,7 +26,7 @@ export function createRouter(initialUrl?: string): Router {
       location.pathname = parsed.pathname
       location.query = parsed.query
       location.hash = parsed.hash
-      location.params = {}  // Clear stale params; callers use _setLocation to set new params
+      location.params = {} // Clear stale params; callers use _setLocation to set new params
       // In browser: update history API
       if (typeof globalThis.history !== 'undefined') {
         const replace = typeof to !== 'string' && to.replace

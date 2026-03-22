@@ -1,18 +1,24 @@
-import { createContext, provide, inject } from '@stewie/core'
+import { createContext, inject } from '@stewie/core'
 
 export interface HydrationRegistry {
   // Store serializable state keyed by a string ID
   set(key: string, value: unknown): void
   get(key: string): unknown
-  serialize(): string  // Returns JSON string of all state
+  serialize(): string // Returns JSON string of all state
 }
 
 export function createHydrationRegistry(): HydrationRegistry {
   const store = new Map<string, unknown>()
   return {
-    set(key, value) { store.set(key, value) },
-    get(key) { return store.get(key) },
-    serialize() { return JSON.stringify(Object.fromEntries(store)) },
+    set(key, value) {
+      store.set(key, value)
+    },
+    get(key) {
+      return store.get(key)
+    },
+    serialize() {
+      return JSON.stringify(Object.fromEntries(store))
+    },
   }
 }
 

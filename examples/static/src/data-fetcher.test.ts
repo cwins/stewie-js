@@ -49,10 +49,13 @@ describe('createDataFetcher', () => {
   it('resets to idle', async () => {
     const fetcher = createDataFetcher<unknown>()
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({}),
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      }),
+    )
     await fetcher.fetch('https://example.com')
 
     fetcher.reset()

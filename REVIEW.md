@@ -28,7 +28,7 @@ The reactive system is well-implemented:
 
 1. **`signal.update()` reads without tracking** (`reactive.ts:354`): `node.write(fn(node.read()))` calls `node.read()` which pushes `this` into the current scope. If `signal.update()` is called inside an effect, the effect will subscribe to the signal it is updating. This is likely unintentional -- the update function should read the raw `_value` without tracking.
 
-2. **Eager recomputation in `ComputedNode._invalidate()` can cause issues with batching** (`reactive.ts:247-256`): When a signal changes inside a batch, all dependent computeds immediately recompute (because `_invalidate` is called synchronously from `_notifySubscribers`). But the signal's value might change again before the batch completes. This means computeds may recompute multiple times within a single batch -- the batch only defers *effect* execution, not computed recomputation. This is correct behavior for correctness (computeds are always consistent) but hurts performance. Solid.js avoids this by marking computeds dirty and deferring recomputation to read time.
+2. **Eager recomputation in `ComputedNode._invalidate()` can cause issues with batching** (`reactive.ts:247-256`): When a signal changes inside a batch, all dependent computeds immediately recompute (because `_invalidate` is called synchronously from `_notifySubscribers`). But the signal's value might change again before the batch completes. This means computeds may recompute multiple times within a single batch -- the batch only defers _effect_ execution, not computed recomputation. This is correct behavior for correctness (computeds are always consistent) but hurts performance. Solid.js avoids this by marking computeds dirty and deferring recomputation to read time.
 
 3. **`_allowReactiveCreation` is a module-level mutable boolean** (`reactive.ts:48`): This is inherently not safe for concurrent requests on the server. If two requests run interleaved and both toggle this flag, they will corrupt each other's state. The `_scopeStack` array (line 66) has the same problem.
 
@@ -72,16 +72,16 @@ The compiler has three stages: parse (TypeScript API), analyze (walk AST), valid
 
 1. **The compiler does NOT transform JSX into DOM subscriptions** -- contrary to the stated design goal. It only handles two things: detecting module-scope reactive calls and expanding `$prop={sig}` into `value={sig()} onInput={...}`. The output is still JSX. A real compiler-driven framework (like Svelte or Solid) would transform JSX into `document.createElement` / `element.textContent = ...` / subscription setup calls. This is the single biggest gap in the entire framework.
 
-2. **Source maps are always identity maps** (`index.ts:56`): `generateIdentitySourceMap` maps each line to itself. After the transformer rewrites `$prop` bindings (which can change line lengths and character offsets), the source map is still an identity map of the *original* source. This means the source map is **incorrect** whenever the transformer actually changes anything. The `SourceMapEntry` infrastructure exists but is never used with actual transformation offsets.
+2. **Source maps are always identity maps** (`index.ts:56`): `generateIdentitySourceMap` maps each line to itself. After the transformer rewrites `$prop` bindings (which can change line lengths and character offsets), the source map is still an identity map of the _original_ source. This means the source map is **incorrect** whenever the transformer actually changes anything. The `SourceMapEntry` infrastructure exists but is never used with actual transformation offsets.
 
 3. **Text-based transformer is fragile** (`transformer.ts:35-86`): `findDollarPropAttr` does manual string searching with brace-depth counting. It does not handle:
    - String literals containing `{` or `}` inside the expression (e.g., `$value={getVal("{")}`).
    - Template literals with embedded expressions.
    - Comments containing braces.
    - JSX expressions containing nested JSX (which have their own `{` `}` pairs).
-   This is a known limitation of text-based transformation vs. AST-based transformation.
+     This is a known limitation of text-based transformation vs. AST-based transformation.
 
-4. **Module-scope detection misses `ts.isBlock`** (`analyzer.ts:106`): The `visitModuleScope` function treats `ts.isBlock` as a function boundary, but a bare block statement `{ signal(0) }` at the top level would incorrectly *not* be flagged. More importantly, the check traverses *up* from the call expression. If `signal()` appears inside an `if` statement at the top level (e.g., `if (cond) { signal(0) }`), the `ts.isBlock` check would stop the traversal, incorrectly treating it as non-module-scope. Top-level `if` blocks are not function boundaries.
+4. **Module-scope detection misses `ts.isBlock`** (`analyzer.ts:106`): The `visitModuleScope` function treats `ts.isBlock` as a function boundary, but a bare block statement `{ signal(0) }` at the top level would incorrectly _not_ be flagged. More importantly, the check traverses _up_ from the call expression. If `signal()` appears inside an `if` statement at the top level (e.g., `if (cond) { signal(0) }`), the `ts.isBlock` check would stop the traversal, incorrectly treating it as non-module-scope. Top-level `if` blocks are not function boundaries.
 
 5. **`$prop` two-way binding hardcodes `HTMLInputElement`** (`transformer.ts:113`): The generated code casts `e.target as HTMLInputElement`. This only works for `<input>`. For `<textarea>` or `<select>`, the cast is wrong (though it would still work at runtime due to duck typing). For `$checked` bindings, the value accessor should be `.checked`, not `.value`.
 
@@ -100,6 +100,7 @@ Tests cover the main compiler pipeline scenarios well. Missing: tests for nested
 **Correctness: Mostly correct for what it does**
 
 The `renderToString` function recursively renders JSX element descriptors to HTML strings. It correctly handles:
+
 - HTML escaping of text content and attribute values.
 - Void elements (self-closing tags).
 - Boolean attributes.
@@ -141,7 +142,7 @@ The renderer tests cover the main scenarios well, including HTML escaping, void 
 
 2. **Missing `duplex` option for request body** (`adapter.ts:32-36`): When creating a `Request` with a body for certain methods, some environments require `duplex: 'half'`. This may cause issues in newer Node.js versions.
 
-3. **Body is read for GET/HEAD requests** (`adapter.ts:14-18`): GET and HEAD requests should not have a body, but the adapter always reads from the stream. While it correctly passes `undefined` if no chunks are received, it still creates the async iterator, which is wasteful. More importantly, if a body *is* sent with GET, it will be passed to the `Request` constructor, which is non-standard.
+3. **Body is read for GET/HEAD requests** (`adapter.ts:14-18`): GET and HEAD requests should not have a body, but the adapter always reads from the stream. While it correctly passes `undefined` if no chunks are received, it still creates the async iterator, which is wasteful. More importantly, if a body _is_ sent with GET, it will be passed to the `Request` constructor, which is non-standard.
 
 4. **No error handling** (`adapter.ts:57-63`): If `app(webReq)` throws, the `ServerResponse` is never completed, leaving the connection hanging. A `try/catch` with a 500 response is needed.
 
@@ -235,11 +236,13 @@ The counter and data-fetcher examples (`examples/static/`) demonstrate signal/co
 ### 1. No Client-Side Renderer
 
 This is the most critical gap. The framework has:
+
 - A reactivity system (signals, stores, effects).
 - A JSX runtime that produces descriptors.
 - A server-side string renderer.
 
 But it is missing:
+
 - A client-side renderer that turns JSX descriptors into real DOM elements.
 - A hydration client that picks up `__STEWIE_STATE__` and makes the server-rendered HTML interactive.
 - The "compiler-driven direct DOM subscriptions" that are the framework's stated raison d'etre.
@@ -249,6 +252,7 @@ Without these, Stewie cannot render anything in a browser.
 ### 2. Module-Level Mutable State is Not Request-Safe
 
 The framework uses several module-level mutable variables:
+
 - `_scopeStack` (array) in `reactive.ts`
 - `_batchDepth` (number) and `_pendingEffects` (Set) in `reactive.ts`
 - `_allowReactiveCreation` (boolean) in `reactive.ts`
@@ -259,6 +263,7 @@ In a server environment handling concurrent requests (which is the stated use ca
 ### 3. `_setAllowReactiveCreation` is a Leaky Abstraction
 
 The examples and tests all need to call `_setAllowReactiveCreation(true)` before creating signals outside a component. This internal API is exported from `@stewie/core`'s public index. It should either be:
+
 - Handled automatically by the framework (e.g., a `createRoot()` function that sets up a scope).
 - Not needed (remove the module-scope restriction for factory functions that return signals).
 

@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly } from './components.js'
+import {
+  Show,
+  For,
+  Switch,
+  Match,
+  Portal,
+  ErrorBoundary,
+  Suspense,
+  ClientOnly,
+} from './components.js'
 import { jsx } from './jsx-runtime.js'
 
 const dummyEl = jsx('div', {})

@@ -14,7 +14,7 @@ export function parseFile(source: string, filename: string): ParsedFile {
     source,
     ts.ScriptTarget.ES2022,
     /* setParentNodes */ true,
-    ts.ScriptKind.TSX
+    ts.ScriptKind.TSX,
   )
 
   return { sourceFile, source, filename }

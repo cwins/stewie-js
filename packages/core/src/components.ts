@@ -2,7 +2,7 @@
 // These create element descriptors; actual rendering logic is in the renderer (future phase).
 
 import type { Signal } from './reactive.js'
-import { jsx, Fragment } from './jsx-runtime.js'
+import { jsx } from './jsx-runtime.js'
 import type { JSXElement, Component } from './jsx-runtime.js'
 
 // ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ export interface ShowProps<T> {
 }
 
 export function Show<T>(props: ShowProps<T>): JSXElement {
-  return jsx(Show as unknown as Component, props as Record<string, unknown>)
+  return jsx(Show as unknown as Component, props as unknown as Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ export interface ForProps<T> {
 }
 
 export function For<T>(props: ForProps<T>): JSXElement {
-  return jsx(For as unknown as Component, props as Record<string, unknown>)
+  return jsx(For as unknown as Component, props as unknown as Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ export interface SwitchProps {
 }
 
 export function Switch(props: SwitchProps): JSXElement {
-  return jsx(Switch as unknown as Component, props as Record<string, unknown>)
+  return jsx(Switch as unknown as Component, props as unknown as Record<string, unknown>)
 }
 
 export interface MatchProps<T> {
@@ -52,7 +52,7 @@ export interface MatchProps<T> {
 }
 
 export function Match<T>(props: MatchProps<T>): JSXElement {
-  return jsx(Match as unknown as Component, props as Record<string, unknown>)
+  return jsx(Match as unknown as Component, props as unknown as Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ export interface PortalProps {
 }
 
 export function Portal(props: PortalProps): JSXElement {
-  return jsx(Portal as unknown as Component, props as Record<string, unknown>)
+  return jsx(Portal as unknown as Component, props as unknown as Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ export interface ErrorBoundaryProps {
 }
 
 export function ErrorBoundary(props: ErrorBoundaryProps): JSXElement {
-  return jsx(ErrorBoundary as unknown as Component, props as Record<string, unknown>)
+  return jsx(ErrorBoundary as unknown as Component, props as unknown as Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ export interface SuspenseProps {
 }
 
 export function Suspense(props: SuspenseProps): JSXElement {
-  return jsx(Suspense as unknown as Component, props as Record<string, unknown>)
+  return jsx(Suspense as unknown as Component, props as unknown as Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -103,5 +103,5 @@ export interface ClientOnlyProps {
 }
 
 export function ClientOnly(props: ClientOnlyProps): JSXElement {
-  return jsx(ClientOnly as unknown as Component, props as Record<string, unknown>)
+  return jsx(ClientOnly as unknown as Component, props as unknown as Record<string, unknown>)
 }

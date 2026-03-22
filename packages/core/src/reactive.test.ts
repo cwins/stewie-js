@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { signal, computed, effect, batch, untrack, createRoot, getCurrentScope, createScope } from './reactive.js'
+import { describe, it, expect, vi } from 'vitest'
+import { signal, computed, effect, batch, untrack, createRoot, createScope } from './reactive.js'
 
 // ---------------------------------------------------------------------------
 // signal
@@ -19,13 +19,13 @@ describe('signal', () => {
 
   it('update applies functional update', () => {
     const s = signal(10)
-    s.update(v => v + 5)
+    s.update((v) => v + 5)
     expect(s()).toBe(15)
   })
 
   it('update receives the current value', () => {
     const s = signal('hello')
-    s.update(v => v + ' world')
+    s.update((v) => v + ' world')
     expect(s()).toBe('hello world')
   })
 
@@ -43,8 +43,12 @@ describe('signal', () => {
   it('notifies multiple subscribers', () => {
     const s = signal('a')
     const calls: string[] = []
-    effect(() => { calls.push('e1:' + s()) })
-    effect(() => { calls.push('e2:' + s()) })
+    effect(() => {
+      calls.push('e1:' + s())
+    })
+    effect(() => {
+      calls.push('e2:' + s())
+    })
     s.set('b')
     expect(calls).toEqual(['e1:a', 'e2:a', 'e1:b', 'e2:b'])
   })
@@ -52,7 +56,10 @@ describe('signal', () => {
   it('does not notify when value is set to the same value', () => {
     const s = signal(5)
     let count = 0
-    effect(() => { s(); count++ })
+    effect(() => {
+      s()
+      count++
+    })
     expect(count).toBe(1)
     s.set(5)
     expect(count).toBe(1) // no re-run
@@ -99,7 +106,10 @@ describe('computed', () => {
   it('does NOT re-notify downstream if value unchanged (memoized)', () => {
     const s = signal(true)
     // computed always returns same string regardless of s
-    const alwaysFoo = computed(() => { s(); return 'foo' })
+    const alwaysFoo = computed(() => {
+      s()
+      return 'foo'
+    })
 
     let runCount = 0
     effect(() => {
@@ -137,7 +147,9 @@ describe('computed', () => {
     const b = computed(() => a() * 2)
     const c = computed(() => b() + 10)
     let observed = -1
-    effect(() => { observed = c() })
+    effect(() => {
+      observed = c()
+    })
     expect(observed).toBe(12)
     a.set(3)
     expect(observed).toBe(16)
@@ -151,14 +163,18 @@ describe('computed', () => {
 describe('effect', () => {
   it('runs immediately on creation', () => {
     let ran = false
-    effect(() => { ran = true })
+    effect(() => {
+      ran = true
+    })
     expect(ran).toBe(true)
   })
 
   it('re-runs when dependency changes', () => {
     const s = signal(0)
     const values: number[] = []
-    effect(() => { values.push(s()) })
+    effect(() => {
+      values.push(s())
+    })
     s.set(1)
     s.set(2)
     expect(values).toEqual([0, 1, 2])
@@ -172,17 +188,13 @@ describe('effect', () => {
     effect(() => {
       const current = s()
       log.push(`run:${current}`)
-      return () => { log.push(`cleanup:${current}`) }
+      return () => {
+        log.push(`cleanup:${current}`)
+      }
     })
     s.set(1)
     s.set(2)
-    expect(log).toEqual([
-      'run:0',
-      'cleanup:0',
-      'run:1',
-      'cleanup:1',
-      'run:2',
-    ])
+    expect(log).toEqual(['run:0', 'cleanup:0', 'run:1', 'cleanup:1', 'run:2'])
   })
 
   it('cleanup function called on dispose', () => {
@@ -190,7 +202,9 @@ describe('effect', () => {
     const log: string[] = []
     const dispose = effect(() => {
       s() // track
-      return () => { log.push('cleanup') }
+      return () => {
+        log.push('cleanup')
+      }
     })
     expect(log).toEqual([])
     dispose()
@@ -200,7 +214,10 @@ describe('effect', () => {
   it('dispose prevents re-runs', () => {
     const s = signal(0)
     let count = 0
-    const dispose = effect(() => { s(); count++ })
+    const dispose = effect(() => {
+      s()
+      count++
+    })
     expect(count).toBe(1)
     dispose()
     s.set(1)
@@ -248,7 +265,8 @@ describe('batch', () => {
     let count = 0
 
     effect(() => {
-      a(); b()
+      a()
+      b()
       count++
     })
 
@@ -285,7 +303,10 @@ describe('batch', () => {
     const s = signal(0)
     let count = 0
 
-    effect(() => { s(); count++ })
+    effect(() => {
+      s()
+      count++
+    })
     expect(count).toBe(1)
 
     batch(() => {
@@ -306,7 +327,9 @@ describe('batch', () => {
     const sum = computed(() => a() + b())
     const results: number[] = []
 
-    effect(() => { results.push(sum()) })
+    effect(() => {
+      results.push(sum())
+    })
 
     batch(() => {
       a.set(10)
@@ -355,9 +378,9 @@ describe('untrack', () => {
     })
 
     expect(runCount).toBe(1)
-    s.set(99)       // should NOT re-run effect
+    s.set(99) // should NOT re-run effect
     expect(runCount).toBe(1)
-    other.set(20)   // SHOULD re-run effect
+    other.set(20) // SHOULD re-run effect
     expect(runCount).toBe(2)
     dispose()
   })
@@ -382,13 +405,13 @@ describe('signal.update tracking', () => {
     const dispose = effect(() => {
       trigger() // subscribe to trigger
       if (trigger()) {
-        s.update(n => n + 1) // update should NOT subscribe effect to s
+        s.update((n) => n + 1) // update should NOT subscribe effect to s
       }
       runCount++
     })
 
     expect(runCount).toBe(1)
-    trigger.set(true)     // triggers effect, which calls s.update
+    trigger.set(true) // triggers effect, which calls s.update
     expect(runCount).toBe(2)
     expect(s()).toBe(1)
     // s changed but effect should NOT re-run (not subscribed to s)

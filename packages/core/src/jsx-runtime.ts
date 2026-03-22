@@ -1,8 +1,6 @@
 // jsx-runtime.ts — JSX runtime for @stewie/core
 // TypeScript calls into these exports when jsxImportSource is @stewie/core.
 
-import type { Signal } from './reactive.js'
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -82,7 +80,7 @@ export const Fragment: unique symbol = Symbol('Fragment')
 export function jsx(
   type: string | Component | typeof Fragment,
   props: Record<string, unknown>,
-  key?: string
+  key?: string,
 ): JSXElement {
   return {
     type,
@@ -94,7 +92,7 @@ export function jsx(
 export function jsxs(
   type: string | Component | typeof Fragment,
   props: Record<string, unknown>,
-  key?: string
+  key?: string,
 ): JSXElement {
   return jsx(type, props, key)
 }

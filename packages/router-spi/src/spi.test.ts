@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type {
-  StewieRouterSPI,
-  ReactiveLocation,
-  NavigateOptions,
-  RouteMatch,
-} from './index.js'
+import type { StewieRouterSPI, ReactiveLocation, NavigateOptions, RouteMatch } from './index.js'
 
 describe('@stewie/router-spi interface definitions', () => {
   it('NavigateOptions type works correctly', () => {

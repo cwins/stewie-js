@@ -7,8 +7,5 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": ["src"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../router-spi" }
-  ]
+  "references": [{ "path": "../core" }, { "path": "../router-spi" }]
 }

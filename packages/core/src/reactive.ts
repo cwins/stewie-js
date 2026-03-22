@@ -37,9 +37,7 @@ export interface Subscriber {
 // Dev mode detection
 // ---------------------------------------------------------------------------
 
-export const isDev = typeof process !== 'undefined'
-  ? process?.env?.NODE_ENV !== 'production'
-  : true
+export const isDev = typeof process !== 'undefined' ? process?.env?.NODE_ENV !== 'production' : true
 
 // ---------------------------------------------------------------------------
 // Module-scope creation guard (dev-mode warning)
@@ -54,7 +52,7 @@ export function _setAllowReactiveCreation(v: boolean): void {
 export function _warnModuleScope(): void {
   if (isDev && !_allowReactiveCreation && _scopeStack.length === 0) {
     console.warn(
-      '[stewie] signal()/store() called at module scope. Reactive primitives must be created inside components or lifecycle hooks.'
+      '[stewie] signal()/store() called at module scope. Reactive primitives must be created inside components or lifecycle hooks.',
     )
   }
 }

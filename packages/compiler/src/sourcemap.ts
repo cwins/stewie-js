@@ -23,7 +23,7 @@ function encodeVlq(value: number): string {
     let digit = vlq & 0x1f
     vlq >>>= 5
     if (vlq > 0) {
-      digit |= 0x20  // continuation bit
+      digit |= 0x20 // continuation bit
     }
     result += toBase64(digit)
   } while (vlq > 0)
@@ -64,9 +64,9 @@ function encodeMappings(entries: SourceMapEntry[]): string {
 
       lineSegments.push(
         encodeVlq(genColDelta) +
-        encodeVlq(0) +  // source file index delta (always 0)
-        encodeVlq(origLineDelta) +
-        encodeVlq(origColDelta)
+          encodeVlq(0) + // source file index delta (always 0)
+          encodeVlq(origLineDelta) +
+          encodeVlq(origColDelta),
       )
 
       prevGenCol = entry.generatedColumn
@@ -83,7 +83,7 @@ function encodeMappings(entries: SourceMapEntry[]): string {
 export function generateSourceMap(
   filename: string,
   originalSource: string,
-  entries: SourceMapEntry[]
+  entries: SourceMapEntry[],
 ): string {
   const map = {
     version: 3,
@@ -107,10 +107,7 @@ export function toInlineSourceMap(mapJson: string): string {
  * Generate a basic identity source map — original positions = generated positions.
  * This is a simplified version that records the start of each line.
  */
-export function generateIdentitySourceMap(
-  filename: string,
-  source: string
-): string {
+export function generateIdentitySourceMap(filename: string, source: string): string {
   const lines = source.split('\n')
   const entries: SourceMapEntry[] = []
 

@@ -13,17 +13,17 @@ export interface ReactiveAttribute {
 
 export interface TwoWayBinding {
   elementName: string
-  propName: string           // e.g. 'value' from '$value'
-  signalExpression: string   // the expression passed to $value={...}
+  propName: string // e.g. 'value' from '$value'
+  signalExpression: string // the expression passed to $value={...}
   hasReadonly: boolean
   hasDisabled: boolean
-  hasConflictingValue: boolean  // has both $value and value
+  hasConflictingValue: boolean // has both $value and value
   line: number
   column: number
 }
 
 export interface ModuleScopeCall {
-  callee: string    // 'signal' | 'store' | 'computed' | 'effect'
+  callee: string // 'signal' | 'store' | 'computed' | 'effect'
   line: number
   column: number
 }
@@ -44,14 +44,9 @@ export interface AnalysisResult {
 
 const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect'])
 
-function isTopLevel(node: ts.Node, sourceFile: ts.SourceFile): boolean {
-  // A node is top-level if its parent is the SourceFile
-  return node.parent === sourceFile
-}
-
 function getLineAndColumn(
   node: ts.Node,
-  sourceFile: ts.SourceFile
+  sourceFile: ts.SourceFile,
 ): { line: number; column: number } {
   const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
   return { line: line + 1, column: character + 1 }
@@ -59,10 +54,7 @@ function getLineAndColumn(
 
 function isReactiveExpression(expr: ts.Expression): boolean {
   // Arrow function or function expression => reactive
-  if (
-    ts.isArrowFunction(expr) ||
-    ts.isFunctionExpression(expr)
-  ) {
+  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
     return true
   }
   // Call expression with no args => likely a signal read (e.g. mySignal())
@@ -143,7 +135,7 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
 
       // Check for $prop two-way bindings
       if (attrName.startsWith('$')) {
-        const propName = attrName.slice(1)  // strip '$'
+        const propName = attrName.slice(1) // strip '$'
 
         let signalExpr = ''
         if (
@@ -198,11 +190,7 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
       }
 
       // Check for reactive attributes
-      if (
-        attr.initializer &&
-        ts.isJsxExpression(attr.initializer) &&
-        attr.initializer.expression
-      ) {
+      if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
         const expr = attr.initializer.expression
         const isReactive = isReactiveExpression(expr)
 

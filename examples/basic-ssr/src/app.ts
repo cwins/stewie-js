@@ -1,5 +1,5 @@
-import { jsx, createContext, provide, inject, signal, store, _setAllowReactiveCreation } from '@stewie/core'
-import { Show, For } from '@stewie/core'
+import { jsx, createContext, provide, inject } from '@stewie/core'
+import { Show } from '@stewie/core'
 import { renderToString, useHydrationRegistry } from '@stewie/server'
 
 // A sample "todo" app component that demonstrates:
@@ -39,7 +39,7 @@ function TodoItem({ todo }: { todo: Todo }) {
 function TodoList({ todos }: { todos: Todo[] }) {
   return jsx('ul', {
     'data-testid': 'todo-list',
-    children: todos.map(todo => TodoItem({ todo })),
+    children: todos.map((todo) => TodoItem({ todo })),
   })
 }
 
@@ -63,7 +63,7 @@ function App({ state }: { state: AppState }) {
           children: TodoList({ todos: state.todos }),
         }),
       ],
-    })
+    }),
   )
 }
 

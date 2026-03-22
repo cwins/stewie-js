@@ -63,11 +63,7 @@ describe('matchRoute', () => {
 
 describe('sortRoutes', () => {
   it('orders routes by specificity (most specific first)', () => {
-    const routes = [
-      { path: '/users/:id' },
-      { path: '/about' },
-      { path: '/users/me' },
-    ]
+    const routes = [{ path: '/users/:id' }, { path: '/about' }, { path: '/users/me' }]
     const sorted = sortRoutes(routes)
     // '/about' and '/users/me' are static (score 10 each)
     // '/users/:id' has one static + one param (score 10+1=11)
@@ -87,11 +83,7 @@ describe('sortRoutes', () => {
   })
 
   it('handles routes with same score stably', () => {
-    const routes = [
-      { path: '/a' },
-      { path: '/b' },
-      { path: '/c' },
-    ]
+    const routes = [{ path: '/a' }, { path: '/b' }, { path: '/c' }]
     const sorted = sortRoutes(routes)
     expect(sorted).toHaveLength(3)
   })

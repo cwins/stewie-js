@@ -8,7 +8,12 @@ import { transformFile } from './transformer.js'
 import { generateIdentitySourceMap, toInlineSourceMap } from './sourcemap.js'
 import type { CompileOptions, CompileResult } from './types.js'
 
-export type { CompileOptions, CompileResult, CompilerDiagnostic, DiagnosticSeverity } from './types.js'
+export type {
+  CompileOptions,
+  CompileResult,
+  CompilerDiagnostic,
+  DiagnosticSeverity,
+} from './types.js'
 export type { ParsedFile } from './parser.js'
 export type {
   AnalysisResult,
@@ -39,8 +44,8 @@ export function compile(source: string, options: CompileOptions): CompileResult 
   const diagnostics = validateFile(parsed, analysis)
 
   // 4. Transform (only if no hard errors)
-  const errors = diagnostics.filter(d => d.severity === 'error')
-  const warnings = diagnostics.filter(d => d.severity === 'warning')
+  const errors = diagnostics.filter((d) => d.severity === 'error')
+  const warnings = diagnostics.filter((d) => d.severity === 'warning')
 
   let code: string
   if (errors.length > 0) {

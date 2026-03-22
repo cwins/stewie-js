@@ -1,15 +1,42 @@
 import type { JSXElement } from '@stewie/core'
-import { Fragment, Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly, provide } from '@stewie/core'
+import {
+  Fragment,
+  Show,
+  For,
+  Switch,
+  Match,
+  Portal,
+  ErrorBoundary,
+  Suspense,
+  ClientOnly,
+  provide,
+} from '@stewie/core'
 import type { RenderToStringOptions } from './types.js'
-import { createHydrationRegistry, HydrationRegistryContext, type HydrationRegistry } from './hydration.js'
+import {
+  createHydrationRegistry,
+  HydrationRegistryContext,
+  type HydrationRegistry,
+} from './hydration.js'
 
 // ---------------------------------------------------------------------------
 // Void elements — self-closing in HTML
 // ---------------------------------------------------------------------------
 
 const VOID_ELEMENTS = new Set([
-  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-  'link', 'meta', 'param', 'source', 'track', 'wbr',
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
 ])
 
 // ---------------------------------------------------------------------------
@@ -138,9 +165,10 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   }
 
   if (type === (For as unknown)) {
-    const each = typeof props.each === 'function'
-      ? (props.each as () => unknown[])()
-      : (props.each as unknown[])
+    const each =
+      typeof props.each === 'function'
+        ? (props.each as () => unknown[])()
+        : (props.each as unknown[])
     if (!Array.isArray(each)) return ''
     const renderFn = props.children as (item: unknown, index: number) => JSXElement
     const parts = await Promise.all(each.map((item, i) => renderNode(renderFn(item, i), opts)))
@@ -169,7 +197,7 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   if (type === (Suspense as unknown)) {
     try {
       return await renderNode(props.children, opts)
-    } catch (_err) {
+    } catch {
       // If rendering throws (e.g. a promise is thrown), fall back to fallback
       return renderNode(props.fallback, opts)
     }
@@ -180,14 +208,19 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     const children = Array.isArray(props.children) ? props.children : [props.children]
     for (const child of children as JSXElement[]) {
       if (!child || child.type !== (Match as unknown)) continue
-      const matchProps = child.props as { when: unknown; children: JSXElement | ((v: unknown) => JSXElement) }
-      const when = typeof matchProps.when === 'function'
-        ? (matchProps.when as () => unknown)()
-        : matchProps.when
+      const matchProps = child.props as {
+        when: unknown
+        children: JSXElement | ((v: unknown) => JSXElement)
+      }
+      const when =
+        typeof matchProps.when === 'function'
+          ? (matchProps.when as () => unknown)()
+          : matchProps.when
       if (when) {
-        const childContent = typeof matchProps.children === 'function'
-          ? (matchProps.children as (v: unknown) => JSXElement)(when)
-          : matchProps.children
+        const childContent =
+          typeof matchProps.children === 'function'
+            ? (matchProps.children as (v: unknown) => JSXElement)(when)
+            : matchProps.children
         return renderNode(childContent, opts)
       }
     }
@@ -202,9 +235,10 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     // Match rendered standalone (outside Switch) — treat like Show
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when
     if (when) {
-      const childContent = typeof props.children === 'function'
-        ? (props.children as (v: unknown) => JSXElement)(when)
-        : props.children
+      const childContent =
+        typeof props.children === 'function'
+          ? (props.children as (v: unknown) => JSXElement)(when)
+          : props.children
       return renderNode(childContent, opts)
     }
     return ''
@@ -243,7 +277,7 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
 
 export async function renderToString(
   root: JSXElement | (() => JSXElement | null),
-  options?: RenderToStringOptions
+  options?: RenderToStringOptions,
 ): Promise<string> {
   const registry = createHydrationRegistry()
   // Thread registry through opts — avoids relying on the async-unsafe context stack

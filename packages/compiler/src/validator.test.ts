@@ -10,7 +10,7 @@ describe('validateFile()', () => {
     const analysis = analyzeFile(parsed)
     const diagnostics = validateFile(parsed, analysis)
 
-    const errors = diagnostics.filter(d => d.severity === 'error')
+    const errors = diagnostics.filter((d) => d.severity === 'error')
     expect(errors).toHaveLength(1)
     expect(errors[0].message).toContain('module scope')
     expect(errors[0].line).toBe(1)
@@ -22,7 +22,7 @@ describe('validateFile()', () => {
     const analysis = analyzeFile(parsed)
     const diagnostics = validateFile(parsed, analysis)
 
-    const errors = diagnostics.filter(d => d.severity === 'error')
+    const errors = diagnostics.filter((d) => d.severity === 'error')
     expect(errors).toHaveLength(1)
     expect(errors[0].message).toContain('module scope')
   })
@@ -33,7 +33,7 @@ describe('validateFile()', () => {
     const analysis = analyzeFile(parsed)
     const diagnostics = validateFile(parsed, analysis)
 
-    const errors = diagnostics.filter(d => d.severity === 'error')
+    const errors = diagnostics.filter((d) => d.severity === 'error')
     expect(errors).toHaveLength(1)
     expect(errors[0].message).toContain('Conflicting bindings')
   })
@@ -44,7 +44,7 @@ describe('validateFile()', () => {
     const analysis = analyzeFile(parsed)
     const diagnostics = validateFile(parsed, analysis)
 
-    const warnings = diagnostics.filter(d => d.severity === 'warning')
+    const warnings = diagnostics.filter((d) => d.severity === 'warning')
     expect(warnings).toHaveLength(1)
     expect(warnings[0].message).toContain('one-way binding')
   })
@@ -55,7 +55,7 @@ describe('validateFile()', () => {
     const analysis = analyzeFile(parsed)
     const diagnostics = validateFile(parsed, analysis)
 
-    const warnings = diagnostics.filter(d => d.severity === 'warning')
+    const warnings = diagnostics.filter((d) => d.severity === 'warning')
     expect(warnings).toHaveLength(1)
     expect(warnings[0].message).toContain('one-way binding')
   })
@@ -80,7 +80,7 @@ function App() {
     const analysis = analyzeFile(parsed)
     const diagnostics = validateFile(parsed, analysis)
 
-    const errors = diagnostics.filter(d => d.severity === 'error')
+    const errors = diagnostics.filter((d) => d.severity === 'error')
     expect(errors).toHaveLength(1)
     expect(errors[0].line).toBe(2)
   })

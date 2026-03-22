@@ -4,9 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 export type StewieApp = (req: Request) => Promise<Response> | Response
 
 // Convert Node.js IncomingMessage to Web API Request
-export async function nodeRequestToWebRequest(
-  req: IncomingMessage,
-): Promise<Request> {
+export async function nodeRequestToWebRequest(req: IncomingMessage): Promise<Request> {
   const host = req.headers.host ?? 'localhost'
   const url = `http://${host}${req.url}`
 
@@ -60,7 +58,7 @@ export function createNodeHandler(
       const webReq = await nodeRequestToWebRequest(req)
       const webRes = await app(webReq)
       await webResponseToNodeResponse(webRes, res)
-    } catch (err) {
+    } catch {
       if (!res.headersSent) {
         res.statusCode = 500
         res.end('Internal Server Error')
