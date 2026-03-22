@@ -1,19 +1,29 @@
-import { signal, computed, _setAllowReactiveCreation } from '@stewie/core'
+// counter.ts — reactive counter factory
+//
+// Demonstrates signal() and computed() created inside a createRoot() scope,
+// the correct way to create reactive primitives outside a component function.
+
+import { signal, computed, createRoot } from '@stewie/core'
+import type { Signal, Computed } from '@stewie/core'
 
 export interface Counter {
-  count: () => number
-  doubled: () => number
-  increment: () => void
-  decrement: () => void
-  reset: () => void
+  count: Signal<number>
+  doubled: Computed<number>
+  increment(): void
+  decrement(): void
+  reset(): void
 }
 
-// Factory function (NOT module-level signals)
 export function createCounter(initialValue = 0): Counter {
-  _setAllowReactiveCreation(true)
-  const count = signal(initialValue)
-  const doubled = computed(() => count() * 2)
-  _setAllowReactiveCreation(false)
+  let count!: Signal<number>
+  let doubled!: Computed<number>
+
+  // createRoot() is the correct way to create reactive primitives outside
+  // a component function. Signals created here are scoped to this root.
+  createRoot(() => {
+    count = signal(initialValue)
+    doubled = computed(() => count() * 2)
+  })
 
   return {
     count,

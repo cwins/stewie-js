@@ -1,4 +1,10 @@
-import { signal, _setAllowReactiveCreation } from '@stewie/core'
+// data-fetcher.ts — generic async data fetcher with reactive state
+//
+// Demonstrates signal() for tracking async operation state across
+// idle → loading → success/error transitions.
+
+import { signal, createRoot } from '@stewie/core'
+import type { Signal } from '@stewie/core'
 
 export type FetchState<T> =
   | { status: 'idle' }
@@ -7,15 +13,17 @@ export type FetchState<T> =
   | { status: 'error'; error: Error }
 
 export interface DataFetcher<T> {
-  state: () => FetchState<T>
+  state: Signal<FetchState<T>>
   fetch: (url: string) => Promise<void>
   reset: () => void
 }
 
 export function createDataFetcher<T>(): DataFetcher<T> {
-  _setAllowReactiveCreation(true)
-  const state = signal<FetchState<T>>({ status: 'idle' })
-  _setAllowReactiveCreation(false)
+  let state!: Signal<FetchState<T>>
+
+  createRoot(() => {
+    state = signal<FetchState<T>>({ status: 'idle' })
+  })
 
   return {
     state,
