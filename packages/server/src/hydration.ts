@@ -1,11 +1,10 @@
-import { createContext, inject } from '@stewie/core'
+// Re-export shared types and context from @stewie/core so the public API
+// of @stewie/server is unchanged.
+export type { HydrationRegistry } from '@stewie/core'
+export { HydrationRegistryContext, useHydrationRegistry } from '@stewie/core'
 
-export interface HydrationRegistry {
-  // Store serializable state keyed by a string ID
-  set(key: string, value: unknown): void
-  get(key: string): unknown
-  serialize(): string // Returns JSON string of all state
-}
+// Server-side registry — collects state during SSR for serialization.
+import type { HydrationRegistry } from '@stewie/core'
 
 export function createHydrationRegistry(): HydrationRegistry {
   const store = new Map<string, unknown>()
@@ -20,12 +19,4 @@ export function createHydrationRegistry(): HydrationRegistry {
       return JSON.stringify(Object.fromEntries(store))
     },
   }
-}
-
-// Context token for the hydration registry
-export const HydrationRegistryContext = createContext<HydrationRegistry | null>(null)
-
-// Hook to access the hydration registry in components
-export function useHydrationRegistry(): HydrationRegistry | null {
-  return inject(HydrationRegistryContext)
 }
