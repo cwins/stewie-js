@@ -14,5 +14,8 @@
     "@stewie/adapter-node": "workspace:*",
     "@stewie/router": "workspace:*",
     "@stewie/testing": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
   }
 }

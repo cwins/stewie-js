@@ -4,10 +4,15 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "dev": "vite",
     "test": "vitest run"
   },
   "dependencies": {
     "@stewie/core": "workspace:*",
-    "@stewie/testing": "workspace:*"
+    "@stewie/testing": "workspace:*",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
   }
 }
