@@ -25,6 +25,22 @@ describe('stewie vite plugin', () => {
     expect(result.code).toContain('const x')
   })
 
+  it('transform: injects DOM JSX pragma for client builds', async () => {
+    const plugin = stewie()
+    const transform = plugin.transform as Function
+    const ctx = { error: vi.fn(), warn: vi.fn() }
+    const result = await transform.call(ctx, 'const x = 1', 'file.tsx', { ssr: false })
+    expect(result.code).toContain('@jsxImportSource @stewie/core/dom')
+  })
+
+  it('transform: does NOT inject DOM pragma for SSR builds', async () => {
+    const plugin = stewie()
+    const transform = plugin.transform as Function
+    const ctx = { error: vi.fn(), warn: vi.fn() }
+    const result = await transform.call(ctx, 'const x = 1', 'file.tsx', { ssr: true })
+    expect(result.code).not.toContain('@jsxImportSource @stewie/core/dom')
+  })
+
   it('transform: surfaces compiler errors via this.error', async () => {
     const plugin = stewie()
     const transform = plugin.transform as Function
