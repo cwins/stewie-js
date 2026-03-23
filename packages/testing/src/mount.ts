@@ -1,63 +1,143 @@
-// mount.ts — component mounting into an HTML string-based test structure
+// mount.ts — DOM-based component mounting for interactive reactive tests.
+//
+// Requires a DOM environment. Add this to the top of your test file:
+//   // @vitest-environment happy-dom
+//
+// Unlike an SSR-string approach, this uses the real DOM renderer so signals
+// trigger live updates — no re-render step needed after changing reactive state.
 
-import type { JSXElement } from '@stewie/core'
+import { mount as coreMount, jsx } from '@stewie/core'
+import type { JSXElement, Component } from '@stewie/core'
 import type { Context } from '@stewie/core'
-import { provide } from '@stewie/core'
-import { renderToString } from '@stewie/server'
-import {
-  findByText as queryFindByText,
-  findByTestId as queryFindByTestId,
-  findByRole as queryFindByRole,
-} from './queries.js'
-import type { ElementHandle } from './queries.js'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type { ElementHandle } from './queries.js'
+export interface ElementHandle {
+  tagName: string
+  textContent: string
+  getAttribute(name: string): string | null
+  innerHTML: string
+  outerHTML: string
+}
 
 export interface MountOptions {
-  // Context values to provide during rendering
+  /** Context values to provide to the rendered component tree. */
   contexts?: Array<{ context: Context<unknown>; value: unknown }>
 }
 
 export interface MountResult {
-  // The rendered HTML string
+  /** The DOM container the component was mounted into. */
+  container: HTMLElement
+  /** Current inner HTML of the container (snapshot at call time). */
   html: string
-  // Synchronous query methods — throw if not found
+  // Synchronous queries — throw if not found
   getByText(text: string): ElementHandle
   getByTestId(id: string): ElementHandle
   getByRole(role: string, options?: { name?: string }): ElementHandle
-  // Synchronous query methods — return null if not found
+  // Synchronous queries — return null if not found
   queryByText(text: string): ElementHandle | null
   queryByTestId(id: string): ElementHandle | null
   queryByRole(role: string, options?: { name?: string }): ElementHandle | null
-  // Async queries — for Phase 9 resolve immediately
-  findByText(text: string): Promise<ElementHandle>
-  findByTestId(id: string): Promise<ElementHandle>
+  // Async queries — polls until element appears or timeout
+  findByText(text: string, options?: { timeout?: number }): Promise<ElementHandle>
+  findByTestId(id: string, options?: { timeout?: number }): Promise<ElementHandle>
   // Cleanup
   unmount(): void
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// ElementHandle helpers
 // ---------------------------------------------------------------------------
 
-function wrapWithContexts(
-  root: JSXElement | (() => JSXElement | null),
-  contexts: Array<{ context: Context<unknown>; value: unknown }>,
-): () => Promise<string> {
-  return () => {
-    // Nest the provide calls recursively
-    function nest(index: number): Promise<string> {
-      if (index >= contexts.length) {
-        return renderToString(root)
+function toHandle(el: Element): ElementHandle {
+  return {
+    get tagName() { return el.tagName.toLowerCase() },
+    get textContent() { return el.textContent ?? '' },
+    getAttribute(name: string) { return el.getAttribute(name) },
+    get innerHTML() { return el.innerHTML },
+    get outerHTML() { return el.outerHTML },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DOM queries
+// ---------------------------------------------------------------------------
+
+function queryTestId(container: Element, id: string): ElementHandle | null {
+  const el = container.querySelector(`[data-testid="${CSS.escape(id)}"]`)
+  return el ? toHandle(el) : null
+}
+
+function queryText(container: Element, text: string): ElementHandle | null {
+  // Find the most specific element containing the text — prefer leaf nodes.
+  const all = Array.from(container.querySelectorAll('*'))
+  const matches = all.filter((el) => (el.textContent ?? '').includes(text))
+  // Sort ascending by text length — shorter = more specific
+  matches.sort((a, b) => (a.textContent ?? '').length - (b.textContent ?? '').length)
+  return matches[0] ? toHandle(matches[0]) : null
+}
+
+// ARIA role → CSS selector
+const ROLE_SELECTOR: Record<string, string> = {
+  button: 'button, [role="button"]',
+  link: 'a',
+  textbox: 'input:not([type]), input[type="text"], input[type="email"], input[type="search"], input[type="url"], input[type="tel"], textarea',
+  checkbox: 'input[type="checkbox"]',
+  radio: 'input[type="radio"]',
+  heading: 'h1, h2, h3, h4, h5, h6',
+  listitem: 'li',
+  list: 'ul, ol',
+  navigation: 'nav',
+  main: 'main',
+  banner: 'header',
+  contentinfo: 'footer',
+  article: 'article',
+  region: 'section',
+  form: 'form',
+  img: 'img',
+}
+
+function queryRole(
+  container: Element,
+  role: string,
+  options?: { name?: string },
+): ElementHandle | null {
+  const selector = ROLE_SELECTOR[role] ?? `[role="${role}"]`
+  const candidates = Array.from(container.querySelectorAll(selector))
+
+  for (const el of candidates) {
+    if (options?.name) {
+      const ariaLabel = el.getAttribute('aria-label')
+      const ariaLabelledBy = el.getAttribute('aria-labelledby')
+      let name = ariaLabel ?? ''
+      if (!name && ariaLabelledBy) {
+        const labelEl = container.ownerDocument?.getElementById(ariaLabelledBy)
+        name = labelEl?.textContent ?? ''
       }
-      const { context, value } = contexts[index]
-      return provide(context, value, () => nest(index + 1))
+      if (!name) name = el.textContent ?? ''
+      if (!name.includes(options.name)) continue
     }
-    return nest(0)
+    return toHandle(el)
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Async polling helper
+// ---------------------------------------------------------------------------
+
+async function pollFor(
+  query: () => ElementHandle | null,
+  timeout = 1000,
+): Promise<ElementHandle> {
+  const start = Date.now()
+  while (true) {
+    const result = query()
+    if (result) return result
+    if (Date.now() - start > timeout) throw new Error('Timeout waiting for element')
+    await new Promise((r) => setTimeout(r, 16))
   }
 }
 
@@ -65,80 +145,67 @@ function wrapWithContexts(
 // mount() — public API
 // ---------------------------------------------------------------------------
 
-export async function mount(
+export function mount(
   component: JSXElement | (() => JSXElement | null),
   options?: MountOptions,
-): Promise<MountResult> {
-  let html: string
-
-  if (options?.contexts && options.contexts.length > 0) {
-    const renderer = wrapWithContexts(component, options.contexts)
-    html = await renderer()
-  } else {
-    html = await renderToString(component)
+): MountResult {
+  if (typeof document === 'undefined') {
+    throw new Error(
+      '@stewie/testing mount() requires a DOM environment.\n' +
+        'Add // @vitest-environment happy-dom to the top of your test file.',
+    )
   }
 
-  function getByText(text: string): ElementHandle {
-    const el = queryFindByText(html, text)
-    if (!el) {
-      throw new Error(`Unable to find element with text: "${text}"`)
-    }
-    return el
+  const container = document.createElement('div')
+  document.body.appendChild(container)
+
+  // Wrap the component in any requested context providers
+  let root: JSXElement | (() => JSXElement | null) = component
+  for (const { context, value } of [...(options?.contexts ?? [])].reverse()) {
+    const child = root
+    root = jsx(context.Provider as unknown as Component, { value, children: child })
   }
 
-  function getByTestId(id: string): ElementHandle {
-    const el = queryFindByTestId(html, id)
-    if (!el) {
-      throw new Error(`Unable to find element with data-testid: "${id}"`)
-    }
-    return el
-  }
+  // Mount into the real DOM — reactive effects are live immediately
+  const dispose = coreMount(root as JSXElement, container)
 
-  function getByRole(role: string, roleOptions?: { name?: string }): ElementHandle {
-    const el = queryFindByRole(html, role, roleOptions)
-    if (!el) {
-      const nameHint = roleOptions?.name ? ` and name "${roleOptions.name}"` : ''
-      throw new Error(`Unable to find element with role: "${role}"${nameHint}`)
-    }
-    return el
-  }
-
-  function queryByText(text: string): ElementHandle | null {
-    return queryFindByText(html, text)
-  }
-
-  function queryByTestId(id: string): ElementHandle | null {
-    return queryFindByTestId(html, id)
-  }
-
-  function queryByRole(role: string, roleOptions?: { name?: string }): ElementHandle | null {
-    return queryFindByRole(html, role, roleOptions)
-  }
-
-  async function findByText(text: string): Promise<ElementHandle> {
-    // For Phase 9: resolve immediately (no async waiting)
-    return getByText(text)
-  }
-
-  async function findByTestId(id: string): Promise<ElementHandle> {
-    // For Phase 9: resolve immediately (no async waiting)
-    return getByTestId(id)
-  }
-
-  function unmount(): void {
-    // No real DOM to clean up in the string-based approach
+  function unmount() {
+    dispose()
+    if (container.parentNode) container.parentNode.removeChild(container)
   }
 
   return {
-    html,
-    getByText,
-    getByTestId,
-    getByRole,
-    queryByText,
-    queryByTestId,
-    queryByRole,
-    findByText,
-    findByTestId,
+    container: container as HTMLElement,
+    get html() { return container.innerHTML },
+
+    getByText(text: string) {
+      const el = queryText(container, text)
+      if (!el) throw new Error(`Unable to find element with text: "${text}"`)
+      return el
+    },
+    getByTestId(id: string) {
+      const el = queryTestId(container, id)
+      if (!el) throw new Error(`Unable to find element with data-testid: "${id}"`)
+      return el
+    },
+    getByRole(role: string, opts?: { name?: string }) {
+      const el = queryRole(container, role, opts)
+      if (!el) {
+        const namePart = opts?.name ? ` and name "${opts.name}"` : ''
+        throw new Error(`Unable to find element with role: "${role}"${namePart}`)
+      }
+      return el
+    },
+
+    queryByText: (text: string) => queryText(container, text),
+    queryByTestId: (id: string) => queryTestId(container, id),
+    queryByRole: (role: string, opts?: { name?: string }) => queryRole(container, role, opts),
+
+    findByText: (text: string, opts?: { timeout?: number }) =>
+      pollFor(() => queryText(container, text), opts?.timeout),
+    findByTestId: (id: string, opts?: { timeout?: number }) =>
+      pollFor(() => queryTestId(container, id), opts?.timeout),
+
     unmount,
   }
 }

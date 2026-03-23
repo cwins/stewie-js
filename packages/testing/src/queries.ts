@@ -41,6 +41,7 @@ function buildHandle(tagName: string, openTag: string, innerHTML: string): Eleme
   const attrs = parseAttributes(openTag)
   // Strip all HTML tags to get text content
   const textContent = innerHTML.replace(/<[^>]*>/g, '')
+  // outerHTML includes the inner content between the opening and closing tag
   const outerHTML = `${openTag}${innerHTML}</${tagName}>`
 
   return {
