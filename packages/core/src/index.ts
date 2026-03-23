@@ -13,8 +13,6 @@ export {
   withRenderIsolation,
   getCurrentScope,
   createScope,
-  _allowReactiveCreation,
-  _setAllowReactiveCreation,
 } from './reactive.js'
 
 export { store } from './store.js'
