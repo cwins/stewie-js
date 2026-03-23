@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "tsx src/server.ts",
+    "build": "vite build && vite build --ssr src/app.ts --outDir dist/server",
+    "preview": "NODE_ENV=production tsx src/server.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -12,10 +14,12 @@
     "@stewie/server": "workspace:*",
     "@stewie/adapter-node": "workspace:*",
     "@stewie/router": "workspace:*",
-    "@stewie/testing": "workspace:*"
+    "@stewie/testing": "workspace:*",
+    "@stewie/vite": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.0.0",
+    "vite": "^6.0.0",
     "vitest": "^3.0.0"
   }
 }

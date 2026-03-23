@@ -320,7 +320,7 @@ export async function renderToString(
   // Serialize hydration state — escape </script> to prevent XSS breakout
   const stateJson = registry.serialize().replace(/<\//g, '<\\/')
   const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : ''
-  const stateScript = `<script${nonceAttr}>__STEWIE_STATE__ = ${stateJson}</script>`
+  const stateScript = `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson}</script>`
 
   return html + stateScript
   }) // end withRenderIsolation
