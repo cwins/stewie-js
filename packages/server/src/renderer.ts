@@ -11,6 +11,8 @@ import {
   ClientOnly,
   runWithContext,
   captureContext,
+  withRenderIsolation,
+  createRoot,
 } from '@stewie/core'
 import type { ContextProvider, ContextSnapshot } from '@stewie/core'
 import type { RenderToStringOptions } from './types.js'
@@ -264,10 +266,13 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
 
   // Component function — restore context snapshot so inject() works throughout the
   // component body, including synchronous inject() calls before any await.
+  // createRoot() allows signal/store/computed/effect creation inside components.
   if (typeof type === 'function') {
     let result: JSXElement | null = null
-    runWithContext(opts.contextSnapshot, () => {
-      result = (type as (props: Record<string, unknown>) => JSXElement | null)(props)
+    createRoot(() => {
+      runWithContext(opts.contextSnapshot, () => {
+        result = (type as (props: Record<string, unknown>) => JSXElement | null)(props)
+      })
     })
     return renderNode(result, opts)
   }
@@ -298,6 +303,11 @@ export async function renderToString(
   root: JSXElement | (() => JSXElement | null),
   options?: RenderToStringOptions,
 ): Promise<string> {
+  // withRenderIsolation clears reactive module-level globals (scopeStack, batchDepth,
+  // pendingEffects) and sets allowReactiveCreation=true for the synchronous setup phase,
+  // then restores them when the async function returns its Promise. This prevents state
+  // leakage between concurrent renders during their synchronous portions.
+  return withRenderIsolation(async () => {
   const registry = createHydrationRegistry()
   // Seed the context snapshot with the hydration registry so any component can call
   // useHydrationRegistry() / inject(HydrationRegistryContext) and get the registry.
@@ -313,4 +323,5 @@ export async function renderToString(
   const stateScript = `<script${nonceAttr}>__STEWIE_STATE__ = ${stateJson}</script>`
 
   return html + stateScript
+  }) // end withRenderIsolation
 }

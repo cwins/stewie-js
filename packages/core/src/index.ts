@@ -10,6 +10,7 @@ export {
   batch,
   untrack,
   createRoot,
+  withRenderIsolation,
   getCurrentScope,
   createScope,
   _allowReactiveCreation,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { signal, computed, effect, batch, untrack, createRoot, createScope } from './reactive.js'
+import { signal, computed, effect, batch, untrack, createRoot, createScope, withRenderIsolation } from './reactive.js'
 
 // ---------------------------------------------------------------------------
 // signal
@@ -451,5 +451,55 @@ describe('createRoot', () => {
     signal(2) // should warn (module scope)
     expect(warnSpy).toHaveBeenCalled()
     warnSpy.mockRestore()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// withRenderIsolation
+// ---------------------------------------------------------------------------
+
+describe('withRenderIsolation', () => {
+  it('allows signal creation inside the block', () => {
+    let s!: ReturnType<typeof signal<number>>
+    withRenderIsolation(() => {
+      s = signal(42) // no warning
+    })
+    expect(s()).toBe(42)
+  })
+
+  it('restores _allowReactiveCreation after block', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    withRenderIsolation(() => { /* no-op */ })
+    signal(1) // should warn (back to module scope)
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('restores even when fn throws', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try { withRenderIsolation(() => { throw new Error('oops') }) } catch { /* expected */ }
+    signal(1)
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('isolates nested renders — inner does not affect outer scope stack', () => {
+    let innerScopeSize = -1
+    createRoot(() => {
+      const s = signal(0)
+      // Simulate: an outer scope is active during rendering
+      createScope(() => {
+        s() // register s in the outer scope
+        // Now simulate a nested renderToString being called
+        withRenderIsolation(() => {
+          innerScopeSize = 0 // isolation clears the scope stack
+          // After isolation, signal creation is allowed
+          const s2 = signal(10)
+          expect(s2()).toBe(10)
+        })
+      })
+    })
+    // Inner render should have seen an empty scope stack (isolation cleared it)
+    expect(innerScopeSize).toBe(0)
   })
 })

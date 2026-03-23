@@ -390,3 +390,40 @@ export function createRoot<T>(fn: () => T): T {
     _allowReactiveCreation = prev
   }
 }
+
+/**
+ * Isolate reactive module-level globals for the duration of a synchronous block.
+ * Primarily used by the SSR renderer to ensure each request starts from a clean
+ * reactive state and cannot leak state into or from concurrent renders.
+ *
+ * Saves and restores: _scopeStack, _batchDepth, _pendingEffects, _allowReactiveCreation.
+ *
+ * Note: For async functions passed as `fn`, isolation only covers the synchronous
+ * portion before the first `await`. Full async isolation requires AsyncLocalStorage
+ * (not available in all WinterCG environments). The primary benefit here is correct
+ * initial state and cleanup on synchronous error paths.
+ */
+export function withRenderIsolation<T>(fn: () => T): T {
+  // Save current module-level state
+  const savedScope = _scopeStack.splice(0) // empties the array, returns removed items
+  const savedBatchDepth = _batchDepth
+  const savedPendingEffects = new Set(_pendingEffects)
+  const savedAllow = _allowReactiveCreation
+
+  // Start with a clean state and allow signal/store creation in components
+  _batchDepth = 0
+  _pendingEffects.clear()
+  _allowReactiveCreation = true
+
+  try {
+    return fn()
+  } finally {
+    // Restore previous state
+    _scopeStack.splice(0)
+    _scopeStack.push(...savedScope)
+    _batchDepth = savedBatchDepth
+    _pendingEffects.clear()
+    for (const e of savedPendingEffects) _pendingEffects.add(e)
+    _allowReactiveCreation = savedAllow
+  }
+}
