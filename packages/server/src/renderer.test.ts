@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { renderToString } from './renderer.js'
 // Import JSX runtime to construct test elements
-import { jsx, Fragment, Show, For, ClientOnly, ErrorBoundary } from '@stewie/core'
+import {
+  jsx,
+  Fragment,
+  Show,
+  For,
+  ClientOnly,
+  ErrorBoundary,
+  createContext,
+  inject,
+} from '@stewie/core'
+import { useHydrationRegistry } from './hydration.js'
 
 describe('renderToString', () => {
   it('renders a simple div', async () => {
@@ -114,5 +124,61 @@ describe('renderToString', () => {
     const el = jsx('div', { class: () => 'dynamic' })
     const html = await renderToString(el)
     expect(html).toContain('class="dynamic"')
+  })
+
+  it('Context.Provider threads context to child components', async () => {
+    const ThemeCtx = createContext('light')
+    function Child() {
+      const theme = inject(ThemeCtx)
+      return jsx('div', { children: theme })
+    }
+    const el = jsx(ThemeCtx.Provider as any, {
+      value: 'dark',
+      children: jsx(Child, {}),
+    })
+    const html = await renderToString(el)
+    expect(html).toContain('<div>dark</div>')
+  })
+
+  it('nested Context.Provider — innermost wins', async () => {
+    const Ctx = createContext('outer')
+    function Inner() {
+      return jsx('span', { children: inject(Ctx) })
+    }
+    const el = jsx(Ctx.Provider as any, {
+      value: 'outer',
+      children: jsx(Ctx.Provider as any, {
+        value: 'inner',
+        children: jsx(Inner, {}),
+      }),
+    })
+    const html = await renderToString(el)
+    expect(html).toContain('<span>inner</span>')
+  })
+
+  it('useHydrationRegistry() is available in component body', async () => {
+    let capturedRegistry: ReturnType<typeof useHydrationRegistry> = null
+    function RecordingComp() {
+      capturedRegistry = useHydrationRegistry()
+      return jsx('div', { children: 'ok' })
+    }
+    await renderToString(jsx(RecordingComp, {}))
+    expect(capturedRegistry).not.toBeNull()
+  })
+
+  it('async component can call inject() before first await', async () => {
+    const Ctx = createContext('default')
+    async function AsyncComp() {
+      // inject() before any await — must work
+      const val = inject(Ctx)
+      await Promise.resolve()
+      return jsx('span', { children: val })
+    }
+    const el = jsx(Ctx.Provider as any, {
+      value: 'async-value',
+      children: jsx(AsyncComp as any, {}),
+    })
+    const html = await renderToString(el)
+    expect(html).toContain('<span>async-value</span>')
   })
 })

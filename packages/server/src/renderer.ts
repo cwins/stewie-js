@@ -9,8 +9,10 @@ import {
   ErrorBoundary,
   Suspense,
   ClientOnly,
-  provide,
+  runWithContext,
+  captureContext,
 } from '@stewie/core'
+import type { ContextProvider, ContextSnapshot } from '@stewie/core'
 import type { RenderToStringOptions } from './types.js'
 import {
   createHydrationRegistry,
@@ -111,6 +113,8 @@ function serializeAttrs(props: Record<string, unknown>): string {
 interface InternalRenderOptions {
   nonce?: string
   registry: HydrationRegistry
+  /** Active context values for this render path — threaded through async boundaries. */
+  contextSnapshot: ContextSnapshot
 }
 
 // ---------------------------------------------------------------------------
@@ -244,10 +248,19 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     return ''
   }
 
-  // Component function — provide registry context synchronously during the call
+  // Context.Provider — extend the snapshot with the new value for child rendering
+  if (type != null && (typeof type === 'function' || typeof type === 'object') && (type as ContextProvider<unknown>)._isProvider) {
+    const provider = type as ContextProvider<unknown>
+    const newSnapshot = new Map(opts.contextSnapshot)
+    newSnapshot.set(provider._context.id, props.value)
+    return renderNode(props.children, { ...opts, contextSnapshot: newSnapshot })
+  }
+
+  // Component function — restore context snapshot so inject() works throughout the
+  // component body, including synchronous inject() calls before any await.
   if (typeof type === 'function') {
     let result: JSXElement | null = null
-    provide(HydrationRegistryContext, opts.registry, () => {
+    runWithContext(opts.contextSnapshot, () => {
       result = (type as (props: Record<string, unknown>) => JSXElement | null)(props)
     })
     return renderNode(result, opts)
@@ -280,8 +293,10 @@ export async function renderToString(
   options?: RenderToStringOptions,
 ): Promise<string> {
   const registry = createHydrationRegistry()
-  // Thread registry through opts — avoids relying on the async-unsafe context stack
-  const opts: InternalRenderOptions = { nonce: options?.nonce, registry }
+  // Seed the context snapshot with the hydration registry so any component can call
+  // useHydrationRegistry() / inject(HydrationRegistryContext) and get the registry.
+  const contextSnapshot: ContextSnapshot = new Map([[HydrationRegistryContext.id, registry]])
+  const opts: InternalRenderOptions = { nonce: options?.nonce, registry, contextSnapshot }
 
   const rootEl = typeof root === 'function' ? root() : root
   const html = await renderNode(rootEl, opts)

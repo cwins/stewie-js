@@ -19,8 +19,14 @@ export {
 export { store } from './store.js'
 
 // Context system
-export type { Context } from './context.js'
-export { createContext, provide, inject } from './context.js'
+export type { Context, ContextProvider, ContextSnapshot } from './context.js'
+export {
+  createContext,
+  provide,
+  inject,
+  captureContext,
+  runWithContext,
+} from './context.js'
 
 // JSX runtime
 export type {

@@ -5,6 +5,8 @@
 import { effect, createRoot } from './reactive.js'
 import { Fragment } from './jsx-runtime.js'
 import type { JSXElement, Component } from './jsx-runtime.js'
+import { _pushContext, _popContext } from './context.js'
+import type { ContextProvider } from './context.js'
 
 type ElementType = JSXElement['type']
 import {
@@ -318,6 +320,17 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
         return renderChildren((props.fallback as (err: unknown) => JSXElement)(err), parent, before)
       }
       return renderChildren(props.fallback, parent, before)
+    }
+  }
+
+  // Context.Provider — push value onto provider stack for the lifetime of these children
+  if (type != null && (typeof type === 'function' || typeof type === 'object') && (type as ContextProvider<unknown>)._isProvider) {
+    const provider = type as ContextProvider<unknown>
+    _pushContext(provider._context, props.value)
+    const childDisposer = renderChildren(props.children, parent, before)
+    return () => {
+      childDisposer()
+      _popContext(provider._context)
     }
   }
 
