@@ -7,8 +7,10 @@ import type { StewieRouterSPI, NavigateOptions, RouteMatch } from '@stewie/route
 import { matchRoute } from './matcher.js'
 
 export interface Router extends StewieRouterSPI {
-  // Internal: update location store
+  // Internal: update location store with optional explicit params
   _setLocation(url: string, params?: Record<string, string>): void
+  // Internal: list of registered route patterns (set by Router component)
+  _routes: Array<{ path: string; component: unknown }>
 }
 
 export const RouterContext = createContext<Router | null>(null)
@@ -18,16 +20,28 @@ export function createRouter(initialUrl?: string): Router {
 
   const router: Router = {
     location,
+    _routes: [],
 
     navigate(to: string | NavigateOptions) {
       const url = typeof to === 'string' ? to : to.to
       const parsed = parseUrl(url)
-      // Update each property individually (store proxy intercepts property access)
+
+      // Try to match a registered route to get params
+      let params: Record<string, string> = {}
+      let bestScore = -1
+      for (const route of router._routes) {
+        const result = matchRoute(route.path, parsed.pathname)
+        if (result && result.score > bestScore) {
+          params = result.params
+          bestScore = result.score
+        }
+      }
+
       location.pathname = parsed.pathname
       location.query = parsed.query
       location.hash = parsed.hash
-      location.params = {} // Clear stale params; callers use _setLocation to set new params
-      // In browser: update history API
+      location.params = params
+
       if (typeof globalThis.history !== 'undefined') {
         const replace = typeof to !== 'string' && to.replace
         if (replace) {
@@ -61,8 +75,20 @@ export function createRouter(initialUrl?: string): Router {
       location.pathname = parsed.pathname
       location.query = parsed.query
       location.hash = parsed.hash
-      if (params) location.params = params
+      if (params !== undefined) location.params = params
     },
+  }
+
+  // In browser: listen for popstate (back/forward button navigation)
+  if (typeof globalThis.addEventListener === 'function' && typeof globalThis.location !== 'undefined') {
+    const handlePopstate = () => {
+      const url =
+        globalThis.location.pathname +
+        globalThis.location.search +
+        globalThis.location.hash
+      router._setLocation(url)
+    }
+    globalThis.addEventListener('popstate', handlePopstate)
   }
 
   return router

@@ -146,6 +146,12 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     return parts.join('')
   }
 
+  // Function child — call it to get the renderable value (used by reactive children
+  // like Router's matchedContent, and reactive Show/For props that are functions)
+  if (typeof node === 'function') {
+    return renderNode((node as () => unknown)(), opts)
+  }
+
   // JSXElement descriptor
   const el = node as JSXElement
   const { type, props } = el
@@ -249,8 +255,8 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   }
 
   // Context.Provider — extend the snapshot with the new value for child rendering
-  if (type != null && (typeof type === 'function' || typeof type === 'object') && (type as ContextProvider<unknown>)._isProvider) {
-    const provider = type as ContextProvider<unknown>
+  if (type != null && (typeof type === 'function' || typeof type === 'object') && (type as unknown as ContextProvider<unknown>)._isProvider) {
+    const provider = type as unknown as ContextProvider<unknown>
     const newSnapshot = new Map(opts.contextSnapshot)
     newSnapshot.set(provider._context.id, props.value)
     return renderNode(props.children, { ...opts, contextSnapshot: newSnapshot })

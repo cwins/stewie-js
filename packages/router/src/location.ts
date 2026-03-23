@@ -1,6 +1,6 @@
 // location.ts — reactive location store
 
-import { store, _setAllowReactiveCreation } from '@stewie/core'
+import { store, createRoot } from '@stewie/core'
 import type { ReactiveLocation } from '@stewie/router-spi'
 
 export interface RouterStore extends ReactiveLocation {
@@ -59,15 +59,12 @@ export function createLocationStore(initialUrl?: string): RouterStore {
   const url = initialUrl ?? '/'
   const { pathname, query, hash } = parseUrl(url)
 
-  // Allow store() to be called outside component context
-  _setAllowReactiveCreation(true)
-  const locationStore = store<RouterStore>({
-    pathname,
-    params: {},
-    query,
-    hash,
-  })
-  _setAllowReactiveCreation(false)
-
-  return locationStore
+  return createRoot(() =>
+    store<RouterStore>({
+      pathname,
+      params: {},
+      query,
+      hash,
+    }),
+  )
 }
