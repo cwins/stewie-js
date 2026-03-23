@@ -1,7 +1,8 @@
-// transformer.ts — text-based transformer that rewrites $prop bindings
+// transformer.ts — rewrites $prop bindings and (optionally) JSX-to-DOM
 
 import type { ParsedFile } from './parser.js'
 import type { AnalysisResult } from './analyzer.js'
+import { findJsxReplacements } from './dom-emitter.js'
 
 // Represents a text replacement in the source
 interface Replacement {
@@ -91,7 +92,11 @@ function findDollarPropAttr(
   return null
 }
 
-export function transformFile(parsed: ParsedFile, analysis: AnalysisResult): string {
+export function transformFile(
+  parsed: ParsedFile,
+  analysis: AnalysisResult,
+  options: { jsxToDom?: boolean } = {},
+): string {
   let source = parsed.source
   const replacements: Replacement[] = []
 
@@ -126,11 +131,27 @@ export function transformFile(parsed: ParsedFile, analysis: AnalysisResult): str
     })
   }
 
-  // Sort replacements in reverse order by start position so earlier positions aren't shifted
-  replacements.sort((a, b) => b.start - a.start)
+  // Collect JSX-to-DOM replacements (if enabled)
+  const jsxReplacements = options.jsxToDom ? findJsxReplacements(parsed.sourceFile) : []
 
-  for (const rep of replacements) {
-    source = source.slice(0, rep.start) + rep.text + source.slice(rep.end)
+  // Merge all replacements and sort in reverse source order
+  type AnyReplacement = { start: number; end: number; text?: string; replacement?: string }
+  const allReplacements: AnyReplacement[] = [
+    ...replacements.map((r) => ({ ...r, text: r.text })),
+    ...jsxReplacements.map((r) => ({ start: r.start, end: r.end, text: r.replacement })),
+  ]
+  allReplacements.sort((a, b) => b.start - a.start)
+
+  for (const rep of allReplacements) {
+    source = source.slice(0, rep.start) + (rep.text ?? '') + source.slice(rep.end)
+  }
+
+  // If JSX-to-DOM was applied, inject the `effect` import if not already present.
+  // We add it to the top of the file so generated code can reference effect().
+  if (options.jsxToDom && jsxReplacements.length > 0) {
+    if (!source.includes("from '@stewie/core'") && !source.includes('from "@stewie/core"')) {
+      source = `import { effect } from '@stewie/core'\n` + source
+    }
   }
 
   return source

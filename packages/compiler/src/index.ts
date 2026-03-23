@@ -28,6 +28,8 @@ export { validateFile } from './validator.js'
 export { transformFile } from './transformer.js'
 export { generateSourceMap, generateIdentitySourceMap, toInlineSourceMap } from './sourcemap.js'
 export type { SourceMapEntry } from './sourcemap.js'
+export { canTransformJsx, emitJsxToDom, findJsxReplacements } from './dom-emitter.js'
+export type { JsxReplacement } from './dom-emitter.js'
 
 export function compile(source: string, options: CompileOptions): CompileResult {
   const dev = options.dev ?? true
@@ -52,7 +54,7 @@ export function compile(source: string, options: CompileOptions): CompileResult 
     // Don't transform if there are errors — return original source
     code = source
   } else {
-    code = transformFile(parsed, analysis)
+    code = transformFile(parsed, analysis, { jsxToDom: options.jsxToDom })
   }
 
   // 5. Optionally generate source map

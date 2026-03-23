@@ -324,8 +324,8 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
   }
 
   // Context.Provider — push value onto provider stack for the lifetime of these children
-  if (type != null && (typeof type === 'function' || typeof type === 'object') && (type as ContextProvider<unknown>)._isProvider) {
-    const provider = type as ContextProvider<unknown>
+  if (type != null && (typeof type === 'function' || typeof type === 'object') && (type as unknown as ContextProvider<unknown>)._isProvider) {
+    const provider = type as unknown as ContextProvider<unknown>
     _pushContext(provider._context, props.value)
     const childDisposer = renderChildren(props.children, parent, before)
     return () => {

@@ -15,6 +15,13 @@ export interface CompileOptions {
   dev?: boolean // default true
   sourcemap?: boolean // default true in dev
   inlineSourcemap?: boolean // default true in dev, false in prod
+  /**
+   * Enable JSX-to-DOM transformation — replaces native HTML JSX with direct
+   * `document.createElement()` calls and fine-grained `effect()` subscriptions.
+   * This is the "compiler-driven" differentiator. Defaults to false until the
+   * transform is considered stable.
+   */
+  jsxToDom?: boolean
 }
 
 export interface CompileResult {
