@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createRouter, useRouter, RouterContext } from './router.js'
 import { provide, effect } from '@stewie/core'
 
@@ -90,6 +90,34 @@ describe('useRouter', () => {
     })
 
     expect(capturedRouter).toBe(router)
+  })
+})
+
+describe('View Transitions API integration', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('calls document.startViewTransition when available', () => {
+    const transition = vi.fn((fn: () => void) => {
+      fn()
+      return { ready: Promise.resolve(), finished: Promise.resolve(), updateCallbackDone: Promise.resolve() }
+    })
+    vi.stubGlobal('document', { startViewTransition: transition })
+
+    const router = createRouter('/')
+    router.navigate('/about')
+
+    expect(transition).toHaveBeenCalledOnce()
+    expect(router.location.pathname).toBe('/about')
+  })
+
+  it('navigates normally when startViewTransition is absent', () => {
+    vi.stubGlobal('document', {})
+
+    const router = createRouter('/')
+    router.navigate('/about')
+    expect(router.location.pathname).toBe('/about')
   })
 })
 
