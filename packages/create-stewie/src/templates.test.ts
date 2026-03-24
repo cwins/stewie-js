@@ -18,6 +18,28 @@ describe('generateFiles', () => {
     expect(paths).toContain('src/App.module.css')
   })
 
+  it('main.tsx calls mount() with JSX', () => {
+    const files = generateFiles({
+      projectName: 'my-app',
+      mode: 'static',
+      includeRouter: false,
+    })
+    const main = files.find((f) => f.path === 'src/main.tsx')!
+    expect(main.content).toContain("import { mount } from '@stewie/core'")
+    expect(main.content).toContain('mount(<App />')
+  })
+
+  it('App.tsx uses JSX syntax (not jsx() calls)', () => {
+    const files = generateFiles({
+      projectName: 'my-app',
+      mode: 'static',
+      includeRouter: false,
+    })
+    const app = files.find((f) => f.path === 'src/App.tsx')!
+    expect(app.content).toContain('<h1>')
+    expect(app.content).not.toContain("jsx('h1'")
+  })
+
   it('includes server.ts for SSR mode', () => {
     const files = generateFiles({
       projectName: 'my-ssr-app',

@@ -30,8 +30,8 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
     version: '0.1.0',
     type: 'module',
     scripts: {
-      dev: 'vite',
-      build: 'vite build',
+      dev: ctx.mode === 'ssr' ? (ctx.ssrRuntime === 'bun' ? 'bun src/server.ts' : 'tsx src/server.ts') : 'vite',
+      build: ctx.mode === 'ssr' ? 'vite build && vite build --ssr' : 'vite build',
       preview: 'vite preview',
       test: 'vitest run',
     },
@@ -108,12 +108,10 @@ export default defineConfig({
   // src/main.tsx
   files.push({
     path: 'src/main.tsx',
-    content: `import { jsx } from '@stewie/core'
+    content: `import { mount } from '@stewie/core'
 import App from './App.js'
 
-// Mount the app
-const app = document.getElementById('app')!
-// TODO: implement mount for client-side rendering
+mount(<App />, document.getElementById('app')!)
 `,
   })
 
@@ -121,39 +119,39 @@ const app = document.getElementById('app')!
   if (ctx.includeRouter) {
     files.push({
       path: 'src/App.tsx',
-      content: `import { jsx, Fragment } from '@stewie/core'
-import { Router, Route } from '@stewie/router'
+      content: `import { Router, Route } from '@stewie/router'
 import styles from './App.module.css'
 
 function Home() {
-  return jsx('div', { children: jsx('h1', { children: 'Home' }) })
+  return <div class={styles.app}><h1>Home</h1></div>
 }
 
 function About() {
-  return jsx('div', { children: jsx('h1', { children: 'About' }) })
+  return <div class={styles.app}><h1>About</h1></div>
 }
 
 export default function App() {
-  return Router({
-    children: jsx(Fragment, { children: [
-      Route({ path: '/', component: Home }),
-      Route({ path: '/about', component: About }),
-    ]})
-  })
+  return (
+    <Router>
+      <Route path="/" component={Home} />
+      <Route path="/about" component={About} />
+    </Router>
+  )
 }
 `,
     })
   } else {
     files.push({
       path: 'src/App.tsx',
-      content: `import { jsx } from '@stewie/core'
-import styles from './App.module.css'
+      content: `import styles from './App.module.css'
 
 export default function App() {
-  return jsx('div', { class: styles.app, children: [
-    jsx('h1', { children: 'Welcome to Stewie!' }),
-    jsx('p', { children: 'Edit src/App.tsx to get started.' }),
-  ]})
+  return (
+    <div class={styles.app}>
+      <h1>Welcome to Stewie!</h1>
+      <p>Edit src/App.tsx to get started.</p>
+    </div>
+  )
 }
 `,
     })
