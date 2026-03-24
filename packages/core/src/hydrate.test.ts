@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { jsx } from './jsx-runtime.js'
 import { createRoot } from './reactive.js'
 import { inject } from './context.js'
@@ -89,5 +89,42 @@ describe('hydrate', () => {
     expect(c.textContent).toBe('test')
     dispose()
     expect(c.textContent).toBe('')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// hydrate — mismatch detection (dev mode)
+// ---------------------------------------------------------------------------
+
+describe('hydrate — mismatch detection', () => {
+  it('does not warn when server and client HTML match', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const c = container()
+    // Pre-populate with server HTML matching what the component will render
+    c.innerHTML = '<p>hello</p>'
+    hydrate(jsx('p', { children: 'hello' }), c)
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('warns when client render differs from server HTML', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const c = container()
+    c.innerHTML = '<p>server content</p>'
+    hydrate(jsx('p', { children: 'client content' }), c)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[stewie] Hydration mismatch'),
+      expect.anything(),
+      expect.stringContaining('server content'),
+    )
+    warnSpy.mockRestore()
+  })
+
+  it('does not warn when container was empty (fresh mount, no server HTML)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const c = container()
+    hydrate(jsx('div', { children: 'fresh' }), c)
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
   })
 })
