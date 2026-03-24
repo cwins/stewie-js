@@ -78,4 +78,15 @@ describe('stewie vite plugin', () => {
     const result = handleHotUpdate({ file: 'app.tsx', modules: [] })
     expect(result).toBeUndefined()
   })
+
+  it('options.jsxToDom is forwarded to the compiler', async () => {
+    const plugin = stewie({ jsxToDom: true })
+    const transform = plugin.transform as Function
+    const ctx = { error: vi.fn(), warn: vi.fn() }
+    // A file with a native JSX element — jsxToDom should emit document.createElement
+    const source = `export function App() { return <div>hello</div> }`
+    const result = await transform.call(ctx, source, 'app.tsx', { ssr: false })
+    expect(result).not.toBeNull()
+    expect(result.code).toContain('document.createElement')
+  })
 })

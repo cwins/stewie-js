@@ -2,10 +2,18 @@ import type { Plugin, ConfigEnv } from 'vite'
 import { compile } from '@stewie/compiler'
 
 export interface StewiePluginOptions {
-  // Future: custom compiler options
+  /**
+   * Enable the JSX-to-DOM compiler transform, which replaces native HTML JSX
+   * with direct `document.createElement()` calls and fine-grained `effect()`
+   * subscriptions — no virtual DOM diffing at runtime.
+   *
+   * This is the core differentiator of the Stewie compiler. Defaults to
+   * `false` while the transform stabilises; set to `true` to opt in.
+   */
+  jsxToDom?: boolean
 }
 
-export function stewie(_options?: StewiePluginOptions): Plugin {
+export function stewie(options?: StewiePluginOptions): Plugin {
   return {
     name: 'stewie',
 
@@ -23,10 +31,9 @@ export function stewie(_options?: StewiePluginOptions): Plugin {
     },
 
     // Transform .tsx files through the Stewie compiler
-    transform(code: string, id: string, options?: { ssr?: boolean }) {
+    transform(code: string, id: string, transformOptions?: { ssr?: boolean }) {
       if (!id.endsWith('.tsx')) return null
 
-      const isSSR = options?.ssr ?? false
       const isDev = process.env.NODE_ENV !== 'production'
 
       const result = compile(code, {
@@ -34,6 +41,7 @@ export function stewie(_options?: StewiePluginOptions): Plugin {
         dev: isDev,
         sourcemap: true,
         inlineSourcemap: isDev,
+        jsxToDom: options?.jsxToDom,
       })
 
       // Surface compiler errors to Vite's error overlay
