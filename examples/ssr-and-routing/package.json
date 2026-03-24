@@ -1,0 +1,26 @@
+{
+  "name": "ssr-and-routing",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "clean": "rm -rf dist",
+    "dev": "tsx src/server.ts",
+    "build": "vite build && vite build --ssr",
+    "preview": "NODE_ENV=production tsx src/server.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@stewie/core": "workspace:*",
+    "@stewie/server": "workspace:*",
+    "@stewie/adapter-node": "workspace:*",
+    "@stewie/router": "workspace:*",
+    "@stewie/testing": "workspace:*",
+    "@stewie/vite": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
+  }
+}

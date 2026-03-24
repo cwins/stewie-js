@@ -58,6 +58,37 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.15)(happy-dom@20.8.4)(tsx@4.21.0)
 
+  examples/ssr-and-routing:
+    dependencies:
+      '@stewie/adapter-node':
+        specifier: workspace:*
+        version: link:../../packages/adapter-node
+      '@stewie/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@stewie/router':
+        specifier: workspace:*
+        version: link:../../packages/router
+      '@stewie/server':
+        specifier: workspace:*
+        version: link:../../packages/server
+      '@stewie/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@stewie/vite':
+        specifier: workspace:*
+        version: link:../../packages/vite
+    devDependencies:
+      tsx:
+        specifier: ^4.0.0
+        version: 4.21.0
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@22.19.15)(tsx@4.21.0)
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.15)(happy-dom@20.8.4)(tsx@4.21.0)
+
   examples/static:
     dependencies:
       '@stewie/core':

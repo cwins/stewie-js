@@ -31,11 +31,18 @@ function createClientRegistry(state: Record<string, unknown>): HydrationRegistry
 // ---------------------------------------------------------------------------
 
 /**
- * Normalise an HTML string for comparison: collapse whitespace and trim so
- * that insignificant formatting differences don't trigger false positives.
+ * Normalise an HTML string for comparison: strip SSR-only injected scripts
+ * (window.__STEWIE_STATE__), collapse whitespace, and trim so that
+ * insignificant formatting differences don't trigger false positives.
  */
 function normaliseHtml(html: string): string {
-  return html.replace(/\s+/g, ' ').trim()
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    // Strip empty value="" attributes — server emits these as HTML attributes but
+    // the DOM renderer uses el.value (property) which doesn't appear in innerHTML.
+    .replace(/\s+value=""/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 /**

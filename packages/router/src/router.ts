@@ -72,24 +72,25 @@ export function createRouter(initialUrl?: string): Router {
       const url = typeof to === 'string' ? to : to.to
       const replace = typeof to !== 'string' && !!to.replace
 
-      // Wrap reactive store updates in a View Transition so the browser can
-      // animate between the old and new DOM states using CSS view-transition-*
-      // pseudo-elements. Falls back to a direct update if the API is absent.
-      withViewTransition(() => {
-        applyLocation(url)
-      })
-
-      // Push/replace the browser URL.
-      // Prefer the Navigation API (navigate event, better back/forward handling)
-      // and fall back to History API when it's unavailable.
       if (hasNavigationApi()) {
+        // Navigation API path: just issue the navigation. The 'navigate' event
+        // listener below will intercept it and call applyLocation inside a View
+        // Transition — so we must NOT call applyLocation or startViewTransition
+        // here, otherwise the transition fires twice and the browser logs
+        // "Transition was skipped".
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(globalThis as any).navigation.navigate(url, { history: replace ? 'replace' : 'push' })
-      } else if (typeof globalThis.history !== 'undefined') {
-        if (replace) {
-          globalThis.history.replaceState(null, '', url)
-        } else {
-          globalThis.history.pushState(null, '', url)
+      } else {
+        // History API fallback: update reactive store and push the URL manually.
+        withViewTransition(() => {
+          applyLocation(url)
+        })
+        if (typeof globalThis.history !== 'undefined') {
+          if (replace) {
+            globalThis.history.replaceState(null, '', url)
+          } else {
+            globalThis.history.pushState(null, '', url)
+          }
         }
       }
     },

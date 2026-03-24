@@ -2,7 +2,7 @@
 // Takes JSXElement descriptors (or DOM Nodes from the DOM JSX runtime) and
 // renders them into real DOM nodes with fine-grained reactive subscriptions.
 
-import { effect, createRoot } from './reactive.js'
+import { effect, createRoot, untrack } from './reactive.js'
 import { Fragment } from './jsx-runtime.js'
 import type { JSXElement, Component } from './jsx-runtime.js'
 import { _pushContext, _popContext } from './context.js'
@@ -334,12 +334,17 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
     }
   }
 
-  // Component function — wrap in createRoot so signal() is allowed inside
+  // Component function — wrap in createRoot so signal() is allowed inside,
+  // and run the component body with untrack() so that signal reads in the
+  // component's render output do not create dependencies on any parent effect
+  // (e.g. the routing effect must not re-run when a form-field signal changes).
   if (typeof type === 'function') {
     const disposers: Disposer[] = []
     let result: unknown
-    createRoot(() => {
-      result = (type as Component)(props)
+    untrack(() => {
+      createRoot(() => {
+        result = (type as Component)(props)
+      })
     })
     disposers.push(renderChildren(result, parent, before))
     return () => disposers.forEach((d) => d())

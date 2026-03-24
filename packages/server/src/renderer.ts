@@ -148,9 +148,12 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   }
 
   // Function child — call it to get the renderable value (used by reactive children
-  // like Router's matchedContent, and reactive Show/For props that are functions)
+  // like Router's matchedContent, and reactive Show/For props that are functions).
+  // The DOM renderer inserts an empty comment anchor after function-child output (<!---->)
+  // so we emit one here to keep server and client HTML in sync.
   if (typeof node === 'function') {
-    return renderNode((node as () => unknown)(), opts)
+    const inner = await renderNode((node as () => unknown)(), opts)
+    return `${inner}<!---->`
   }
 
   // JSXElement descriptor
@@ -164,15 +167,17 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     return renderNode(children, opts)
   }
 
-  // Built-in control flow components — identified by function reference
+  // Built-in control flow components — identified by function reference.
+  // Each emits a trailing HTML comment that matches the anchor comment node the DOM
+  // renderer inserts so that SSR output and client hydration produce identical HTML.
   if (type === (Show as unknown)) {
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when
     if (when) {
-      return renderNode(props.children, opts)
+      return `${await renderNode(props.children, opts)}<!--Show-->`
     } else if (props.fallback !== undefined) {
-      return renderNode(props.fallback, opts)
+      return `${await renderNode(props.fallback, opts)}<!--Show-->`
     }
-    return ''
+    return '<!--Show-->'
   }
 
   if (type === (For as unknown)) {
@@ -180,10 +185,10 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
       typeof props.each === 'function'
         ? (props.each as () => unknown[])()
         : (props.each as unknown[])
-    if (!Array.isArray(each)) return ''
+    if (!Array.isArray(each)) return '<!--For-->'
     const renderFn = props.children as (item: unknown, index: number) => JSXElement
     const parts = await Promise.all(each.map((item, i) => renderNode(renderFn(item, i), opts)))
-    return parts.join('')
+    return `${parts.join('')}<!--For-->`
   }
 
   if (type === (ClientOnly as unknown)) {
@@ -232,14 +237,14 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
           typeof matchProps.children === 'function'
             ? (matchProps.children as (v: unknown) => JSXElement)(when)
             : matchProps.children
-        return renderNode(childContent, opts)
+        return `${await renderNode(childContent, opts)}<!--Switch-->`
       }
     }
     // No match — render fallback if present
     if (props.fallback !== undefined) {
-      return renderNode(props.fallback, opts)
+      return `${await renderNode(props.fallback, opts)}<!--Switch-->`
     }
-    return ''
+    return '<!--Switch-->'
   }
 
   if (type === (Match as unknown)) {
