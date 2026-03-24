@@ -35,7 +35,7 @@ export async function nodeRequestToWebRequest(req: IncomingMessage): Promise<Req
   return new Request(url, {
     method,
     headers,
-    body: body && body.length > 0 ? body : undefined,
+    body: body && body.length > 0 ? body.toString() : undefined,
   })
 }
 

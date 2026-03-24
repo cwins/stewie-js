@@ -4,9 +4,11 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "clean": "rm -rf dist",
     "dev": "tsx src/server.ts",
-    "build": "vite build && vite build --ssr src/app.ts --outDir dist/server",
+    "build": "vite build && vite build --ssr",
     "preview": "NODE_ENV=production tsx src/server.ts",
+    "start": "NODE_ENV=production bun src/server.ts",
     "test": "vitest run"
   },
   "dependencies": {

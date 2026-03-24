@@ -33,7 +33,8 @@ if (isProd) {
 
     // Try static asset first
     const assetPath = resolve(clientDir, url.pathname.slice(1))
-    if (assetPath.startsWith(clientDir) && existsSync(assetPath)) {
+    if (assetPath.startsWith(clientDir) && assetPath !== clientDir && existsSync(assetPath)) {
+      console.log('>>', assetPath);
       const ext = extname(assetPath)
       res.writeHead(200, { 'content-type': MIME[ext] ?? 'application/octet-stream' })
       res.end(readFileSync(assetPath))
@@ -72,10 +73,10 @@ if (isProd) {
     // Vite handles static assets, HMR websocket, module transforms.
     // When it can't handle a request (a page route), next() fires.
     vite.middlewares(req, res, () => {
-      ;(async () => {
+      (async () => {
         try {
           // ssrLoadModule reloads on change — Vite handles invalidation
-          const { renderApp } = (await vite.ssrLoadModule('/src/app.ts')) as {
+          const { renderApp } = (await vite.ssrLoadModule('/src/app.tsx')) as {
             renderApp: () => Promise<string>
           }
 

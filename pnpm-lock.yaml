@@ -104,6 +104,10 @@ importers:
       '@stewie/router-spi':
         specifier: workspace:*
         version: link:../router-spi
+    devDependencies:
+      '@stewie/server':
+        specifier: workspace:*
+        version: link:../server
 
   packages/router-spi: {}
 

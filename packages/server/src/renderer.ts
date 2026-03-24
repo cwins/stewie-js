@@ -10,7 +10,6 @@ import {
   Suspense,
   ClientOnly,
   runWithContext,
-  captureContext,
   withRenderIsolation,
   createRoot,
 } from '@stewie/core'

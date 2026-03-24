@@ -5,6 +5,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@stewie/core/dom/jsx-runtime': resolve(__dirname, 'packages/core/src/dom/jsx-runtime.ts'),
+      '@stewie/core/jsx-dev-runtime': resolve(__dirname, 'packages/core/src/jsx-dev-runtime.ts'),
+      '@stewie/core/jsx-runtime': resolve(__dirname, 'packages/core/src/jsx-runtime.ts'),
       '@stewie/core': resolve(__dirname, 'packages/core/src/index.ts'),
       '@stewie/compiler': resolve(__dirname, 'packages/compiler/src/index.ts'),
       '@stewie/server': resolve(__dirname, 'packages/server/src/index.ts'),

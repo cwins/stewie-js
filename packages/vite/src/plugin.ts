@@ -1,18 +1,26 @@
-import type { Plugin } from 'vite'
+import type { Plugin, ConfigEnv } from 'vite'
 import { compile } from '@stewie/compiler'
 
 export interface StewiePluginOptions {
   // Future: custom compiler options
 }
 
-// Pragma injected at the top of every client-side .tsx file.
-// Tells esbuild (Vite's TS transform) to use the DOM JSX runtime so that
-// JSX compiles to real DOM element creation instead of descriptor objects.
-const DOM_JSX_PRAGMA = '/** @jsxImportSource @stewie/core/dom */\n'
-
 export function stewie(_options?: StewiePluginOptions): Plugin {
   return {
     name: 'stewie',
+
+    // Configure esbuild's jsxImportSource so JSX in .tsx files compiles to
+    // the correct runtime without relying on per-file pragma comments.
+    // Client builds use the DOM runtime (creates real DOM nodes).
+    // SSR builds use the descriptor runtime (serializable JSX objects).
+    config(_userConfig, env: ConfigEnv) {
+      const isSsr = (env as ConfigEnv & { isSsrBuild?: boolean }).isSsrBuild ?? false
+      return {
+        esbuild: {
+          jsxImportSource: isSsr ? '@stewie/core' : '@stewie/core/dom',
+        },
+      }
+    },
 
     // Transform .tsx files through the Stewie compiler
     transform(code: string, id: string, options?: { ssr?: boolean }) {
@@ -53,13 +61,8 @@ export function stewie(_options?: StewiePluginOptions): Plugin {
         })
       }
 
-      // For client builds, prepend the DOM JSX pragma so esbuild routes JSX
-      // through @stewie/core/dom/jsx-runtime (creates real DOM nodes).
-      // For SSR builds, keep the default descriptor runtime.
-      const output = isSSR ? result.code : DOM_JSX_PRAGMA + result.code
-
       return {
-        code: output,
+        code: result.code,
         map: result.map ? JSON.parse(result.map) : null,
       }
     },

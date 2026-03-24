@@ -1,10 +1,7 @@
-// client.ts — browser entry point for the basic-ssr example
+// client.tsx — browser entry point for the basic-ssr example
 //
-// This file is the client bundle entry. In a production app it would be
-// processed by @stewie/vite, which:
-//   1. Injects the @jsxImportSource pragma so all JSX uses the DOM runtime.
-//   2. Enables HMR with reactive state preservation.
-//   3. Tree-shakes server-only code (renderToString, etc.).
+// This file is the client bundle entry. @stewie/vite configures the correct
+// JSX runtime automatically (DOM runtime for client, descriptor for SSR).
 //
 // hydrate() does three things:
 //   1. Reads window.__STEWIE_STATE__ injected by renderToString().
@@ -17,9 +14,8 @@
 // the client starts with exactly the data the server rendered — no
 // additional API request needed.
 
-import { hydrate, jsx } from '@stewie/core'
+import { hydrate } from '@stewie/core'
 import { App } from './app.js'
-import type { Component } from '@stewie/core'
 
 const container = document.getElementById('app') ?? document.body
-hydrate(jsx(App as unknown as Component, {}), container)
+hydrate(<App />, container)

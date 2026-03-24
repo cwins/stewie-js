@@ -1,23 +1,23 @@
-// app.ts — isomorphic App component for the basic-ssr example
+// app.tsx — isomorphic App component for the basic-ssr example
 //
 // This file runs on both server (SSR) and client (hydration).
 //
 // Server flow (renderApp):
-//   1. renderToString(jsx(App, { serverState })) is called.
+//   1. renderToString(<App serverState={...} />) is called.
 //   2. renderToString internally creates a HydrationRegistry and provides it.
 //   3. App reads serverState from props; writes it into the registry.
 //   4. renderToString serialises the registry as window.__STEWIE_STATE__.
 //
-// Client flow (client.ts):
-//   1. hydrate(jsx(App, {}), container) reads window.__STEWIE_STATE__.
+// Client flow (client.tsx):
+//   1. hydrate(<App />, container) reads window.__STEWIE_STATE__.
 //   2. hydrate creates a client registry populated from __STEWIE_STATE__.
 //   3. App reads appState from the registry — same data the server serialised.
 //   4. No extra network request needed.
 
-import { jsx, store, createContext, provide, inject } from '@stewie/core'
+import { store, createContext, inject } from '@stewie/core'
 import { Show, For, Switch, Match, ClientOnly, ErrorBoundary } from '@stewie/core'
 import { useHydrationRegistry } from '@stewie/core'
-import type { Component, JSXElement } from '@stewie/core'
+import type { JSXElement } from '@stewie/core'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,69 +52,56 @@ function useTheme(): 'light' | 'dark' {
 
 function Header({ title, author }: { title: string; author: string }): JSXElement {
   const theme = useTheme()
-  return jsx('header', {
-    class: `header theme-${theme}`,
-    'data-testid': 'header',
-    children: [
-      jsx('h1', { 'data-testid': 'app-title', children: title }),
-      jsx('p', {
-        'data-testid': 'app-author',
-        children: `By ${author} · theme: ${theme}`,
-      }),
-    ],
-  })
+  return (
+    <header class={`header theme-${theme}`} data-testid="header">
+      <h1 data-testid="app-title">{title}</h1>
+      <p data-testid="app-author">{`By ${author} · theme: ${theme}`}</p>
+    </header>
+  )
 }
 
 /** Renders a priority badge using Switch/Match. */
 function PriorityBadge({ priority }: { priority: Todo['priority'] }): JSXElement {
-  return Switch({
-    children: [
-      Match({
-        when: priority === 'high',
-        children: jsx('span', { class: 'badge badge-high', children: '↑ high' }),
-      }),
-      Match({
-        when: priority === 'low',
-        children: jsx('span', { class: 'badge badge-low', children: '↓ low' }),
-      }),
-    ],
-    fallback: jsx('span', { class: 'badge badge-normal', children: '→ normal' }),
-  })
+  return (
+    <Switch fallback={<span class="badge badge-normal">→ normal</span>}>
+      <Match when={priority === 'high'}>
+        <span class="badge badge-high">↑ high</span>
+      </Match>
+      <Match when={priority === 'low'}>
+        <span class="badge badge-low">↓ low</span>
+      </Match>
+    </Switch>
+  )
 }
 
 function TodoItem({ todo }: { todo: Todo }): JSXElement {
-  return jsx('li', {
-    'data-testid': `todo-${todo.id}`,
-    class: `todo-item priority-${todo.priority} ${todo.done ? 'done' : 'pending'}`,
-    children: [
-      jsx('span', {
-        'data-testid': `todo-text-${todo.id}`,
-        class: 'todo-text',
-        children: todo.text,
-      }),
-      PriorityBadge({ priority: todo.priority }),
-      // ClientOnly renders its children only on the client, never during SSR.
-      // Use it for interactive elements that require browser APIs.
-      ClientOnly({
-        children: jsx('button', {
-          'data-testid': `todo-check-${todo.id}`,
-          class: 'check-btn',
-          children: todo.done ? '✓ Done' : 'Mark done',
-        }),
-      }),
-    ],
-  })
+  return (
+    <li
+      data-testid={`todo-${todo.id}`}
+      class={`todo-item priority-${todo.priority} ${todo.done ? 'done' : 'pending'}`}
+    >
+      <span data-testid={`todo-text-${todo.id}`} class="todo-text">
+        {todo.text}
+      </span>
+      <PriorityBadge priority={todo.priority} />
+      {/* ClientOnly renders its children only on the client, never during SSR.
+          Use it for interactive elements that require browser APIs. */}
+      <ClientOnly>
+        <button data-testid={`todo-check-${todo.id}`} class="check-btn">
+          {todo.done ? '✓ Done' : 'Mark done'}
+        </button>
+      </ClientOnly>
+    </li>
+  )
 }
 
 function EmptyState(): JSXElement {
-  return jsx('div', {
-    'data-testid': 'empty-state',
-    class: 'empty-state',
-    children: [
-      jsx('p', { children: 'No todos yet!' }),
-      jsx('p', { class: 'hint', children: 'Add some from the server or client.' }),
-    ],
-  })
+  return (
+    <div data-testid="empty-state" class="empty-state">
+      <p>No todos yet!</p>
+      <p class="hint">Add some from the server or client.</p>
+    </div>
+  )
 }
 
 function Stats({ todos }: { todos: Todo[] }): JSXElement {
@@ -122,22 +109,17 @@ function Stats({ todos }: { todos: Todo[] }): JSXElement {
   const done = todos.filter((t) => t.done).length
   const high = todos.filter((t) => t.priority === 'high').length
 
-  return jsx('div', {
-    'data-testid': 'stats',
-    class: 'stats',
-    children: [
-      jsx('span', { 'data-testid': 'stat-total', children: `${total} todos` }),
-      jsx('span', { 'data-testid': 'stat-done', children: `${done} done` }),
-      Show({
-        when: high > 0,
-        children: jsx('span', {
-          'data-testid': 'stat-high',
-          class: 'high-priority-count',
-          children: `${high} high priority`,
-        }),
-      }),
-    ],
-  })
+  return (
+    <div data-testid="stats" class="stats">
+      <span data-testid="stat-total">{`${total} todos`}</span>
+      <span data-testid="stat-done">{`${done} done`}</span>
+      <Show when={high > 0}>
+        <span data-testid="stat-high" class="high-priority-count">
+          {`${high} high priority`}
+        </span>
+      </Show>
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -170,45 +152,33 @@ export function App({ serverState }: { serverState?: AppState } = {}): JSXElemen
   // changing does NOT invalidate components that only read store.todos).
   const appStore = store({ ...state, todos: [...state.todos] })
 
-  return provide(ThemeContext, 'dark', () =>
-    jsx('div', {
-      class: 'app',
-      'data-testid': 'app',
-      children: [
-        Header({ title: appStore.title, author: appStore.author }),
+  return (
+    <ThemeContext.Provider value="dark">
+      <div class="app" data-testid="app">
+        <Header title={appStore.title} author={appStore.author} />
 
-        jsx('main', {
-          'data-testid': 'main',
-          children: [
-            ErrorBoundary({
-              fallback: (err) =>
-                jsx('p', {
-                  'data-testid': 'error-msg',
-                  class: 'error',
-                  children: `Render error: ${String(err)}`,
-                }),
-              children: Show({
-                when: appStore.todos.length > 0,
-                fallback: EmptyState(),
-                children: jsx('div', {
-                  children: [
-                    Stats({ todos: appStore.todos }),
-                    jsx('ul', {
-                      'data-testid': 'todo-list',
-                      class: 'todo-list',
-                      children: For({
-                        each: appStore.todos,
-                        children: (todo: Todo) => TodoItem({ todo }),
-                      }),
-                    }),
-                  ],
-                }),
-              }),
-            }),
-          ],
-        }),
-      ],
-    }),
+        <main data-testid="main">
+          <ErrorBoundary
+            fallback={(err) => (
+              <p data-testid="error-msg" class="error">
+                {`Render error: ${String(err)}`}
+              </p>
+            )}
+          >
+            <Show when={appStore.todos.length > 0} fallback={<EmptyState />}>
+              <div>
+                <Stats todos={appStore.todos} />
+                <ul data-testid="todo-list" class="todo-list">
+                  <For each={appStore.todos}>
+                    {(todo: Todo) => <TodoItem todo={todo} />}
+                  </For>
+                </ul>
+              </div>
+            </Show>
+          </ErrorBoundary>
+        </main>
+      </div>
+    </ThemeContext.Provider>
   )
 }
 
@@ -234,5 +204,5 @@ export async function renderApp(state?: Partial<AppState>): Promise<string> {
 
   // Pass serverState as a prop. renderToString provides its own registry via
   // context; App writes appState into it so it gets serialised.
-  return renderToString(jsx(App as unknown as Component, { serverState: appState }))
+  return renderToString(<App serverState={appState} />)
 }

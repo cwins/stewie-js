@@ -1,5 +1,7 @@
 // context.ts — context system for @stewie/core
 
+import type { JSXElement } from './jsx-runtime.js'
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -10,7 +12,7 @@
  * Using the Provider as a component in JSX keeps context active for the
  * entire subtree, safely crossing async boundaries in the SSR renderer.
  */
-export type ContextProvider<T> = ((props: { value: T; children?: unknown }) => unknown) & {
+export type ContextProvider<T> = ((props: { value: T; children?: unknown }) => JSXElement | null) & {
   readonly _isProvider: true
   readonly _context: Context<T>
 }
@@ -45,10 +47,10 @@ export function createContext<T>(defaultValue?: T): Context<T> {
   // The Provider is callable so it satisfies JSX.Element type constraints.
   // Both renderers detect _isProvider BEFORE calling it as a function, so
   // the body is only a synchronous fallback for renderers that don't support it.
-  const provider = function (props: { value: T; children?: unknown }): unknown {
+  const provider = function (props: { value: T; children?: unknown }): JSXElement | null {
     // Synchronous fallback: wrap children in a provide() scope.
     // Works only when the renderer processes children synchronously.
-    return provide(ctx, props.value, () => props.children)
+    return provide(ctx, props.value, () => props.children) as JSXElement | null
   } as ContextProvider<T>
   ;(provider as { _isProvider: boolean })._isProvider = true
   ;(provider as { _context: Context<T> })._context = null! // patched below

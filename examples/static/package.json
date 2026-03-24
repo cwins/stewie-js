@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "build": "vite build",
     "dev": "vite",
     "test": "vitest run"
   },
