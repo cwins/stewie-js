@@ -24,7 +24,7 @@ if (isProd) {
   // Production: serve pre-built client assets from dist/client/
   // ---------------------------------------------------------------------------
   const { renderApp } = await import('./app.js')
-  const clientDir = resolve(root, 'dist/client')
+  const clientDir = resolve(root, 'client')
   const template = readFileSync(resolve(clientDir, 'index.html'), 'utf-8')
 
   const server = createHttpServer(async (req, res) => {

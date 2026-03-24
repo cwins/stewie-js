@@ -10,12 +10,12 @@ const ssrBuild: BuildEnvironmentOptions = {
   emptyOutDir: true,
   target: 'es2022',
   rollupOptions: {
-    input: 'src/app.tsx',
+    input: 'src/server.ts',
     output: {
       entryFileNames: '[name].js',
       chunkFileNames: 'assets/[name].js',
       assetFileNames: 'assets/[name].[ext]',
-      format: 'cjs'
+      format: 'esm'
     }
   }
 }
@@ -27,7 +27,7 @@ const clientBuild: BuildEnvironmentOptions = {
   copyPublicDir: true,
   emptyOutDir: true,
   target: 'es2022',
-  minify: true,
+  minify: process.env.NODE_ENV === 'production',
   rollupOptions: {
     input: 'index.html',
     output: {

@@ -8,6 +8,7 @@
     "dev": "tsx src/server.ts",
     "build": "vite build && vite build --ssr",
     "preview": "NODE_ENV=production tsx src/server.ts",
+    "start": "NODE_ENV=production node dist/server/server.js",
     "test": "vitest run"
   },
   "dependencies": {

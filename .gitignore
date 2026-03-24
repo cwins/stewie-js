@@ -11,3 +11,6 @@ examples/*/src/*.js
 examples/*/src/*.js.map
 examples/*/src/*.d.ts
 examples/*/src/*.d.ts.map
+
+.playwright/
+.playwright-cli/
