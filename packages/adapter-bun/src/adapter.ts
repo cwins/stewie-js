@@ -8,9 +8,33 @@ export interface BunServeOptions {
   hostname?: string
 }
 
-// Create a Bun-compatible server options object
-export function createBunHandler(app: StewieApp): BunServeOptions {
+/**
+ * Create Bun.serve() options from a Stewie app handler.
+ *
+ * Bun natively uses the Web `Request`/`Response` API, so no conversion layer
+ * is needed — the handler is wired directly as the `fetch` callback. Unhandled
+ * errors from the app are caught and converted to 500 responses so the server
+ * never crashes on a single bad request.
+ *
+ * Usage:
+ * ```ts
+ * Bun.serve(createBunHandler(app))
+ * ```
+ */
+export function createBunHandler(
+  app: StewieApp,
+  options?: { port?: number; hostname?: string },
+): BunServeOptions {
   return {
-    fetch: app,
+    port: options?.port,
+    hostname: options?.hostname,
+    fetch: async (req: Request): Promise<Response> => {
+      try {
+        return await app(req)
+      } catch (err) {
+        console.error('[stewie/adapter-bun] Unhandled error:', err)
+        return new Response('Internal Server Error', { status: 500 })
+      }
+    },
   }
 }
