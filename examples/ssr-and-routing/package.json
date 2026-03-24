@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "clean": "rm -rf dist",
+    "nuke": "rm -rf dist node_modules",
     "dev": "tsx src/server.ts",
     "build": "vite build && vite build --ssr",
     "preview": "NODE_ENV=production tsx src/server.ts",

@@ -12,6 +12,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
+    "nuke": "rm -rf dist node_modules",
     "build": "tsc --build",
     "test": "vitest run"
   }
