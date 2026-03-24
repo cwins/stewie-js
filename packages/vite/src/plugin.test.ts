@@ -25,18 +25,10 @@ describe('stewie vite plugin', () => {
     expect(result.code).toContain('const x')
   })
 
-  it('config: sets jsxImportSource to DOM runtime for client builds', () => {
+  it('config: sets jsxImportSource to @stewie/core for all builds', () => {
     const plugin = stewie()
     const config = plugin.config as Function
-    const result = config({}, { isSsrBuild: false })
-    expect(result.esbuild.jsxImportSource).toBe('@stewie/core/dom')
-  })
-
-  it('config: sets jsxImportSource to descriptor runtime for SSR builds', () => {
-    const plugin = stewie()
-    const config = plugin.config as Function
-    const result = config({}, { isSsrBuild: true })
-    expect(result.esbuild.jsxImportSource).toBe('@stewie/core')
+    expect(config().esbuild.jsxImportSource).toBe('@stewie/core')
   })
 
   it('transform: surfaces compiler errors via this.error', async () => {

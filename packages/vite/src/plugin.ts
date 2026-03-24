@@ -1,4 +1,4 @@
-import type { Plugin, ConfigEnv } from 'vite'
+import type { Plugin } from 'vite'
 import { compile } from '@stewie/compiler'
 
 export interface StewiePluginOptions {
@@ -18,14 +18,11 @@ export function stewie(options?: StewiePluginOptions): Plugin {
     name: 'stewie',
 
     // Configure esbuild's jsxImportSource so JSX in .tsx files compiles to
-    // the correct runtime without relying on per-file pragma comments.
-    // Client builds use the DOM runtime (creates real DOM nodes).
-    // SSR builds use the descriptor runtime (serializable JSX objects).
-    config(_userConfig, env: ConfigEnv) {
-      const isSsr = (env as ConfigEnv & { isSsrBuild?: boolean }).isSsrBuild ?? false
+    // @stewie/core's descriptor runtime without relying on per-file pragma comments.
+    config() {
       return {
         esbuild: {
-          jsxImportSource: isSsr ? '@stewie/core' : '@stewie/core/dom',
+          jsxImportSource: '@stewie/core',
         },
       }
     },
