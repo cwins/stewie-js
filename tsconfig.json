@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "exclude": ["examples", "node_modules"],
+  "files": [],
   "references": [
     { "path": "packages/core" },
     { "path": "packages/compiler" },

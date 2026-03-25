@@ -13,7 +13,7 @@
     "lint:fix": "oxlint --fix packages/*/src examples/*/src --ignore-pattern '**/*.d.ts'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "clean": "find packages -name dist -type d -prune -exec rm -rf {} + 2>/dev/null; true"
+    "clean": "find packages -name dist -type d -prune -exec rm -rf {} + 2>/dev/null; find packages/*/src -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' 2>/dev/null | xargs rm -f; true"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
