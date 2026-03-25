@@ -63,6 +63,9 @@ importers:
       '@stewie-js/adapter-node':
         specifier: workspace:*
         version: link:../../packages/adapter-node
+      '@stewie-js/compiler':
+        specifier: workspace:*
+        version: link:../../packages/compiler
       '@stewie-js/core':
         specifier: workspace:*
         version: link:../../packages/core
