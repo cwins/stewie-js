@@ -14,10 +14,10 @@
 //   3. App reads appState from the registry — same data the server serialised.
 //   4. No extra network request needed.
 
-import { store, createContext, inject } from '@stewie/core'
-import { Show, For, Switch, Match, ClientOnly, ErrorBoundary } from '@stewie/core'
-import { useHydrationRegistry } from '@stewie/core'
-import type { JSXElement } from '@stewie/core'
+import { store, createContext, inject } from '@stewie-js/core'
+import { Show, For, Switch, Match, ClientOnly, ErrorBoundary } from '@stewie-js/core'
+import { useHydrationRegistry } from '@stewie-js/core'
+import type { JSXElement } from '@stewie-js/core'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -186,13 +186,13 @@ export function App({ serverState }: { serverState?: AppState } = {}): JSXElemen
 // renderApp — server-side convenience wrapper (used by server.ts and tests)
 // ---------------------------------------------------------------------------
 
-import { renderToString } from '@stewie/server'
-import type { RenderResult } from '@stewie/server'
+import { renderToString } from '@stewie-js/server'
+import type { RenderResult } from '@stewie-js/server'
 
 const defaultTodos: Todo[] = [
   { id: 1, text: 'Learn Stewie signals', priority: 'high', done: false },
   { id: 2, text: 'Build a reactive component', priority: 'normal', done: true },
-  { id: 3, text: 'Write tests with @stewie/testing', priority: 'normal', done: false },
+  { id: 3, text: 'Write tests with @stewie-js/testing', priority: 'normal', done: false },
   { id: 4, text: 'Deploy to production', priority: 'low', done: false },
 ]
 

@@ -17,7 +17,7 @@
  *      Suspense boundaries have resolved.
  */
 
-import type { JSXElement } from '@stewie/core'
+import type { JSXElement } from '@stewie-js/core'
 import {
   Fragment,
   Show,
@@ -30,8 +30,8 @@ import {
   ClientOnly,
   runWithContext,
   createRoot,
-} from '@stewie/core'
-import type { ContextProvider, ContextSnapshot } from '@stewie/core'
+} from '@stewie-js/core'
+import type { ContextProvider, ContextSnapshot } from '@stewie-js/core'
 import type { RenderToStreamOptions } from './types.js'
 import { createHydrationRegistry, HydrationRegistryContext } from './hydration.js'
 import type { HydrationRegistry } from './hydration.js'

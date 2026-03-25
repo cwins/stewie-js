@@ -1,4 +1,4 @@
-// jsx-dev-runtime.ts — dev-mode JSX runtime for @stewie/core
+// jsx-dev-runtime.ts — dev-mode JSX runtime for @stewie-js/core
 //
 // Vite uses jsx-dev-runtime in development mode, which calls `jsxDEV` instead
 // of `jsx`. The dev runtime receives extra source location info for debugging.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { effect } from '@stewie/core'
+import { effect } from '@stewie-js/core'
 import { createLocationStore, parseQuery, parseUrl } from './location.js'
 
 describe('parseQuery', () => {

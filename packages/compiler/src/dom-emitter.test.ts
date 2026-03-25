@@ -216,25 +216,25 @@ describe('JSX-to-DOM: $prop expansion is unaffected', () => {
 // ---------------------------------------------------------------------------
 
 describe('JSX-to-DOM: auto-imports effect', () => {
-  it('injects effect import when file has no @stewie/core import', () => {
+  it('injects effect import when file has no @stewie-js/core import', () => {
     const code = compileJsx(`
       function C() {
         const x = signal(0)
         return <div class={() => x() ? 'a' : 'b'}></div>
       }
     `)
-    expect(code).toMatch(/import \{ effect \} from '@stewie\/core'/)
+    expect(code).toMatch(/import \{ effect \} from '@stewie-js\/core'/)
   })
 
-  it('does not double-import when @stewie/core already imported', () => {
+  it('does not double-import when @stewie-js/core already imported', () => {
     const code = compileJsx(`
-      import { signal, effect } from '@stewie/core'
+      import { signal, effect } from '@stewie-js/core'
       function C() {
         const x = signal(0)
         return <div class={() => x() ? 'a' : 'b'}></div>
       }
     `)
-    const effectImports = (code.match(/import.*effect.*from '@stewie\/core'/g) ?? []).length
+    const effectImports = (code.match(/import.*effect.*from '@stewie-js\/core'/g) ?? []).length
     // Should not duplicate
     expect(effectImports).toBeLessThanOrEqual(1)
   })

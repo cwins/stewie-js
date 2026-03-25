@@ -1,5 +1,5 @@
 {
-  "name": "@stewie/adapter-node",
+  "name": "@stewie-js/adapter-node",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@stewie/server": "workspace:*"
+    "@stewie-js/server": "workspace:*"
   }
 }

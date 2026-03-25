@@ -1,6 +1,6 @@
 // assertions.ts — signal/store assertion helpers
 
-import type { Signal } from '@stewie/core'
+import type { Signal } from '@stewie-js/core'
 
 // Assert that a signal has the expected value (strict equality)
 export function assertSignal<T>(sig: Signal<T>, expected: T): void {

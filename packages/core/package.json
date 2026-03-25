@@ -1,5 +1,5 @@
 {
-  "name": "@stewie/core",
+  "name": "@stewie-js/core",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

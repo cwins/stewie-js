@@ -10,8 +10,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderApp, App } from './app.js'
 import type { AppState, Todo } from './app.js'
-import { hydrate, mount, jsx, createRoot } from '@stewie/core'
-import type { Component, Disposer } from '@stewie/core'
+import { hydrate, mount, jsx, createRoot } from '@stewie-js/core'
+import type { Component, Disposer } from '@stewie-js/core'
 
 // ---------------------------------------------------------------------------
 // SSR: renderApp() output
@@ -37,7 +37,7 @@ describe('renderApp — SSR HTML output', () => {
     const { html } = await renderApp()
     expect(html).toContain('Learn Stewie signals')
     expect(html).toContain('Build a reactive component')
-    expect(html).toContain('Write tests with @stewie/testing')
+    expect(html).toContain('Write tests with @stewie-js/testing')
     expect(html).toContain('Deploy to production')
   })
 

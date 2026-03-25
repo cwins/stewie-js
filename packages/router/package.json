@@ -1,5 +1,5 @@
 {
-  "name": "@stewie/router",
+  "name": "@stewie-js/router",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,10 +17,10 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@stewie/server": "workspace:*"
+    "@stewie-js/server": "workspace:*"
   },
   "dependencies": {
-    "@stewie/core": "workspace:*",
-    "@stewie/router-spi": "workspace:*"
+    "@stewie-js/core": "workspace:*",
+    "@stewie-js/router-spi": "workspace:*"
   }
 }

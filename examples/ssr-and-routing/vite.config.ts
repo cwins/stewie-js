@@ -1,5 +1,5 @@
 import { BuildEnvironmentOptions, defineConfig } from 'vite'
-import { stewie } from '@stewie/vite'
+import { stewie } from '@stewie-js/vite'
 
 const ssrBuild: BuildEnvironmentOptions = {
   manifest: true,

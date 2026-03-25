@@ -1,7 +1,7 @@
 // location.ts — reactive location store
 
-import { store, createRoot } from '@stewie/core'
-import type { ReactiveLocation } from '@stewie/router-spi'
+import { store, createRoot } from '@stewie-js/core'
+import type { ReactiveLocation } from '@stewie-js/router-spi'
 
 export interface RouterStore extends ReactiveLocation {
   // Mutable internally, read-only externally via StewieRouterSPI

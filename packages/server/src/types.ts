@@ -1,4 +1,4 @@
-import type { JSXElement } from '@stewie/core'
+import type { JSXElement } from '@stewie-js/core'
 
 export type Component = () => JSXElement | null | string
 

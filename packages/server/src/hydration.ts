@@ -1,10 +1,10 @@
-// Re-export shared types and context from @stewie/core so the public API
-// of @stewie/server is unchanged.
-export type { HydrationRegistry } from '@stewie/core'
-export { HydrationRegistryContext, useHydrationRegistry } from '@stewie/core'
+// Re-export shared types and context from @stewie-js/core so the public API
+// of @stewie-js/server is unchanged.
+export type { HydrationRegistry } from '@stewie-js/core'
+export { HydrationRegistryContext, useHydrationRegistry } from '@stewie-js/core'
 
 // Server-side registry — collects state during SSR for serialization.
-import type { HydrationRegistry } from '@stewie/core'
+import type { HydrationRegistry } from '@stewie-js/core'
 
 export function createHydrationRegistry(): HydrationRegistry {
   const store = new Map<string, unknown>()

@@ -1,4 +1,4 @@
-// @stewie/testing — test utilities for mounting components, querying the DOM,
+// @stewie-js/testing — test utilities for mounting components, querying the DOM,
 // and asserting reactive state.
 
 export const version = '0.1.0'

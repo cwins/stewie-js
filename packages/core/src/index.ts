@@ -1,4 +1,4 @@
-// @stewie/core — reactivity primitives, JSX runtime, context
+// @stewie-js/core — reactivity primitives, JSX runtime, context
 
 export const version = '0.1.0'
 

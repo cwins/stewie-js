@@ -3,8 +3,8 @@
 // Demonstrates signal() for tracking async operation state across
 // idle → loading → success/error transitions.
 
-import { signal, createRoot } from '@stewie/core'
-import type { Signal } from '@stewie/core'
+import { signal, createRoot } from '@stewie-js/core'
+import type { Signal } from '@stewie-js/core'
 
 export type FetchState<T> =
   | { status: 'idle' }

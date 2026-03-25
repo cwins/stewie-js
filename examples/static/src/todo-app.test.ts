@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mountTodoApp } from './todo-app.js'
-import type { Disposer } from '@stewie/core'
+import type { Disposer } from '@stewie-js/core'
 
 // ---------------------------------------------------------------------------
 // Test harness

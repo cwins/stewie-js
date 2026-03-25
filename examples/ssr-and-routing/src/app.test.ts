@@ -10,8 +10,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { renderApp, App } from './app.js'
 import type { AppData } from './app.js'
-import { hydrate, mount, jsx, createRoot } from '@stewie/core'
-import type { Component, Disposer } from '@stewie/core'
+import { hydrate, mount, jsx, createRoot } from '@stewie-js/core'
+import type { Component, Disposer } from '@stewie-js/core'
 
 // ---------------------------------------------------------------------------
 // SSR: Dashboard route

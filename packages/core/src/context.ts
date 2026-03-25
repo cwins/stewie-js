@@ -1,4 +1,4 @@
-// context.ts — context system for @stewie/core
+// context.ts — context system for @stewie-js/core
 
 import type { JSXElement } from './jsx-runtime.js'
 

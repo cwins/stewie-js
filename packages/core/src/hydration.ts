@@ -1,5 +1,5 @@
 // hydration.ts — shared hydration registry types and context token.
-// Used by both @stewie/server (serializes state) and client hydrate() (reads state).
+// Used by both @stewie-js/server (serializes state) and client hydrate() (reads state).
 
 import { createContext, inject } from './context.js'
 

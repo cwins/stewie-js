@@ -1,5 +1,5 @@
 {
-  "name": "@stewie/router-spi",
+  "name": "@stewie-js/router-spi",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

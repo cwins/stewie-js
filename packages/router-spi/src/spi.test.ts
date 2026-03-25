@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { StewieRouterSPI, ReactiveLocation, NavigateOptions, RouteMatch } from './index.js'
 
-describe('@stewie/router-spi interface definitions', () => {
+describe('@stewie-js/router-spi interface definitions', () => {
   it('NavigateOptions type works correctly', () => {
     const opts: NavigateOptions = { to: '/path' }
     expect(opts.to).toBe('/path')

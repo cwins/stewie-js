@@ -10,26 +10,26 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
 
   // package.json
   const dependencies: Record<string, string> = {
-    '@stewie/core': '^0.1.0',
-    '@stewie/vite': '^0.1.0',
+    '@stewie-js/core': '^0.1.0',
+    '@stewie-js/vite': '^0.1.0',
   }
   if (ctx.mode === 'ssr') {
-    dependencies['@stewie/server'] = '^0.1.0'
+    dependencies['@stewie-js/server'] = '^0.1.0'
     if (ctx.ssrRuntime === 'bun') {
-      dependencies['@stewie/adapter-bun'] = '^0.1.0'
+      dependencies['@stewie-js/adapter-bun'] = '^0.1.0'
     } else {
-      dependencies['@stewie/adapter-node'] = '^0.1.0'
+      dependencies['@stewie-js/adapter-node'] = '^0.1.0'
     }
   }
   if (ctx.includeRouter) {
-    dependencies['@stewie/router'] = '^0.1.0'
+    dependencies['@stewie-js/router'] = '^0.1.0'
   }
 
   const devDependencies: Record<string, string> = {
     typescript: '^5.8.0',
     vite: '^6.0.0',
     vitest: '^3.0.0',
-    '@stewie/testing': '^0.1.0',
+    '@stewie-js/testing': '^0.1.0',
   }
   if (ctx.mode === 'ssr' && ctx.ssrRuntime !== 'bun') {
     devDependencies['tsx'] = '^4.0.0'
@@ -64,7 +64,7 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
   if (ctx.mode === 'ssr') {
     files.push({
       path: 'vite.config.ts',
-      content: `import { stewie, defineConfig } from '@stewie/vite'
+      content: `import { stewie, defineConfig } from '@stewie-js/vite'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -102,7 +102,7 @@ export default defineConfig({
   } else {
     files.push({
       path: 'vite.config.ts',
-      content: `import { stewie, defineConfig } from '@stewie/vite'
+      content: `import { stewie, defineConfig } from '@stewie-js/vite'
 
 export default defineConfig({
   plugins: [stewie()]
@@ -119,7 +119,7 @@ export default defineConfig({
       module: 'ESNext',
       moduleResolution: 'bundler',
       jsx: 'react-jsx',
-      jsxImportSource: '@stewie/core',
+      jsxImportSource: '@stewie-js/core',
       esModuleInterop: true,
       skipLibCheck: true,
       lib: ['ES2022', 'DOM', 'DOM.Iterable'],
@@ -166,7 +166,7 @@ export default defineConfig({
     // SSR: client.tsx hydrates server-rendered HTML
     files.push({
       path: 'src/client.tsx',
-      content: `import { hydrate } from '@stewie/core'
+      content: `import { hydrate } from '@stewie-js/core'
 import App from './App.js'
 
 hydrate(<App />, document.getElementById('app')!)
@@ -176,7 +176,7 @@ hydrate(<App />, document.getElementById('app')!)
     // Static: main.tsx mounts fresh
     files.push({
       path: 'src/main.tsx',
-      content: `import { mount } from '@stewie/core'
+      content: `import { mount } from '@stewie-js/core'
 import App from './App.js'
 
 mount(<App />, document.getElementById('app')!)
@@ -188,7 +188,7 @@ mount(<App />, document.getElementById('app')!)
   if (ctx.includeRouter) {
     files.push({
       path: 'src/App.tsx',
-      content: `import { Router, Route } from '@stewie/router'
+      content: `import { Router, Route } from '@stewie-js/router'
 import styles from './App.module.css'
 
 function Home() {
@@ -246,10 +246,10 @@ export default function App() {
         content: `import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { renderToString } from '@stewie/server'
-import { createBunHandler } from '@stewie/adapter-bun'
+import { renderToString } from '@stewie-js/server'
+import { createBunHandler } from '@stewie-js/adapter-bun'
 import App from './App.js'
-import { jsx } from '@stewie/core'
+import { jsx } from '@stewie-js/core'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
@@ -275,10 +275,10 @@ export default { fetch, port: PORT }
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { renderToString } from '@stewie/server'
-import { createNodeHandler } from '@stewie/adapter-node'
+import { renderToString } from '@stewie-js/server'
+import { createNodeHandler } from '@stewie-js/adapter-node'
 import App from './App.js'
-import { jsx } from '@stewie/core'
+import { jsx } from '@stewie-js/core'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')

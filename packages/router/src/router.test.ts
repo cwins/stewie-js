@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { createRouter, useRouter, RouterContext } from './router.js'
-import { provide, effect } from '@stewie/core'
+import { provide, effect } from '@stewie-js/core'
 
 describe('createRouter', () => {
   it('creates a router with a location', () => {

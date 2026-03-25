@@ -4,13 +4,13 @@
 // Server flow: renderApp(url) → renderToString(<App initialUrl={url} />) → HTML
 // Client flow: hydrate(<App />, container) reads window.__STEWIE_STATE__
 
-import { store, createContext, inject, signal, createRoot } from '@stewie/core'
-import { For, Show } from '@stewie/core'
-import { useHydrationRegistry } from '@stewie/core'
-import type { JSXElement } from '@stewie/core'
-import { Router, Route, useRouter } from '@stewie/router'
-import { renderToString } from '@stewie/server'
-import type { RenderResult } from '@stewie/server'
+import { store, createContext, inject, signal, createRoot } from '@stewie-js/core'
+import { For, Show } from '@stewie-js/core'
+import { useHydrationRegistry } from '@stewie-js/core'
+import type { JSXElement } from '@stewie-js/core'
+import { Router, Route, useRouter } from '@stewie-js/router'
+import { renderToString } from '@stewie-js/server'
+import type { RenderResult } from '@stewie-js/server'
 import './styles.css'
 
 // ---------------------------------------------------------------------------

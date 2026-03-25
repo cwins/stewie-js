@@ -1,4 +1,4 @@
-// types.ts — shared types for @stewie/compiler
+// types.ts — shared types for @stewie-js/compiler
 
 export type DiagnosticSeverity = 'error' | 'warning'
 

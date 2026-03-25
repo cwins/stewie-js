@@ -17,8 +17,8 @@ import {
   createRoot,
   effect,
   Show,
-} from '@stewie/core'
-import type { Component, JSXElement } from '@stewie/core'
+} from '@stewie-js/core'
+import type { Component, JSXElement } from '@stewie-js/core'
 
 // ---------------------------------------------------------------------------
 // mount — basic rendering
@@ -166,7 +166,7 @@ describe('mount — context injection', () => {
     }
 
     const result = mount(jsx(ThemeDisplay as unknown as Component, {}), {
-      contexts: [{ context: ThemeCtx as unknown as import('@stewie/core').Context<unknown>, value: 'dark' }],
+      contexts: [{ context: ThemeCtx as unknown as import('@stewie-js/core').Context<unknown>, value: 'dark' }],
     })
 
     expect(result.getByTestId('theme').textContent).toBe('dark')

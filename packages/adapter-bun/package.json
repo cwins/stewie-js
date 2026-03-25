@@ -1,5 +1,5 @@
 {
-  "name": "@stewie/adapter-bun",
+  "name": "@stewie-js/adapter-bun",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

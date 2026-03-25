@@ -1,4 +1,4 @@
-// dom-renderer.ts — client-side DOM renderer for @stewie/core
+// dom-renderer.ts — client-side DOM renderer for @stewie-js/core
 // Takes JSXElement descriptors (or DOM Nodes from the DOM JSX runtime) and
 // renders them into real DOM nodes with fine-grained reactive subscriptions.
 

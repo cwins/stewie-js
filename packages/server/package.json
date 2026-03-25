@@ -1,5 +1,5 @@
 {
-  "name": "@stewie/server",
+  "name": "@stewie-js/server",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@stewie/core": "workspace:*"
+    "@stewie-js/core": "workspace:*"
   }
 }

@@ -1,4 +1,4 @@
-// components.ts — built-in control flow components for @stewie/core
+// components.ts — built-in control flow components for @stewie-js/core
 // These create element descriptors; actual rendering logic is in the renderer (future phase).
 
 import type { Signal } from './reactive.js'

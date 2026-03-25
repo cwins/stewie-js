@@ -11,8 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@stewie/core": "workspace:*",
-    "@stewie/testing": "workspace:*",
+    "@stewie-js/core": "workspace:*",
+    "@stewie-js/testing": "workspace:*",
     "vite": "^6.0.0"
   },
   "devDependencies": {

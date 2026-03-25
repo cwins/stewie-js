@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite'
-import { compile } from '@stewie/compiler'
+import { compile } from '@stewie-js/compiler'
 
 export interface StewiePluginOptions {
   /**
@@ -18,11 +18,11 @@ export function stewie(options?: StewiePluginOptions): Plugin {
     name: 'stewie',
 
     // Configure esbuild's jsxImportSource so JSX in .tsx files compiles to
-    // @stewie/core's descriptor runtime without relying on per-file pragma comments.
+    // @stewie-js/core's descriptor runtime without relying on per-file pragma comments.
     config() {
       return {
         esbuild: {
-          jsxImportSource: '@stewie/core',
+          jsxImportSource: '@stewie-js/core',
         },
       }
     },

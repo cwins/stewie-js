@@ -1,7 +1,7 @@
 // components.ts — route components
 
-import { jsx, inject } from '@stewie/core'
-import type { JSXElement, Component } from '@stewie/core'
+import { jsx, inject } from '@stewie-js/core'
+import type { JSXElement, Component } from '@stewie-js/core'
 import { createRouter, RouterContext } from './router.js'
 import type { Router } from './router.js'
 import { matchRoute } from './matcher.js'

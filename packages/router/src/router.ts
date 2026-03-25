@@ -1,9 +1,9 @@
 // router.ts — router context + navigation
 
-import { createContext, inject } from '@stewie/core'
+import { createContext, inject } from '@stewie-js/core'
 import { createLocationStore, parseUrl } from './location.js'
 import type { RouterStore } from './location.js'
-import type { StewieRouterSPI, NavigateOptions, RouteMatch } from '@stewie/router-spi'
+import type { StewieRouterSPI, NavigateOptions, RouteMatch } from '@stewie-js/router-spi'
 import { matchRoute } from './matcher.js'
 
 // ---------------------------------------------------------------------------

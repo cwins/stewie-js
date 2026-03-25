@@ -12,10 +12,10 @@
 //                   (filter button classes update without re-rendering the whole list)
 //   event handlers  onClick / onInput wire DOM events to signal mutations
 
-import { signal, computed, createRoot } from '@stewie/core'
-import { mount } from '@stewie/core'
-import { For, Show, Switch, Match } from '@stewie/core'
-import type { JSXElement, Disposer } from '@stewie/core'
+import { signal, computed, createRoot } from '@stewie-js/core'
+import { mount } from '@stewie-js/core'
+import { For, Show, Switch, Match } from '@stewie-js/core'
+import type { JSXElement, Disposer } from '@stewie-js/core'
 
 // ---------------------------------------------------------------------------
 // Types

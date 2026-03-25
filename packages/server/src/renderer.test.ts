@@ -10,7 +10,7 @@ import {
   ErrorBoundary,
   createContext,
   inject,
-} from '@stewie/core'
+} from '@stewie-js/core'
 import { useHydrationRegistry } from './hydration.js'
 
 describe('renderToString', () => {

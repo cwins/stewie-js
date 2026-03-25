@@ -5,7 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "jsxImportSource": "@stewie/core",
+    "jsxImportSource": "@stewie-js/core",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

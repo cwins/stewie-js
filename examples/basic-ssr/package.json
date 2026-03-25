@@ -13,12 +13,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@stewie/core": "workspace:*",
-    "@stewie/server": "workspace:*",
-    "@stewie/adapter-node": "workspace:*",
-    "@stewie/router": "workspace:*",
-    "@stewie/testing": "workspace:*",
-    "@stewie/vite": "workspace:*"
+    "@stewie-js/core": "workspace:*",
+    "@stewie-js/server": "workspace:*",
+    "@stewie-js/adapter-node": "workspace:*",
+    "@stewie-js/router": "workspace:*",
+    "@stewie-js/testing": "workspace:*",
+    "@stewie-js/vite": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.0.0",

@@ -1,4 +1,4 @@
-// @stewie/router-spi — router interface definitions
+// @stewie-js/router-spi — router interface definitions
 export const version = '0.1.0'
 
 export interface ReactiveLocation {

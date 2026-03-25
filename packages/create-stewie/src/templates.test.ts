@@ -17,7 +17,7 @@ describe('generateFiles — static mode', () => {
   it('main.tsx uses mount()', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
     const main = files.find((f) => f.path === 'src/main.tsx')!
-    expect(main.content).toContain("import { mount } from '@stewie/core'")
+    expect(main.content).toContain("import { mount } from '@stewie-js/core'")
     expect(main.content).toContain('mount(<App />')
   })
 
@@ -54,7 +54,7 @@ describe('generateFiles — static mode', () => {
   it('includes router dep when includeRouter is true', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
     const pkgJson = files.find((f) => f.path === 'package.json')!
-    expect(pkgJson.content).toContain('@stewie/router')
+    expect(pkgJson.content).toContain('@stewie-js/router')
   })
 })
 
@@ -79,7 +79,7 @@ describe('generateFiles — SSR mode (node)', () => {
   it('client.tsx uses hydrate()', () => {
     const files = generateFiles({ projectName: 'my-ssr-app', mode: 'ssr', ssrRuntime: 'node', includeRouter: false })
     const client = files.find((f) => f.path === 'src/client.tsx')!
-    expect(client.content).toContain("import { hydrate } from '@stewie/core'")
+    expect(client.content).toContain("import { hydrate } from '@stewie-js/core'")
     expect(client.content).toContain('hydrate(<App />')
   })
 

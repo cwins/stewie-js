@@ -1,5 +1,5 @@
-// jsx-runtime.ts — JSX runtime for @stewie/core
-// TypeScript calls into these exports when jsxImportSource is @stewie/core.
+// jsx-runtime.ts — JSX runtime for @stewie-js/core
+// TypeScript calls into these exports when jsxImportSource is @stewie-js/core.
 
 // ---------------------------------------------------------------------------
 // Types

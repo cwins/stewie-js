@@ -25,10 +25,10 @@ describe('stewie vite plugin', () => {
     expect(result.code).toContain('const x')
   })
 
-  it('config: sets jsxImportSource to @stewie/core for all builds', () => {
+  it('config: sets jsxImportSource to @stewie-js/core for all builds', () => {
     const plugin = stewie()
     const config = plugin.config as Function
-    expect(config().esbuild.jsxImportSource).toBe('@stewie/core')
+    expect(config().esbuild.jsxImportSource).toBe('@stewie-js/core')
   })
 
   it('transform: surfaces compiler errors via this.error', async () => {
@@ -37,7 +37,7 @@ describe('stewie vite plugin', () => {
     const errorFn = vi.fn()
     const ctx = { error: errorFn, warn: vi.fn() }
     // Module-scope signal call should trigger a compiler error
-    const source = `import { signal } from '@stewie/core'\nconst s = signal(0)`
+    const source = `import { signal } from '@stewie-js/core'\nconst s = signal(0)`
     try {
       await transform.call(ctx, source, 'bad.tsx')
     } catch {

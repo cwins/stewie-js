@@ -6,9 +6,9 @@
 // Unlike an SSR-string approach, this uses the real DOM renderer so signals
 // trigger live updates — no re-render step needed after changing reactive state.
 
-import { mount as coreMount, jsx } from '@stewie/core'
-import type { JSXElement, Component } from '@stewie/core'
-import type { Context } from '@stewie/core'
+import { mount as coreMount, jsx } from '@stewie-js/core'
+import type { JSXElement, Component } from '@stewie-js/core'
+import type { Context } from '@stewie-js/core'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,7 +151,7 @@ export function mount(
 ): MountResult {
   if (typeof document === 'undefined') {
     throw new Error(
-      '@stewie/testing mount() requires a DOM environment.\n' +
+      '@stewie-js/testing mount() requires a DOM environment.\n' +
         'Add // @vitest-environment happy-dom to the top of your test file.',
     )
   }

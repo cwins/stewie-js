@@ -1,6 +1,6 @@
 // client.tsx — browser entry point for the basic-ssr example
 //
-// This file is the client bundle entry. @stewie/vite configures the correct
+// This file is the client bundle entry. @stewie-js/vite configures the correct
 // JSX runtime automatically (DOM runtime for client, descriptor for SSR).
 //
 // hydrate() does three things:
@@ -14,7 +14,7 @@
 // the client starts with exactly the data the server rendered — no
 // additional API request needed.
 
-import { hydrate } from '@stewie/core'
+import { hydrate } from '@stewie-js/core'
 import { App } from './app.js'
 
 const container = document.getElementById('app') ?? document.body

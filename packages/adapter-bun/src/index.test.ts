@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { version } from './index.js'
 
-describe('@stewie/adapter-bun', () => {
+describe('@stewie-js/adapter-bun', () => {
   it('exports version', () => {
     expect(version).toBe('0.1.0')
   })

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderToStream } from './stream.js'
-import { jsx, Suspense } from '@stewie/core'
-import type { Component, JSXElement } from '@stewie/core'
+import { jsx, Suspense } from '@stewie-js/core'
+import type { Component, JSXElement } from '@stewie-js/core'
 
 // Collect all chunks from a ReadableStream into an array
 async function collectChunks(stream: ReadableStream<Uint8Array>): Promise<string[]> {

@@ -6,13 +6,13 @@ Stewie is an ambitious attempt at a fine-grained reactive web framework with a c
 
 However, the framework suffers from a fundamental gap between what is **described** and what is **implemented**. The stated goal is "no virtual DOM -- components subscribe directly to reactive values they read" with a "compiler that transforms JSX into direct DOM subscriptions." In practice, **none of this exists**. The JSX runtime produces inert descriptor objects (a virtual DOM in all but name). The compiler only handles `$prop` expansion and module-scope detection -- it does not transform JSX into DOM subscriptions. There is no client-side rendering engine whatsoever: no `mount()` that creates real DOM elements, no reconciler, no hydration client. The framework can only render to HTML strings on the server.
 
-The `renderToStream` implementation is misleading -- it renders the entire tree to a string first and then enqueues it as a single chunk, providing no streaming benefit. The `@stewie/testing` package queries rendered HTML with regex, which is fragile. The router components emit synthetic tags (`__stewie_route__`, `__stewie_router__`) that no renderer understands. Several packages (`@stewie/vite`, `create-stewie`) are referenced but not reviewed here. The source map generation always produces identity maps regardless of whether the transformer changed anything, making them incorrect after any transformation.
+The `renderToStream` implementation is misleading -- it renders the entire tree to a string first and then enqueues it as a single chunk, providing no streaming benefit. The `@stewie-js/testing` package queries rendered HTML with regex, which is fragile. The router components emit synthetic tags (`__stewie_route__`, `__stewie_router__`) that no renderer understands. Several packages (`@stewie-js/vite`, `create-stewie`) are referenced but not reviewed here. The source map generation always produces identity maps regardless of whether the transformer changed anything, making them incorrect after any transformation.
 
 Overall: the reactive primitives are production-quality. Everything else is scaffolding and stubs that would need substantial work before real-world use.
 
 ## Package-by-Package Analysis
 
-### @stewie/core -- Reactivity
+### @stewie-js/core -- Reactivity
 
 **Correctness: Good**
 
@@ -42,7 +42,7 @@ The reactive tests are thorough and cover the key behaviors including memoizatio
 
 ---
 
-### @stewie/core -- JSX Runtime & Components
+### @stewie-js/core -- JSX Runtime & Components
 
 **Correctness: Partial (descriptor-only)**
 
@@ -50,7 +50,7 @@ The JSX runtime (`jsx`, `jsxs`, `Fragment`) correctly produces element descripto
 
 1. **`jsx` and `jsxs` are identical** (`jsx-runtime.ts:94-100`): `jsxs` delegates to `jsx`. In React's JSX transform, `jsxs` is used for static children (array with a known length) and can skip key validation. This distinction is pointless here since there is no reconciler, but if one is ever built, this will need to diverge.
 
-2. **Components are pure descriptor factories** (`components.ts`): `Show`, `For`, `Switch`, `Match`, `Portal`, `ErrorBoundary`, `Suspense`, and `ClientOnly` all do the same thing: wrap their props into a descriptor via `jsx(Self as unknown as Component, ...)`. The `as unknown as Component` cast on every one (e.g., line 19) is a type-safety escape hatch that obscures errors. None of these components contain any logic -- all rendering logic lives in `@stewie/server`'s `renderNode`.
+2. **Components are pure descriptor factories** (`components.ts`): `Show`, `For`, `Switch`, `Match`, `Portal`, `ErrorBoundary`, `Suspense`, and `ClientOnly` all do the same thing: wrap their props into a descriptor via `jsx(Self as unknown as Component, ...)`. The `as unknown as Component` cast on every one (e.g., line 19) is a type-safety escape hatch that obscures errors. None of these components contain any logic -- all rendering logic lives in `@stewie-js/server`'s `renderNode`.
 
 3. **`JSX.IntrinsicElements` catch-all** (`jsx-runtime.ts:144`): The `[key: string]: Record<string, unknown>` catch-all means any tag name is accepted with any props, defeating the purpose of the typed element interfaces above it. A user typing `<butto>` instead of `<button>` gets no error.
 
@@ -62,7 +62,7 @@ Component tests only verify that descriptor objects are produced with the right 
 
 ---
 
-### @stewie/compiler
+### @stewie-js/compiler
 
 **Correctness: Partial**
 
@@ -95,7 +95,7 @@ Tests cover the main compiler pipeline scenarios well. Missing: tests for nested
 
 ---
 
-### @stewie/server
+### @stewie-js/server
 
 **Correctness: Mostly correct for what it does**
 
@@ -134,9 +134,9 @@ The renderer tests cover the main scenarios well, including HTML escaping, void 
 
 ---
 
-### @stewie/adapter-node / @stewie/adapter-bun
+### @stewie-js/adapter-node / @stewie-js/adapter-bun
 
-**@stewie/adapter-node:**
+**@stewie-js/adapter-node:**
 
 1. **Correct basic implementation**: The `IncomingMessage` to `Request` conversion handles headers, body buffering, and method extraction properly.
 
@@ -148,17 +148,17 @@ The renderer tests cover the main scenarios well, including HTML escaping, void 
 
 5. **Response streaming is not supported**: `webResponseToNodeResponse` reads the entire response body into memory via `res.arrayBuffer()`. If the app returns a streaming `Response` (which is the whole point of `renderToStream`), the stream is fully buffered before sending.
 
-**@stewie/adapter-bun:**
+**@stewie-js/adapter-bun:**
 
 This is essentially a passthrough -- it wraps the app function into a `{ fetch }` object. Correct but trivial. No error handling, no streaming consideration.
 
 ---
 
-### @stewie/router
+### @stewie-js/router
 
 **Correctness: Partially implemented**
 
-The URL pattern matcher is solid. The location store using `@stewie/core`'s `store()` for reactive properties is a good design. The `createRouter` function properly handles navigation with history API integration.
+The URL pattern matcher is solid. The location store using `@stewie-js/core`'s `store()` for reactive properties is a good design. The `createRouter` function properly handles navigation with history API integration.
 
 **Issues:**
 
@@ -168,7 +168,7 @@ The URL pattern matcher is solid. The location store using `@stewie/core`'s `sto
 
 3. **`Link` component has no client-side navigation** (`components.ts:34-42`): The comment says "onClick handler would prevent default and use router.navigate in browser" but this handler is not implemented. Clicking a `Link` will do a full page navigation.
 
-4. **`_setAllowReactiveCreation` concurrency issue** (`location.ts:59-66`): Same as noted in `@stewie/core` -- this global flag is not safe for concurrent server requests.
+4. **`_setAllowReactiveCreation` concurrency issue** (`location.ts:59-66`): Same as noted in `@stewie-js/core` -- this global flag is not safe for concurrent server requests.
 
 5. **`navigate()` does not update `params`** (`router.ts:22-37`): When navigating, `pathname`, `query`, and `hash` are updated, but `params` is not cleared or recalculated. After navigation, `location.params` retains stale values from the previous route match.
 
@@ -184,7 +184,7 @@ The matcher tests are thorough. The router tests cover basic functionality. Miss
 
 ---
 
-### @stewie/testing
+### @stewie-js/testing
 
 **Correctness: Works within its limitations**
 
@@ -262,7 +262,7 @@ In a server environment handling concurrent requests (which is the stated use ca
 
 ### 3. `_setAllowReactiveCreation` is a Leaky Abstraction
 
-The examples and tests all need to call `_setAllowReactiveCreation(true)` before creating signals outside a component. This internal API is exported from `@stewie/core`'s public index. It should either be:
+The examples and tests all need to call `_setAllowReactiveCreation(true)` before creating signals outside a component. This internal API is exported from `@stewie-js/core`'s public index. It should either be:
 
 - Handled automatically by the framework (e.g., a `createRoot()` function that sets up a scope).
 - Not needed (remove the module-scope restriction for factory functions that return signals).
@@ -292,7 +292,7 @@ The design says: "a TSX compiler transforms JSX into direct DOM subscriptions ra
 8. **Router rendering**: `Router`/`Route` components produce descriptors no renderer understands.
 9. **`Link` onClick prevention**: Client-side navigation not wired up.
 10. **`popstate` listener**: Router does not respond to browser back/forward.
-11. **`@stewie/vite`**: Referenced but not reviewed -- likely a thin wrapper.
+11. **`@stewie-js/vite`**: Referenced but not reviewed -- likely a thin wrapper.
 12. **`create-stewie` CLI**: Referenced but not reviewed.
 13. **Error boundaries on the client**: Only implemented for SSR.
 14. **Suspense with async resources**: No `createResource()` or equivalent.

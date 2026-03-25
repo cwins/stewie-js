@@ -3,8 +3,8 @@
 // Demonstrates signal() and computed() created inside a createRoot() scope,
 // the correct way to create reactive primitives outside a component function.
 
-import { signal, computed, createRoot } from '@stewie/core'
-import type { Signal, Computed } from '@stewie/core'
+import { signal, computed, createRoot } from '@stewie-js/core'
+import type { Signal, Computed } from '@stewie-js/core'
 
 export interface Counter {
   count: Signal<number>

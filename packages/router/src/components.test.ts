@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest'
-import { jsx } from '@stewie/core'
-import { mount } from '@stewie/core'
-import { createRoot } from '@stewie/core'
-import { renderToString } from '@stewie/server'
+import { jsx } from '@stewie-js/core'
+import { mount } from '@stewie-js/core'
+import { createRoot } from '@stewie-js/core'
+import { renderToString } from '@stewie-js/server'
 import { Router, Route, Link } from './components.js'
 import { createRouter, RouterContext, useRouter } from './router.js'
 import { matchRoute } from './matcher.js'

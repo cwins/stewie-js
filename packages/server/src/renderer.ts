@@ -1,4 +1,4 @@
-import type { JSXElement } from '@stewie/core'
+import type { JSXElement } from '@stewie-js/core'
 import {
   Fragment,
   Show,
@@ -12,8 +12,8 @@ import {
   runWithContext,
   withRenderIsolation,
   createRoot,
-} from '@stewie/core'
-import type { ContextProvider, ContextSnapshot } from '@stewie/core'
+} from '@stewie-js/core'
+import type { ContextProvider, ContextSnapshot } from '@stewie-js/core'
 import type { RenderToStringOptions, RenderResult } from './types.js'
 import {
   createHydrationRegistry,

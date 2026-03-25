@@ -1,7 +1,7 @@
 // context-helpers.ts — context mock helpers
 
-import type { Context } from '@stewie/core'
-import { provide } from '@stewie/core'
+import type { Context } from '@stewie-js/core'
+import { provide } from '@stewie-js/core'
 
 // Run a callback function with a provided context value.
 // The context value is available via inject() within fn and any callees.
