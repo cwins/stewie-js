@@ -55,17 +55,23 @@ export const AppContext = createContext<AppStore | null>(null)
 // Seed / default data
 // ---------------------------------------------------------------------------
 
-const defaultData: AppData = {
-  projects: [
-    { id: 'p1', name: 'Work Tasks', taskCount: 2 },
-    { id: 'p2', name: 'Personal Goals', taskCount: 1 },
-  ],
-  tasks: [
-    { id: 't1', projectId: 'p1', title: 'Review Q1 Reports', description: 'Check the numbers', dueDate: '2026-03-25', isCompleted: false },
-    { id: 't2', projectId: 'p1', title: 'Email Marketing Team', description: '', dueDate: null, isCompleted: false },
-    { id: 't3', projectId: 'p2', title: 'Run 5K', description: 'Morning run', dueDate: '2026-03-30', isCompleted: false },
-  ],
-}
+const defaultData: AppData = await import('./data.json').then(async (data) => {
+  try {
+    if (['true', true].some((condition) => condition === import.meta.env.VITE_USE_TEMP_MOCK)) {
+      const mock = await import('./.temp-mocks/data.json'!);
+      
+      if (mock?.default) {
+        return mock.default;
+      }
+    }
+  }
+  catch (error) {
+    // it's ok, just default to the data we know we have
+    console.error(error);
+  }
+
+  return data;
+})
 
 // ---------------------------------------------------------------------------
 // Due date formatting helper
@@ -106,7 +112,7 @@ function DashboardView(): JSXElement {
                 onClick={() => router.navigate(`/project/${project.id}`)}
               >
                 <p class="card-title">{project.name}</p>
-                <p class="card-subtitle">{count} active task{count !== 1 ? 's' : ''}</p>
+                <p class="card-subtitle">{String(count)} active task{count !== 1 ? 's' : ''}</p>
               </div>
             )
           }}

@@ -4,10 +4,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "clean": "rm -rf dist",
-    "nuke": "rm -rf dist node_modules",
+    "clean": "rm -rf dist src/.temp-mocks",
+    "nuke": "rm -rf dist src/.temp-mocks node_modules",
+    "mock:create-empty": "mkdir -p ./src/.temp-mocks && echo 'null' > ./src/.temp-mocks/data.json",
+    "mock:create": "tsx src/get-mock-data.ts --overwrite",
     "dev": "tsx src/server.ts",
+    "dev:temp-mock": "VITE_USE_TEMP_MOCK=true tsx src/server.ts",
     "build": "vite build && vite build --ssr",
+    "build:temp-mock": "VITE_USE_TEMP_MOCK=true vite build && vite build --ssr",
     "preview": "NODE_ENV=production tsx src/server.ts",
     "start": "NODE_ENV=production node dist/server/server.js",
     "test": "vitest run"
@@ -21,6 +25,7 @@
     "@stewie/vite": "workspace:*"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.4.0",
     "tsx": "^4.0.0",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"

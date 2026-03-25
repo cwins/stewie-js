@@ -1,0 +1,40 @@
+{
+  "projects": [
+    {
+      "id": "p1",
+      "name": "Work Tasks",
+      "taskCount": 2
+    },
+    {
+      "id": "p2",
+      "name": "Personal Goals",
+      "taskCount": 1
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "projectId": "p1",
+      "title": "Review Q1 Reports",
+      "description": "Check the numbers",
+      "dueDate": "2026-03-25",
+      "isCompleted": false
+    },
+    {
+      "id": "t2",
+      "projectId": "p1",
+      "title": "Email Marketing Team",
+      "description": "",
+      "dueDate": null,
+      "isCompleted": false
+    },
+    {
+      "id": "t3",
+      "projectId": "p2",
+      "title": "Run 5K",
+      "description": "Morning run",
+      "dueDate": "2026-03-30",
+      "isCompleted": false
+    }
+  ]
+}
