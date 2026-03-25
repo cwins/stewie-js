@@ -19,22 +19,22 @@ import type { Component, Disposer } from '@stewie/core'
 
 describe('renderApp — SSR HTML output', () => {
   it('renders the default title', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     expect(html).toContain('Stewie SSR Demo')
   })
 
   it('renders the author', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     expect(html).toContain('By Stewie')
   })
 
   it('renders with a custom title', async () => {
-    const html = await renderApp({ title: 'My Custom App' })
+    const { html } = await renderApp({ title: 'My Custom App' })
     expect(html).toContain('My Custom App')
   })
 
   it('renders all todo texts', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     expect(html).toContain('Learn Stewie signals')
     expect(html).toContain('Build a reactive component')
     expect(html).toContain('Write tests with @stewie/testing')
@@ -42,7 +42,7 @@ describe('renderApp — SSR HTML output', () => {
   })
 
   it('renders the correct done/pending class on each item', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     // Item 2 is done
     expect(html).toMatch(/data-testid="todo-2"[^>]*class="[^"]*done/)
     // Item 1 is pending
@@ -50,46 +50,47 @@ describe('renderApp — SSR HTML output', () => {
   })
 
   it('renders the theme class from ThemeContext', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     expect(html).toContain('theme-dark')
   })
 
   it('renders priority badges via Switch/Match', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     expect(html).toContain('badge-high') // item 1
     expect(html).toContain('badge-normal') // items 2, 3
     expect(html).toContain('badge-low') // item 4
   })
 
   it('omits ClientOnly content on server', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     expect(html).not.toContain('Mark done')
     expect(html).not.toContain('check-btn')
   })
 
   it('renders the stats block', async () => {
-    const html = await renderApp()
+    const { html } = await renderApp()
     expect(html).toContain('4 todos')
     expect(html).toContain('1 done')
     expect(html).toContain('1 high priority')
   })
 
   it('renders the empty state when todos array is empty', async () => {
-    const html = await renderApp({ todos: [] })
+    const { html } = await renderApp({ todos: [] })
     expect(html).toContain('No todos yet!')
     expect(html).not.toContain('todo-list')
   })
 
-  it('injects __STEWIE_STATE__ script tag', async () => {
-    const html = await renderApp()
-    expect(html).toContain('__STEWIE_STATE__')
-    expect(html).toContain('appState')
-    expect(html).toContain('Learn Stewie signals')
+  it('returns stateScript containing __STEWIE_STATE__', async () => {
+    const { html, stateScript } = await renderApp()
+    expect(html).not.toContain('__STEWIE_STATE__')
+    expect(stateScript).toContain('__STEWIE_STATE__')
+    expect(stateScript).toContain('appState')
+    expect(stateScript).toContain('Learn Stewie signals')
   })
 
   it('renders with a custom todo list', async () => {
     const todos: Todo[] = [{ id: 1, text: 'Custom task', priority: 'high', done: false }]
-    const html = await renderApp({ todos })
+    const { html } = await renderApp({ todos })
     expect(html).toContain('Custom task')
     expect(html).toContain('badge-high')
   })

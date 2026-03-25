@@ -31,7 +31,7 @@ describe('Router SSR rendering', () => {
         jsx(Route as any, { path: '/about', component: About }),
       ],
     })
-    const html = await renderToString(el)
+    const { html } = await renderToString(el)
     expect(html).toContain('Home Page')
     expect(html).not.toContain('About Page')
   })
@@ -44,7 +44,7 @@ describe('Router SSR rendering', () => {
         jsx(Route as any, { path: '/about', component: About }),
       ],
     })
-    const html = await renderToString(el)
+    const { html } = await renderToString(el)
     expect(html).toContain('About Page')
     expect(html).not.toContain('Home Page')
   })
@@ -54,7 +54,7 @@ describe('Router SSR rendering', () => {
       initialUrl: '/users/42',
       children: [jsx(Route as any, { path: '/users/:id', component: User as any })],
     })
-    const html = await renderToString(el)
+    const { html } = await renderToString(el)
     expect(html).toContain('User 42')
   })
 
@@ -63,7 +63,7 @@ describe('Router SSR rendering', () => {
       initialUrl: '/no-match',
       children: [jsx(Route as any, { path: '/', component: Home })],
     })
-    const html = await renderToString(el)
+    const { html } = await renderToString(el)
     expect(html).not.toContain('Home Page')
   })
 
@@ -193,14 +193,14 @@ describe('Router navigate() params', () => {
 describe('Link SSR', () => {
   it('renders an anchor tag with href', async () => {
     const el = jsx(Link as any, { to: '/about', children: 'Go' })
-    const html = await renderToString(el)
+    const { html } = await renderToString(el)
     expect(html).toContain('<a href="/about">')
     expect(html).toContain('Go')
   })
 
   it('renders class when provided', async () => {
     const el = jsx(Link as any, { to: '/x', class: 'nav-link', children: 'X' })
-    const html = await renderToString(el)
+    const { html } = await renderToString(el)
     expect(html).toContain('class="nav-link"')
   })
 
@@ -213,7 +213,7 @@ describe('Link SSR', () => {
       initialUrl: '/',
       children: [jsx(Route as any, { path: '/', component: WithLink })],
     })
-    const html = await renderToString(el)
+    const { html } = await renderToString(el)
     expect(html).not.toContain('onClick')
     expect(html).toContain('href="/other"')
   })
@@ -286,7 +286,7 @@ describe('Link DOM', () => {
   })
 
   it('renders as plain anchor without router context', async () => {
-    const html = await renderToString(jsx(Link as any, { to: '/x', children: 'X' }))
+    const { html } = await renderToString(jsx(Link as any, { to: '/x', children: 'X' }))
     expect(html).toContain('href="/x"')
   })
 })

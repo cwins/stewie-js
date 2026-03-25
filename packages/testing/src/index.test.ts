@@ -3,6 +3,6 @@ import { version } from './index.js'
 
 describe('@stewie/testing', () => {
   it('exports version', () => {
-    expect(version).toBe('0.0.1')
+    expect(version).toBe('0.1.0')
   })
 })

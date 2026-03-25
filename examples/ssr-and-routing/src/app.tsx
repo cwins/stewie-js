@@ -10,6 +10,7 @@ import { useHydrationRegistry } from '@stewie/core'
 import type { JSXElement } from '@stewie/core'
 import { Router, Route, useRouter } from '@stewie/router'
 import { renderToString } from '@stewie/server'
+import type { RenderResult } from '@stewie/server'
 import './styles.css'
 
 // ---------------------------------------------------------------------------
@@ -502,6 +503,6 @@ export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
 // renderApp — server-side entry point used by server.ts and tests
 // ---------------------------------------------------------------------------
 
-export async function renderApp(url: string = '/'): Promise<string> {
+export async function renderApp(url: string = '/'): Promise<RenderResult> {
   return renderToString(<App initialUrl={url} />)
 }

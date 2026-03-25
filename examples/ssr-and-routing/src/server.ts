@@ -41,8 +41,8 @@ if (isProd) {
 
     // SSR render
     try {
-      const appHtml = await renderApp(req.url ?? '/')
-      const html = template.replace('<!--ssr-outlet-->', appHtml)
+      const { html: appHtml, stateScript } = await renderApp(req.url ?? '/')
+      const html = template.replace('<!--ssr-outlet-->', appHtml).replace('</body>', `  ${stateScript}\n  </body>`)
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
       res.end(html)
     } catch (e) {
@@ -71,14 +71,14 @@ if (isProd) {
       ;(async () => {
         try {
           const { renderApp } = (await vite.ssrLoadModule('/src/app.tsx')) as {
-            renderApp: (url: string) => Promise<string>
+            renderApp: (url: string) => Promise<{ html: string; stateScript: string }>
           }
 
           const rawTemplate = readFileSync(resolve(root, 'index.html'), 'utf-8')
           const template = await vite.transformIndexHtml(req.url ?? '/', rawTemplate)
 
-          const appHtml = await renderApp(req.url ?? '/')
-          const html = template.replace('<!--ssr-outlet-->', appHtml)
+          const { html: appHtml, stateScript } = await renderApp(req.url ?? '/')
+          const html = template.replace('<!--ssr-outlet-->', appHtml).replace('</body>', `  ${stateScript}\n  </body>`)
 
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
           res.end(html)

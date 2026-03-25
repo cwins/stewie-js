@@ -187,6 +187,7 @@ export function App({ serverState }: { serverState?: AppState } = {}): JSXElemen
 // ---------------------------------------------------------------------------
 
 import { renderToString } from '@stewie/server'
+import type { RenderResult } from '@stewie/server'
 
 const defaultTodos: Todo[] = [
   { id: 1, text: 'Learn Stewie signals', priority: 'high', done: false },
@@ -195,7 +196,7 @@ const defaultTodos: Todo[] = [
   { id: 4, text: 'Deploy to production', priority: 'low', done: false },
 ]
 
-export async function renderApp(state?: Partial<AppState>): Promise<string> {
+export async function renderApp(state?: Partial<AppState>): Promise<RenderResult> {
   const appState: AppState = {
     title: state?.title ?? 'Stewie SSR Demo',
     author: state?.author ?? 'Stewie',

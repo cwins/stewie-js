@@ -224,7 +224,7 @@ describe('assertStore', () => {
 
 describe('renderToString (SSR helper)', () => {
   it('returns HTML for a component', async () => {
-    const html = await renderToString(jsx('h1', { children: 'Hello' }))
+    const { html } = await renderToString(jsx('h1', { children: 'Hello' }))
     expect(html).toContain('<h1>Hello</h1>')
   })
 })

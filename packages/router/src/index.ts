@@ -1,5 +1,5 @@
 // @stewie/router — reactive URL-as-store routing
-export const version = '0.0.1'
+export const version = '0.1.0'
 export { createRouter, useRouter, RouterContext } from './router.js'
 export { Router, Route, Link } from './components.js'
 export { useLocation, useParams, useQuery } from './hooks.js'

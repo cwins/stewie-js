@@ -19,41 +19,42 @@ import type { Component, Disposer } from '@stewie/core'
 
 describe('renderApp("/") — Dashboard SSR', () => {
   it('renders the Projects heading', async () => {
-    const html = await renderApp('/')
+    const { html } = await renderApp('/')
     expect(html).toContain('Projects')
   })
 
   it('renders project cards for each seed project', async () => {
-    const html = await renderApp('/')
+    const { html } = await renderApp('/')
     expect(html).toContain('Work Tasks')
     expect(html).toContain('Personal Goals')
   })
 
   it('renders a project-card testid for p1', async () => {
-    const html = await renderApp('/')
+    const { html } = await renderApp('/')
     expect(html).toContain('project-card-p1')
   })
 
   it('renders a project-card testid for p2', async () => {
-    const html = await renderApp('/')
+    const { html } = await renderApp('/')
     expect(html).toContain('project-card-p2')
   })
 
   it('renders the new-project card', async () => {
-    const html = await renderApp('/')
+    const { html } = await renderApp('/')
     expect(html).toContain('new-project-card')
   })
 
   it('renders the project grid', async () => {
-    const html = await renderApp('/')
+    const { html } = await renderApp('/')
     expect(html).toContain('project-grid')
   })
 
-  it('injects __STEWIE_STATE__ with appData', async () => {
-    const html = await renderApp('/')
-    expect(html).toContain('__STEWIE_STATE__')
-    expect(html).toContain('appData')
-    expect(html).toContain('Work Tasks')
+  it('returns stateScript containing __STEWIE_STATE__ with appData', async () => {
+    const { html, stateScript } = await renderApp('/')
+    expect(html).not.toContain('__STEWIE_STATE__')
+    expect(stateScript).toContain('__STEWIE_STATE__')
+    expect(stateScript).toContain('appData')
+    expect(stateScript).toContain('Work Tasks')
   })
 })
 
@@ -63,29 +64,29 @@ describe('renderApp("/") — Dashboard SSR', () => {
 
 describe('renderApp("/project/p1") — Project Detail SSR', () => {
   it('renders the project name', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     expect(html).toContain('Work Tasks')
   })
 
   it('renders the project-detail testid', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     expect(html).toContain('project-detail-p1')
   })
 
   it('renders task rows for tasks in p1', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     expect(html).toContain('task-row-t1')
     expect(html).toContain('task-row-t2')
   })
 
   it('renders task titles', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     expect(html).toContain('Review Q1 Reports')
     expect(html).toContain('Email Marketing Team')
   })
 
   it('does not render task rows from other projects', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     // t3 (Run 5K) belongs to p2 — its task-row should not appear in the rendered view.
     // Note: "Run 5K" may still appear inside __STEWIE_STATE__ JSON, so we check
     // for the task-row element specifically.
@@ -93,29 +94,29 @@ describe('renderApp("/project/p1") — Project Detail SSR', () => {
   })
 
   it('renders a due date badge for t1', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     expect(html).toContain('task-badge-t1')
   })
 
   it('renders "No date" badge for t2 (null dueDate)', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     expect(html).toContain('No date')
   })
 
   it('renders the back button', async () => {
-    const html = await renderApp('/project/p1')
+    const { html } = await renderApp('/project/p1')
     expect(html).toContain('back-btn')
   })
 })
 
 describe('renderApp("/project/p2") — Project Detail p2 SSR', () => {
   it('renders Personal Goals', async () => {
-    const html = await renderApp('/project/p2')
+    const { html } = await renderApp('/project/p2')
     expect(html).toContain('Personal Goals')
   })
 
   it('renders the Run 5K task', async () => {
-    const html = await renderApp('/project/p2')
+    const { html } = await renderApp('/project/p2')
     expect(html).toContain('Run 5K')
     expect(html).toContain('task-row-t3')
   })
@@ -127,27 +128,27 @@ describe('renderApp("/project/p2") — Project Detail p2 SSR', () => {
 
 describe('renderApp("/project/create") — Create Project form SSR', () => {
   it('renders the create-project testid', async () => {
-    const html = await renderApp('/project/create')
+    const { html } = await renderApp('/project/create')
     expect(html).toContain('create-project')
   })
 
   it('renders the project name input', async () => {
-    const html = await renderApp('/project/create')
+    const { html } = await renderApp('/project/create')
     expect(html).toContain('project-name-input')
   })
 
   it('renders the create project form', async () => {
-    const html = await renderApp('/project/create')
+    const { html } = await renderApp('/project/create')
     expect(html).toContain('create-project-form')
   })
 
   it('renders the submit button', async () => {
-    const html = await renderApp('/project/create')
+    const { html } = await renderApp('/project/create')
     expect(html).toContain('create-project-submit')
   })
 
   it('renders the New Project heading', async () => {
-    const html = await renderApp('/project/create')
+    const { html } = await renderApp('/project/create')
     expect(html).toContain('New Project')
   })
 })
@@ -158,32 +159,32 @@ describe('renderApp("/project/create") — Create Project form SSR', () => {
 
 describe('renderApp("/project/p1/task/create") — Create Task form SSR', () => {
   it('renders the create-task testid', async () => {
-    const html = await renderApp('/project/p1/task/create')
+    const { html } = await renderApp('/project/p1/task/create')
     expect(html).toContain('create-task')
   })
 
   it('renders the task title input', async () => {
-    const html = await renderApp('/project/p1/task/create')
+    const { html } = await renderApp('/project/p1/task/create')
     expect(html).toContain('task-title-input')
   })
 
   it('renders the task description textarea', async () => {
-    const html = await renderApp('/project/p1/task/create')
+    const { html } = await renderApp('/project/p1/task/create')
     expect(html).toContain('task-desc-input')
   })
 
   it('renders the due date input', async () => {
-    const html = await renderApp('/project/p1/task/create')
+    const { html } = await renderApp('/project/p1/task/create')
     expect(html).toContain('task-due-input')
   })
 
   it('renders the create-task-form', async () => {
-    const html = await renderApp('/project/p1/task/create')
+    const { html } = await renderApp('/project/p1/task/create')
     expect(html).toContain('create-task-form')
   })
 
   it('renders the New Task heading', async () => {
-    const html = await renderApp('/project/p1/task/create')
+    const { html } = await renderApp('/project/p1/task/create')
     expect(html).toContain('New Task')
   })
 })
@@ -194,33 +195,33 @@ describe('renderApp("/project/p1/task/create") — Create Task form SSR', () => 
 
 describe('renderApp("/project/p1/task/t1") — Edit Task form SSR', () => {
   it('renders the edit-task testid', async () => {
-    const html = await renderApp('/project/p1/task/t1')
+    const { html } = await renderApp('/project/p1/task/t1')
     expect(html).toContain('edit-task')
   })
 
   it('renders the edit task form', async () => {
-    const html = await renderApp('/project/p1/task/t1')
+    const { html } = await renderApp('/project/p1/task/t1')
     expect(html).toContain('edit-task-form')
   })
 
   it('renders the title input with existing task title', async () => {
-    const html = await renderApp('/project/p1/task/t1')
+    const { html } = await renderApp('/project/p1/task/t1')
     expect(html).toContain('edit-task-title-input')
     expect(html).toContain('Review Q1 Reports')
   })
 
   it('renders the description textarea', async () => {
-    const html = await renderApp('/project/p1/task/t1')
+    const { html } = await renderApp('/project/p1/task/t1')
     expect(html).toContain('edit-task-desc-input')
   })
 
   it('renders the Edit Task heading', async () => {
-    const html = await renderApp('/project/p1/task/t1')
+    const { html } = await renderApp('/project/p1/task/t1')
     expect(html).toContain('Edit Task')
   })
 
   it('renders the delete button', async () => {
-    const html = await renderApp('/project/p1/task/t1')
+    const { html } = await renderApp('/project/p1/task/t1')
     expect(html).toContain('delete-task-btn')
   })
 })

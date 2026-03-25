@@ -10,51 +10,106 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
 
   // package.json
   const dependencies: Record<string, string> = {
-    '@stewie/core': '^0.0.1',
-    '@stewie/vite': '^0.0.1',
+    '@stewie/core': '^0.1.0',
+    '@stewie/vite': '^0.1.0',
   }
   if (ctx.mode === 'ssr') {
-    dependencies['@stewie/server'] = '^0.0.1'
+    dependencies['@stewie/server'] = '^0.1.0'
     if (ctx.ssrRuntime === 'bun') {
-      dependencies['@stewie/adapter-bun'] = '^0.0.1'
+      dependencies['@stewie/adapter-bun'] = '^0.1.0'
     } else {
-      dependencies['@stewie/adapter-node'] = '^0.0.1'
+      dependencies['@stewie/adapter-node'] = '^0.1.0'
     }
   }
   if (ctx.includeRouter) {
-    dependencies['@stewie/router'] = '^0.0.1'
+    dependencies['@stewie/router'] = '^0.1.0'
+  }
+
+  const devDependencies: Record<string, string> = {
+    typescript: '^5.8.0',
+    vite: '^6.0.0',
+    vitest: '^3.0.0',
+    '@stewie/testing': '^0.1.0',
+  }
+  if (ctx.mode === 'ssr' && ctx.ssrRuntime !== 'bun') {
+    devDependencies['tsx'] = '^4.0.0'
+  }
+
+  const scripts: Record<string, string> = {
+    dev: ctx.mode === 'ssr'
+      ? (ctx.ssrRuntime === 'bun' ? 'bun src/server.ts' : 'tsx src/server.ts')
+      : 'vite',
+    build: ctx.mode === 'ssr' ? 'vite build && vite build --ssr' : 'vite build',
+    test: 'vitest run',
+  }
+  if (ctx.mode === 'ssr') {
+    scripts['start'] = ctx.ssrRuntime === 'bun'
+      ? 'NODE_ENV=production bun dist/server/server.js'
+      : 'NODE_ENV=production node dist/server/server.js'
+  } else {
+    scripts['preview'] = 'vite preview'
   }
 
   const packageJson = {
     name: ctx.projectName,
     version: '0.1.0',
     type: 'module',
-    scripts: {
-      dev: ctx.mode === 'ssr' ? (ctx.ssrRuntime === 'bun' ? 'bun src/server.ts' : 'tsx src/server.ts') : 'vite',
-      build: ctx.mode === 'ssr' ? 'vite build && vite build --ssr' : 'vite build',
-      preview: 'vite preview',
-      test: 'vitest run',
-    },
+    scripts,
     dependencies,
-    devDependencies: {
-      typescript: '^5.8.0',
-      vite: '^6.0.0',
-      vitest: '^3.0.0',
-      '@stewie/testing': '^0.0.1',
-    },
+    devDependencies,
   }
   files.push({ path: 'package.json', content: JSON.stringify(packageJson, null, 2) + '\n' })
 
   // vite.config.ts
-  files.push({
-    path: 'vite.config.ts',
-    content: `import { stewie, defineConfig } from '@stewie/vite'
+  if (ctx.mode === 'ssr') {
+    files.push({
+      path: 'vite.config.ts',
+      content: `import { stewie, defineConfig } from '@stewie/vite'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+export default defineConfig({
+  plugins: [stewie()],
+  environments: {
+    client: {
+      build: {
+        outDir: resolve(__dirname, 'dist/client'),
+        emptyOutDir: true,
+        rollupOptions: {
+          input: 'index.html',
+        },
+      },
+    },
+    ssr: {
+      build: {
+        outDir: resolve(__dirname, 'dist/server'),
+        emptyOutDir: true,
+        rollupOptions: {
+          input: 'src/server.ts',
+          output: {
+            format: 'esm',
+            entryFileNames: '[name].js',
+          },
+        },
+      },
+    },
+  },
+})
+`,
+    })
+  } else {
+    files.push({
+      path: 'vite.config.ts',
+      content: `import { stewie, defineConfig } from '@stewie/vite'
 
 export default defineConfig({
   plugins: [stewie()]
 })
 `,
-  })
+    })
+  }
 
   // tsconfig.json
   const tsconfig = {
@@ -88,6 +143,7 @@ export default defineConfig({
   })
 
   // index.html
+  const clientEntry = ctx.mode === 'ssr' ? '/src/client.tsx' : '/src/main.tsx'
   files.push({
     path: 'index.html',
     content: `<!DOCTYPE html>
@@ -98,22 +154,35 @@ export default defineConfig({
     <title>${ctx.projectName}</title>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="app">${ctx.mode === 'ssr' ? '<!--ssr-outlet-->' : ''}</div>
+    <script type="module" src="${clientEntry}"></script>
   </body>
 </html>
 `,
   })
 
-  // src/main.tsx
-  files.push({
-    path: 'src/main.tsx',
-    content: `import { mount } from '@stewie/core'
+  // Client entry
+  if (ctx.mode === 'ssr') {
+    // SSR: client.tsx hydrates server-rendered HTML
+    files.push({
+      path: 'src/client.tsx',
+      content: `import { hydrate } from '@stewie/core'
+import App from './App.js'
+
+hydrate(<App />, document.getElementById('app')!)
+`,
+    })
+  } else {
+    // Static: main.tsx mounts fresh
+    files.push({
+      path: 'src/main.tsx',
+      content: `import { mount } from '@stewie/core'
 import App from './App.js'
 
 mount(<App />, document.getElementById('app')!)
 `,
-  })
+    })
+  }
 
   // src/App.tsx
   if (ctx.includeRouter) {
@@ -148,7 +217,7 @@ export default function App() {
 export default function App() {
   return (
     <div class={styles.app}>
-      <h1>Welcome to Stewie!</h1>
+      <h1>Welcome to ${ctx.projectName}!</h1>
       <p>Edit src/App.tsx to get started.</p>
     </div>
   )
@@ -174,35 +243,60 @@ export default function App() {
     if (ctx.ssrRuntime === 'bun') {
       files.push({
         path: 'src/server.ts',
-        content: `import { renderToString } from '@stewie/server'
+        content: `import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { renderToString } from '@stewie/server'
 import { createBunHandler } from '@stewie/adapter-bun'
 import App from './App.js'
 import { jsx } from '@stewie/core'
 
-const handler = createBunHandler(async (_req: Request) => {
-  const html = await renderToString(jsx(App, {}))
-  return new Response(html, { headers: { 'content-type': 'text/html' } })
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = resolve(__dirname, '..')
+const PORT = parseInt(process.env.PORT ?? '3000', 10)
+
+const template = readFileSync(resolve(root, 'dist/client/index.html'), 'utf-8')
+
+const fetch = createBunHandler(async (_req) => {
+  const { html, stateScript } = await renderToString(jsx(App, {}))
+  const page = template
+    .replace('<!--ssr-outlet-->', html)
+    .replace('</body>', \`  \${stateScript}\\n  </body>\`)
+  return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } })
 })
 
-export default handler
+export default { fetch, port: PORT }
 `,
       })
     } else {
       files.push({
         path: 'src/server.ts',
-        content: `import { renderToString } from '@stewie/server'
+        content: `import { createServer } from 'node:http'
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { renderToString } from '@stewie/server'
 import { createNodeHandler } from '@stewie/adapter-node'
-import { createServer } from 'node:http'
 import App from './App.js'
 import { jsx } from '@stewie/core'
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = resolve(__dirname, '..')
+const PORT = parseInt(process.env.PORT ?? '3000', 10)
+
+const template = readFileSync(resolve(root, 'dist/client/index.html'), 'utf-8')
+
 const handler = createNodeHandler(async (_req) => {
-  const html = await renderToString(jsx(App, {}))
-  return new Response(html, { headers: { 'content-type': 'text/html' } })
+  const { html, stateScript } = await renderToString(jsx(App, {}))
+  const page = template
+    .replace('<!--ssr-outlet-->', html)
+    .replace('</body>', \`  \${stateScript}\\n  </body>\`)
+  return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } })
 })
 
-const server = createServer(handler)
-server.listen(3000, () => console.log('Server running at http://localhost:3000'))
+createServer(handler).listen(PORT, () => {
+  console.log(\`Server running at http://localhost:\${PORT}\`)
+})
 `,
       })
     }

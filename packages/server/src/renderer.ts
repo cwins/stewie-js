@@ -14,7 +14,7 @@ import {
   createRoot,
 } from '@stewie/core'
 import type { ContextProvider, ContextSnapshot } from '@stewie/core'
-import type { RenderToStringOptions } from './types.js'
+import type { RenderToStringOptions, RenderResult } from './types.js'
 import {
   createHydrationRegistry,
   HydrationRegistryContext,
@@ -306,7 +306,7 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
 export async function renderToString(
   root: JSXElement | (() => JSXElement | null),
   options?: RenderToStringOptions,
-): Promise<string> {
+): Promise<RenderResult> {
   // withRenderIsolation clears reactive module-level globals (scopeStack, batchDepth,
   // pendingEffects) and sets allowReactiveCreation=true for the synchronous setup phase,
   // then restores them when the async function returns its Promise. This prevents state
@@ -326,6 +326,6 @@ export async function renderToString(
   const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : ''
   const stateScript = `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson}</script>`
 
-  return html + stateScript
+  return { html, stateScript }
   }) // end withRenderIsolation
 }
