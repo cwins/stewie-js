@@ -24,5 +24,8 @@ export default defineConfig({
       'examples/*/src/**/*.test.tsx',
     ],
     environment: 'node',
+    globalSetup: [
+      'examples/ssr-and-routing/vitest.setup.ts'
+    ]
   },
 })

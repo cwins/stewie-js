@@ -6,6 +6,7 @@
   "scripts": {
     "clean": "rm -rf dist src/.temp-mocks",
     "nuke": "rm -rf dist src/.temp-mocks node_modules",
+    "mock:clean": "rm -rf src/.temp-mocks",
     "mock:create-empty": "mkdir -p ./src/.temp-mocks && echo 'null' > ./src/.temp-mocks/data.json",
     "mock:create": "tsx src/get-mock-data.ts --overwrite",
     "dev": "tsx src/server.ts",
