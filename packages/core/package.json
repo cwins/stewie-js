@@ -1,6 +1,32 @@
 {
   "name": "@stewie-js/core",
   "version": "0.1.0",
+  "description": "Reactivity primitives, JSX runtime, context, and control flow for the Stewie framework",
+  "author": "",
+  "license": "MIT",
+  "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cwins/stewie-js.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "stewie",
+    "reactive",
+    "signals",
+    "computed",
+    "effects",
+    "store",
+    "jsx",
+    "context",
+    "typescript",
+    "web-framework",
+    "no-vdom"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

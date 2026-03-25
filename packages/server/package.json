@@ -1,6 +1,28 @@
 {
   "name": "@stewie-js/server",
   "version": "0.1.0",
+  "description": "WinterCG-compatible server-side rendering for the Stewie framework",
+  "author": "",
+  "license": "MIT",
+  "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cwins/stewie-js.git",
+    "directory": "packages/server"
+  },
+  "keywords": [
+    "stewie",
+    "ssr",
+    "server-side-rendering",
+    "wintercg",
+    "streaming",
+    "hydration",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

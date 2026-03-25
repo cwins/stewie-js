@@ -1,6 +1,27 @@
 {
   "name": "@stewie-js/adapter-bun",
   "version": "0.1.0",
+  "description": "Bun HTTP adapter for the Stewie framework",
+  "author": "",
+  "license": "MIT",
+  "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/adapter-bun#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cwins/stewie-js.git",
+    "directory": "packages/adapter-bun"
+  },
+  "keywords": [
+    "stewie",
+    "bun",
+    "http",
+    "adapter",
+    "ssr",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
