@@ -60,7 +60,7 @@ const defaultData: AppData = await import('./data.json').then(async (data) => {
   try {
     if (['true', true].some((condition) => condition === import.meta.env.VITE_USE_TEMP_MOCK)) {
       const mock = await import('./.temp-mocks/data.json'!);
-      
+
       if (mock?.default) {
         return mock.default;
       }
@@ -181,13 +181,118 @@ function CreateProjectView(): JSXElement {
 }
 
 // ---------------------------------------------------------------------------
-// Project Detail view
+// Task edit sheet — rendered inside the side panel in ProjectDetailView
+// ---------------------------------------------------------------------------
+
+function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): JSXElement {
+  const app = inject(AppContext)!
+
+  let titleSig!: ReturnType<typeof signal<string>>
+  let descSig!: ReturnType<typeof signal<string>>
+  let dueDateSig!: ReturnType<typeof signal<string>>
+  let completedSig!: ReturnType<typeof signal<boolean>>
+  createRoot(() => {
+    titleSig = signal(task.title)
+    descSig = signal(task.description)
+    dueDateSig = signal(task.dueDate ?? '')
+    completedSig = signal(task.isCompleted)
+  })
+
+  const handleSubmit = (e: Event) => {
+    e.preventDefault()
+    app.updateTask(task.id, {
+      title: titleSig().trim(),
+      description: descSig().trim(),
+      dueDate: dueDateSig().trim() || null,
+      isCompleted: completedSig(),
+    })
+    onClose()
+  }
+
+  const handleDelete = () => {
+    app.deleteTask(task.id)
+    onClose()
+  }
+
+  return (
+    <div>
+      <div class="task-sheet-header">
+        <h2 class="task-sheet-title">Edit Task</h2>
+        <button
+          class="task-sheet-close"
+          onClick={onClose}
+          aria-label="Close panel"
+        >
+          ✕
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} data-testid="edit-task-form">
+        <div class="input-group">
+          <label for="edit-task-title">Title</label>
+          <input
+            id="edit-task-title"
+            type="text"
+            value={titleSig()}
+            onInput={(e: Event) => { titleSig.set((e.target as HTMLInputElement).value) }}
+            data-testid="edit-task-title-input"
+          />
+        </div>
+        <div class="input-group">
+          <label for="edit-task-desc">Description</label>
+          <textarea
+            id="edit-task-desc"
+            value={descSig()}
+            onInput={(e: Event) => { descSig.set((e.target as HTMLTextAreaElement).value) }}
+            data-testid="edit-task-desc-input"
+          />
+        </div>
+        <div class="input-group">
+          <label for="edit-task-due">Due Date</label>
+          <input
+            id="edit-task-due"
+            type="date"
+            value={dueDateSig()}
+            onInput={(e: Event) => { dueDateSig.set((e.target as HTMLInputElement).value) }}
+            data-testid="edit-task-due-input"
+          />
+        </div>
+        <div class="input-group" style="display: flex; align-items: center; gap: 0.5rem;">
+          <input
+            id="edit-task-completed"
+            type="checkbox"
+            checked={completedSig()}
+            onChange={(e: Event) => { completedSig.set((e.target as HTMLInputElement).checked) }}
+            data-testid="edit-task-completed-input"
+            style="width: auto;"
+          />
+          <label for="edit-task-completed" style="margin: 0;">Completed</label>
+        </div>
+        <button type="submit" class="btn-primary" data-testid="edit-task-submit">
+          Save Changes
+        </button>
+        <button
+          type="button"
+          class="btn-secondary"
+          style="color: #ef4444; border-color: #fecaca; margin-top: 0.5rem;"
+          onClick={handleDelete}
+          data-testid="delete-task-btn"
+        >
+          Delete Task
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Project Detail view — handles both /project/:projectId
+// and /project/:projectId/task/:taskId (two-column layout with task sheet)
 // ---------------------------------------------------------------------------
 
 function ProjectDetailView(): JSXElement {
   const router = useRouter()
   const app = inject(AppContext)!
-  const projectId = router.location.params.projectId
+  const { projectId, taskId: urlTaskId } = router.location.params
 
   const project = app.projects.find((p) => p.id === projectId)
 
@@ -200,10 +305,21 @@ function ProjectDetailView(): JSXElement {
     )
   }
 
+  // Local signal for the selected task — avoids URL-driven remounting so the
+  // component stays alive, reactive prop effects re-run, and the devtools
+  // Renders tab can observe fine-grained updates.
+  // Initialised from the URL param so direct-URL access and SSR still work.
+  let selectedTaskId!: ReturnType<typeof signal<string | null>>
+  createRoot(() => {
+    selectedTaskId = signal(urlTaskId ?? null)
+  })
+
+  const closeSheet = () => selectedTaskId.set(null)
+
   const tasks = app.tasks.filter((t) => t.projectId === projectId)
 
-  return (
-    <div class="container" data-testid={`project-detail-${projectId}`}>
+  const listPane = (
+    <div data-testid={`project-detail-${projectId}`}>
       <button class="back-btn" onClick={() => router.navigate('/')}>← Back</button>
       <div class="page-header">
         <h1 class="page-title" data-testid="project-name">{project.name}</h1>
@@ -219,18 +335,18 @@ function ProjectDetailView(): JSXElement {
       <Show
         when={tasks.length > 0}
         fallback={
-          <div class="empty-state" data-testid="no-tasks">
-            No tasks yet. Add one!
-          </div>
+          <div class="empty-state" data-testid="no-tasks">No tasks yet. Add one!</div>
         }
       >
         <div data-testid="task-list">
           <For each={tasks}>
             {(task: Task) => (
               <div
-                class={`task-row${task.isCompleted ? ' task-row-completed' : ''}`}
+                class={() =>
+                  `task-row${task.isCompleted ? ' task-row-completed' : ''}${task.id === selectedTaskId() ? ' task-row-selected' : ''}`
+                }
                 data-testid={`task-row-${task.id}`}
-                onClick={() => router.navigate(`/project/${projectId}/task/${task.id}`)}
+                onClick={() => selectedTaskId.set(task.id)}
               >
                 <span class="task-title">{task.title}</span>
                 <span class="badge" data-testid={`task-badge-${task.id}`}>
@@ -240,6 +356,28 @@ function ProjectDetailView(): JSXElement {
             )}
           </For>
         </div>
+      </Show>
+    </div>
+  )
+
+  // Outer div class switches between single-column (.container) and two-column
+  // (.project-layout) reactively — no remount, just a class change.
+  // The list pane is always in the DOM; only the sheet Show mounts/unmounts.
+  return (
+    <div class={() => selectedTaskId() !== null ? 'project-layout' : 'container'}>
+      <div class="task-list-pane">
+        {listPane}
+      </div>
+      <Show when={() => selectedTaskId() !== null}>
+        {() => {
+          const task = app.tasks.find((t) => t.id === selectedTaskId())
+          if (!task) return <p data-testid="task-not-found">Task not found.</p>
+          return (
+            <div class="task-sheet" data-testid="edit-task">
+              <TaskEditSheet task={task} onClose={closeSheet} />
+            </div>
+          )
+        }}
       </Show>
     </div>
   )
@@ -328,122 +466,6 @@ function CreateTaskView(): JSXElement {
 }
 
 // ---------------------------------------------------------------------------
-// Edit Task view
-// ---------------------------------------------------------------------------
-
-function EditTaskView(): JSXElement {
-  const router = useRouter()
-  const app = inject(AppContext)!
-  const { projectId, taskId } = router.location.params
-
-  const task = app.tasks.find((t) => t.id === taskId)
-
-  if (!task) {
-    return (
-      <div class="container" data-testid="task-not-found">
-        <button class="back-btn" onClick={() => router.navigate(`/project/${projectId}`)}>
-          ← Back
-        </button>
-        <p>Task not found.</p>
-      </div>
-    )
-  }
-
-  let titleSig!: ReturnType<typeof signal<string>>
-  let descSig!: ReturnType<typeof signal<string>>
-  let dueDateSig!: ReturnType<typeof signal<string>>
-  let completedSig!: ReturnType<typeof signal<boolean>>
-  createRoot(() => {
-    titleSig = signal(task.title)
-    descSig = signal(task.description)
-    dueDateSig = signal(task.dueDate ?? '')
-    completedSig = signal(task.isCompleted)
-  })
-
-  const handleSubmit = (e: Event) => {
-    e.preventDefault()
-    const dueDate = dueDateSig().trim() || null
-    app.updateTask(taskId, {
-      title: titleSig().trim(),
-      description: descSig().trim(),
-      dueDate,
-      isCompleted: completedSig(),
-    })
-    router.navigate(`/project/${projectId}`)
-  }
-
-  const handleDelete = () => {
-    app.deleteTask(taskId)
-    router.navigate(`/project/${projectId}`)
-  }
-
-  return (
-    <div class="container" data-testid="edit-task">
-      <button class="back-btn" onClick={() => router.navigate(`/project/${projectId}`)}>
-        ← Back
-      </button>
-      <div class="form-card">
-        <h2 class="form-title">Edit Task</h2>
-        <form onSubmit={handleSubmit} data-testid="edit-task-form">
-          <div class="input-group">
-            <label for="edit-task-title">Title</label>
-            <input
-              id="edit-task-title"
-              type="text"
-              value={titleSig()}
-              onInput={(e: Event) => { titleSig.set((e.target as HTMLInputElement).value) }}
-              data-testid="edit-task-title-input"
-            />
-          </div>
-          <div class="input-group">
-            <label for="edit-task-desc">Description</label>
-            <textarea
-              id="edit-task-desc"
-              value={descSig()}
-              onInput={(e: Event) => { descSig.set((e.target as HTMLTextAreaElement).value) }}
-              data-testid="edit-task-desc-input"
-            />
-          </div>
-          <div class="input-group">
-            <label for="edit-task-due">Due Date</label>
-            <input
-              id="edit-task-due"
-              type="date"
-              value={dueDateSig()}
-              onInput={(e: Event) => { dueDateSig.set((e.target as HTMLInputElement).value) }}
-              data-testid="edit-task-due-input"
-            />
-          </div>
-          <div class="input-group" style="display: flex; align-items: center; gap: 0.5rem;">
-            <input
-              id="edit-task-completed"
-              type="checkbox"
-              checked={completedSig()}
-              onChange={(e: Event) => { completedSig.set((e.target as HTMLInputElement).checked) }}
-              data-testid="edit-task-completed-input"
-              style="width: auto;"
-            />
-            <label for="edit-task-completed" style="margin: 0;">Completed</label>
-          </div>
-          <button type="submit" class="btn-primary" data-testid="edit-task-submit">
-            Save Changes
-          </button>
-          <button
-            type="button"
-            class="btn-secondary"
-            style="color: #ef4444; border-color: #fecaca; margin-top: 0.5rem;"
-            onClick={handleDelete}
-            data-testid="delete-task-btn"
-          >
-            Delete Task
-          </button>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // App — root component
 // ---------------------------------------------------------------------------
 
@@ -493,7 +515,7 @@ export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
         <Route path="/project/create" component={CreateProjectView} />
         <Route path="/project/:projectId" component={ProjectDetailView} />
         <Route path="/project/:projectId/task/create" component={CreateTaskView} />
-        <Route path="/project/:projectId/task/:taskId" component={EditTaskView} />
+        <Route path="/project/:projectId/task/:taskId" component={ProjectDetailView} />
       </Router>
     </AppContext.Provider>
   )

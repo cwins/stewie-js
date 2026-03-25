@@ -29,8 +29,9 @@ body { background: var(--bg); color: var(--text); font-family: system-ui, sans-s
 .input-group textarea { min-height: 80px; resize: vertical; }
 
 /* Task rows */
-.task-row { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.5rem; background: white; cursor: pointer; }
+.task-row { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1rem; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.5rem; background: white; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .task-row:hover { border-color: var(--primary); }
+.task-row-selected { border-color: var(--primary); background: #eef2ff; }
 
 /* Badges */
 .badge { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: #f1f5f9; color: #64748b; white-space: nowrap; }
@@ -41,7 +42,92 @@ body { background: var(--bg); color: var(--text); font-family: system-ui, sans-s
 /* Form card wrapper */
 .form-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; max-width: 480px; margin: 2rem auto; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 
-/* View transitions */
+/* -------------------------------------------------------------------------
+   Project two-column layout (list + task sheet side by side)
+   ------------------------------------------------------------------------- */
+
+.project-layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.task-list-pane {
+  flex: 1;
+  min-width: 0; /* prevent flex blowout */
+}
+
+/* Sliding task sheet */
+.task-sheet {
+  width: 400px;
+  flex-shrink: 0;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.12), 0 2px 8px rgba(0,0,0,0.08);
+  position: sticky;
+  top: 2rem;
+  animation: sheet-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+.task-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.task-sheet-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.task-sheet-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: #94a3b8;
+  padding: 0.25rem 0.4rem;
+  line-height: 1;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.task-sheet-close:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Stack vertically on small screens */
+@media (max-width: 720px) {
+  .project-layout {
+    flex-direction: column;
+  }
+  .task-sheet {
+    width: 100%;
+    position: static;
+    animation: sheet-in-down 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes sheet-in-down {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+}
+
+/* View transitions (for full-page route changes) */
 ::view-transition-old(root) { animation: slide-out 0.2s ease-in; }
 ::view-transition-new(root) { animation: slide-in 0.2s ease-out; }
 @keyframes slide-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-20px); } }

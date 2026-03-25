@@ -2,6 +2,7 @@
 
 import {
   isDev,
+  __devHooks,
   _allowReactiveCreation,
   getCurrentScope,
   Subscribable,
@@ -124,6 +125,10 @@ function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: stri
 
       const fullPath = path ? `${path}.${key}` : key
       ;(obj as Record<string, unknown>)[key] = value
+
+      if (isDev && __devHooks.onStoreWrite) {
+        __devHooks.onStoreWrite(fullPath, value)
+      }
 
       // Notify subscribers of this exact path only
       // (changing a.b does NOT notify a.c subscribers)

@@ -83,7 +83,7 @@ export function stewie(options?: StewiePluginOptions): Plugin {
     },
 
     transformIndexHtml: {
-      order: 'post' as const,
+      order: 'pre' as const,
       handler(_html: string, ctx: { server?: unknown }) {
         if (!ctx.server) return // prod build — skip
         return [

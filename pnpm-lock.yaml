@@ -69,6 +69,9 @@ importers:
       '@stewie-js/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@stewie-js/devtools':
+        specifier: workspace:*
+        version: link:../../packages/devtools
       '@stewie-js/router':
         specifier: workspace:*
         version: link:../../packages/router

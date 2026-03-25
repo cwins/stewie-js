@@ -25,7 +25,8 @@
     "@stewie-js/adapter-node": "workspace:*",
     "@stewie-js/router": "workspace:*",
     "@stewie-js/testing": "workspace:*",
-    "@stewie-js/vite": "workspace:*"
+    "@stewie-js/vite": "workspace:*",
+    "@stewie-js/devtools": "workspace:*"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.4.0",

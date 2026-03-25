@@ -1,7 +1,7 @@
 // panel.ts — the floating devtools panel
 
 import { buildRendersTab, addRenderEntry, clearRendersTabRef } from './tabs/renders.js'
-import { buildStoresTab, addSignalEntry, clearStoresTabRef } from './tabs/stores.js'
+import { buildStoresTab, addSignalEntry, addStoreEntry, clearStoresTabRef } from './tabs/stores.js'
 import { buildRoutesTab, clearRoutesTabRef, onNavigation } from './tabs/routes.js'
 import type { DevEffectMeta } from '@stewie-js/core'
 
@@ -109,6 +109,11 @@ export function notifyEffectRun(meta: DevEffectMeta | undefined): void {
 // Called by hooks.ts when a signal is written
 export function notifySignalWrite(value: unknown): void {
   addSignalEntry(value)
+}
+
+// Called by hooks.ts when a store property is written
+export function notifyStoreWrite(path: string, value: unknown): void {
+  addStoreEntry(path, value)
 }
 
 // Called by routes tab when navigation happens

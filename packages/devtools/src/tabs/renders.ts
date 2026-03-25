@@ -56,7 +56,9 @@ function createEntry(entry: RenderEntry): HTMLElement {
 }
 
 export function addRenderEntry(meta: DevEffectMeta | undefined): void {
-  if (!meta?.element) return // only log prop effects for now (have a concrete element)
+  if (!meta) return
+  // 'children' is the Router's top-level navigation effect — too noisy, skip
+  if (meta.type === 'children') return
 
   const entry: RenderEntry = {
     label: formatLabel(meta),
@@ -71,14 +73,15 @@ export function addRenderEntry(meta: DevEffectMeta | undefined): void {
     if (emptyEl) emptyEl.style.display = 'none'
     const entryEl = createEntry(entry)
     listEl.insertBefore(entryEl, listEl.firstChild)
-    // Keep DOM in sync with entries limit
     while (listEl.childElementCount > MAX_ENTRIES) {
       listEl.lastElementChild?.remove()
     }
   }
 
-  // Flash the element
-  flashElement(meta.element)
+  // Flash the element only for prop effects (we have a concrete DOM node)
+  if (meta.element) {
+    flashElement(meta.element)
+  }
 }
 
 export function buildRendersTab(container: HTMLElement): void {

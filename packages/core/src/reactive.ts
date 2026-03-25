@@ -52,6 +52,7 @@ export interface DevEffectMeta {
 export const __devHooks: {
   onEffectRun?: (meta: DevEffectMeta | undefined) => void
   onSignalWrite?: (value: unknown) => void
+  onStoreWrite?: (path: string, value: unknown) => void
 } = {}
 
 let _pendingEffectMeta: DevEffectMeta | undefined

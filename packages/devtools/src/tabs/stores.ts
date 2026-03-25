@@ -1,13 +1,15 @@
-// stores.ts — stores tab: live log of signal/store write events
+// stores.ts — stores tab: live log of signal and store write events
 
 const MAX_ENTRIES = 100
 
-interface SignalEntry {
+interface WriteEntry {
+  kind: 'signal' | 'store'
+  path?: string  // store writes only
   value: unknown
   time: number
 }
 
-const entries: SignalEntry[] = []
+const entries: WriteEntry[] = []
 let listEl: HTMLElement | null = null
 let emptyEl: HTMLElement | null = null
 let countEl: HTMLElement | null = null
@@ -30,13 +32,13 @@ function formatTime(time: number): string {
   return `${Math.floor(delta / 60_000)}m ago`
 }
 
-function createEntry(entry: SignalEntry): HTMLElement {
+function createEntry(entry: WriteEntry): HTMLElement {
   const el = document.createElement('div')
   el.className = '__sdt-entry'
 
   const label = document.createElement('span')
   label.className = '__sdt-entry-label'
-  label.textContent = 'signal write'
+  label.textContent = entry.kind === 'store' ? `store: ${entry.path}` : 'signal'
 
   const value = document.createElement('span')
   value.className = '__sdt-entry-value'
@@ -53,9 +55,8 @@ function createEntry(entry: SignalEntry): HTMLElement {
   return el
 }
 
-export function addSignalEntry(value: unknown): void {
+function push(entry: WriteEntry): void {
   totalWrites++
-  const entry: SignalEntry = { value, time: Date.now() }
   if (entries.length >= MAX_ENTRIES) entries.shift()
   entries.push(entry)
 
@@ -69,6 +70,14 @@ export function addSignalEntry(value: unknown): void {
       listEl.lastElementChild?.remove()
     }
   }
+}
+
+export function addSignalEntry(value: unknown): void {
+  push({ kind: 'signal', value, time: Date.now() })
+}
+
+export function addStoreEntry(path: string, value: unknown): void {
+  push({ kind: 'store', path, value, time: Date.now() })
 }
 
 export function buildStoresTab(container: HTMLElement): void {
@@ -101,7 +110,7 @@ export function buildStoresTab(container: HTMLElement): void {
 
   emptyEl = document.createElement('div')
   emptyEl.className = '__sdt-empty'
-  emptyEl.textContent = 'No signal writes yet. Reactive state changes will appear here.'
+  emptyEl.textContent = 'No writes yet. Reactive state changes will appear here.'
 
   if (entries.length === 0) {
     listEl.appendChild(emptyEl)
