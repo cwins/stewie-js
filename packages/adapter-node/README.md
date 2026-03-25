@@ -6,7 +6,7 @@ Node.js HTTP adapter for Stewie. Bridges Node's `http.IncomingMessage` / `Server
 
 Requires Node 18+.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

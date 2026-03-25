@@ -6,7 +6,7 @@ Test utilities for Stewie applications. Provides `mount` for rendering component
 
 Designed for use with [Vitest](https://vitest.dev/).
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

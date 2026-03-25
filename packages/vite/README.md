@@ -4,7 +4,7 @@
 
 Vite plugin for Stewie. Configures the JSX transform to use `@stewie-js/core`'s runtime and wires up HMR.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

@@ -6,7 +6,7 @@ TSX compiler for Stewie. Transforms `.tsx` source files into fine-grained reacti
 
 This package is used internally by `@stewie-js/vite`. You only need it directly if you're building a custom build tool integration.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

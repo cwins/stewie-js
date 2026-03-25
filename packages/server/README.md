@@ -4,7 +4,7 @@
 
 WinterCG-compatible server-side rendering for Stewie. Renders component trees to HTML strings or streaming `ReadableStream`s using only standard web APIs — no Node.js dependencies, runs on any WinterCG-compliant runtime (Node 18+, Bun, Deno, Cloudflare Workers).
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

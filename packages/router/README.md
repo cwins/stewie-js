@@ -4,7 +4,7 @@
 
 Reactive URL-as-store routing for Stewie. The current location is a `store()` — components subscribe only to the specific properties they read, so changing a query parameter only re-renders components that actually read that parameter.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

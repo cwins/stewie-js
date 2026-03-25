@@ -6,7 +6,7 @@ TypeScript interface definitions for the Stewie router service provider interfac
 
 Implement these interfaces to plug a custom router into the Stewie ecosystem, or reference them when building libraries that need to be router-agnostic.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

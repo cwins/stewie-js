@@ -4,7 +4,7 @@
 
 The reactive foundation of Stewie. Provides fine-grained signals, computed values, effects, a proxy-based store, a JSX runtime, context, and built-in control flow components. No virtual DOM — reactive expressions subscribe directly to the DOM nodes they affect.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

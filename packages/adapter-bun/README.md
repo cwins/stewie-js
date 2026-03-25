@@ -4,7 +4,7 @@
 
 Bun HTTP adapter for Stewie. Since Bun's `Bun.serve()` natively speaks `Request` / `Response`, this adapter is a thin wrapper that connects your Stewie app handler to `Bun.serve()`.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Install
 

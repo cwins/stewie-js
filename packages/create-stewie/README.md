@@ -4,7 +4,7 @@
 
 Project scaffolding CLI for Stewie. Generates a fully configured starter project with one command.
 
-Part of the [Stewie](https://github.com/YOUR_ORG/stewie-js) framework.
+Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
 ## Usage
 
