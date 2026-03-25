@@ -1,6 +1,8 @@
 # @stewie-js/adapter-node
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 Node.js HTTP adapter for Stewie. Bridges Node's `http.IncomingMessage` / `ServerResponse` to the standard Web `Request` / `Response` API that `@stewie-js/server` uses, so the same app handler works across Node, Bun, and other WinterCG runtimes.
 

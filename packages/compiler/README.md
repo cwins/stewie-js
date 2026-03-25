@@ -1,6 +1,8 @@
 # @stewie-js/compiler
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 TSX compiler for Stewie. Transforms `.tsx` source files into fine-grained reactive output — JSX attribute expressions that are functions become direct DOM effect subscriptions, and static expressions are set once with no subscription overhead.
 

@@ -1,6 +1,8 @@
 # @stewie-js/adapter-bun
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 Bun HTTP adapter for Stewie. Since Bun's `Bun.serve()` natively speaks `Request` / `Response`, this adapter is a thin wrapper that connects your Stewie app handler to `Bun.serve()`.
 

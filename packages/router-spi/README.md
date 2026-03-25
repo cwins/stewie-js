@@ -1,6 +1,8 @@
 # @stewie-js/router-spi
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 TypeScript interface definitions for the Stewie router service provider interface. Contains zero runtime code — types only.
 

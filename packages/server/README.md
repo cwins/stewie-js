@@ -1,6 +1,8 @@
 # @stewie-js/server
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 WinterCG-compatible server-side rendering for Stewie. Renders component trees to HTML strings or streaming `ReadableStream`s using only standard web APIs — no Node.js dependencies, runs on any WinterCG-compliant runtime (Node 18+, Bun, Deno, Cloudflare Workers).
 

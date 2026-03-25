@@ -1,6 +1,8 @@
 # @stewie-js/core
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 The reactive foundation of Stewie. Provides fine-grained signals, computed values, effects, a proxy-based store, a JSX runtime, context, and built-in control flow components. No virtual DOM — reactive expressions subscribe directly to the DOM nodes they affect.
 

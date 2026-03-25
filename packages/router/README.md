@@ -1,6 +1,8 @@
 # @stewie-js/router
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 Reactive URL-as-store routing for Stewie. The current location is a `store()` — components subscribe only to the specific properties they read, so changing a query parameter only re-renders components that actually read that parameter.
 

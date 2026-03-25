@@ -1,6 +1,8 @@
 # create-stewie
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 Project scaffolding CLI for Stewie. Generates a fully configured starter project with one command.
 

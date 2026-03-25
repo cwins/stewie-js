@@ -1,6 +1,8 @@
 # @stewie-js/testing
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 Test utilities for Stewie applications. Provides `mount` for rendering components into a real DOM (via jsdom or happy-dom), DOM query helpers, signal and store assertions, and an SSR helper for snapshot testing.
 

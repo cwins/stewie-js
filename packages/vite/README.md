@@ -1,6 +1,8 @@
 # @stewie-js/vite
 
-> **Work in progress.** APIs may change between releases.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 Vite plugin for Stewie. Configures the JSX transform to use `@stewie-js/core`'s runtime and wires up HMR.
 

@@ -4,7 +4,9 @@
 
 What is Stewie? A TypeScript web framework with fine-grained signal-based reactivity, server-side rendering, and a clean monorepo architecture. No virtual DOM. Stewie is a compact, yet formidable UI framework, with capabilities and performance that far exceeds its size.
 
-> **Work in progress.** Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
+>❗ **Work in progress.**
+>
+>Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
 ---
 
@@ -26,11 +28,30 @@ What is Stewie? A TypeScript web framework with fine-grained signal-based reacti
 
 ## Quick Start
 
+It is recommended to use the Stewie template to scaffold out your project.
+
 ```bash
+# pnpm
 pnpm create stewie my-app
 cd my-app
 pnpm install
-pnpm dev
+pnpm run dev
+```
+
+```bash
+# npm
+npm init stewie my-app
+cd my-app
+npm install
+npm run dev
+```
+
+```bash
+# bun
+bun create stewie my-app
+cd my-app
+bun install
+bun run dev
 ```
 
 ---
