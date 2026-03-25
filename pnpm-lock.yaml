@@ -133,6 +133,12 @@ importers:
 
   packages/create-stewie: {}
 
+  packages/devtools:
+    dependencies:
+      '@stewie-js/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/router:
     dependencies:
       '@stewie-js/core':

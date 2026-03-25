@@ -14,6 +14,7 @@ export default defineConfig({
       '@stewie-js/router': resolve(__dirname, 'packages/router/src/index.ts'),
       '@stewie-js/adapter-node': resolve(__dirname, 'packages/adapter-node/src/index.ts'),
       '@stewie-js/testing': resolve(__dirname, 'packages/testing/src/index.ts'),
+      '@stewie-js/devtools': resolve(__dirname, 'packages/devtools/src/index.ts'),
     },
   },
   test: {

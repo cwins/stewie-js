@@ -14,6 +14,8 @@ export {
   getCurrentScope,
   createScope,
 } from './reactive.js'
+export { isDev, __devHooks, _setNextEffectMeta } from './reactive.js'
+export type { DevEffectMeta } from './reactive.js'
 
 export { store } from './store.js'
 

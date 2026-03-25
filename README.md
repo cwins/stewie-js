@@ -2,7 +2,7 @@
 
 <img src="stewie_ascii.png" width="320" alt="Stewie" />
 
-A TypeScript web framework with fine-grained signal-based reactivity, server-side rendering, and a clean monorepo architecture. No virtual DOM.
+What is Stewie? A TypeScript web framework with fine-grained signal-based reactivity, server-side rendering, and a clean monorepo architecture. No virtual DOM. Stewie is a compact, yet formidable UI framework, with capabilities and performance that far exceeds its size.
 
 > **Work in progress.** Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 

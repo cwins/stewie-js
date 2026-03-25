@@ -2,7 +2,7 @@
 // Takes JSXElement descriptors (or DOM Nodes from the DOM JSX runtime) and
 // renders them into real DOM nodes with fine-grained reactive subscriptions.
 
-import { effect, createRoot, untrack } from './reactive.js'
+import { effect, createRoot, untrack, _setNextEffectMeta, isDev } from './reactive.js'
 import { Fragment } from './jsx-runtime.js'
 import type { JSXElement, Component } from './jsx-runtime.js'
 import { _pushContext, _popContext } from './context.js'
@@ -90,6 +90,7 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
     let childDisposer: Disposer = () => {}
     let currentNodes: ChildNode[] = []
 
+    if (isDev) _setNextEffectMeta({ type: 'children' })
     const disposeEffect = effect(() => {
       const value = (children as () => unknown)()
       childDisposer()
@@ -139,6 +140,7 @@ function renderShow(props: Record<string, unknown>, parent: Node, before: Node |
   let currentNodes: ChildNode[] = []
   let showing: boolean | null = null
 
+  if (isDev) _setNextEffectMeta({ type: 'show' })
   const disposeEffect = effect(() => {
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when
     const shouldShow = Boolean(when)
@@ -178,6 +180,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
   let childDisposers: Disposer[] = []
   let currentNodes: ChildNode[] = []
 
+  if (isDev) _setNextEffectMeta({ type: 'for' })
   const disposeEffect = effect(() => {
     const each =
       typeof props.each === 'function'
@@ -216,6 +219,7 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
   let childDisposer: Disposer = () => {}
   let currentNodes: ChildNode[] = []
 
+  if (isDev) _setNextEffectMeta({ type: 'switch' })
   const disposeEffect = effect(() => {
     childDisposer()
     childDisposer = () => {}
@@ -373,6 +377,7 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
 
     if (typeof value === 'function') {
       // Reactive prop — re-runs when the signal/computed changes
+      if (isDev) _setNextEffectMeta({ element: domEl, attr: key, type: 'prop' })
       disposers.push(effect(() => setProperty(domEl, key, (value as () => unknown)())))
     } else {
       setProperty(domEl, key, value)

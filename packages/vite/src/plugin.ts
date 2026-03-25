@@ -81,5 +81,20 @@ export function stewie(options?: StewiePluginOptions): Plugin {
       // (our transform hook will fire again when the module is re-requested).
       return
     },
+
+    transformIndexHtml: {
+      order: 'post' as const,
+      handler(_html: string, ctx: { server?: unknown }) {
+        if (!ctx.server) return // prod build — skip
+        return [
+          {
+            tag: 'script',
+            attrs: { type: 'module' },
+            children: `import('@stewie-js/devtools').then(function(m){ m.initDevtools() }).catch(function(){})`,
+            injectTo: 'body' as const,
+          },
+        ]
+      },
+    },
   }
 }

@@ -24,6 +24,7 @@
     { "path": "packages/router" },
     { "path": "packages/vite" },
     { "path": "packages/testing" },
-    { "path": "packages/create-stewie" }
+    { "path": "packages/create-stewie" },
+    { "path": "packages/devtools" }
   ]
 }

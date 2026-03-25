@@ -1,0 +1,33 @@
+{
+  "name": "@stewie-js/devtools",
+  "version": "0.1.0",
+  "description": "Browser overlay devtools for the Stewie framework",
+  "author": "",
+  "license": "MIT",
+  "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/devtools#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cwins/stewie-js.git",
+    "directory": "packages/devtools"
+  },
+  "keywords": ["stewie", "devtools", "debugging", "developer-tools", "typescript"],
+  "files": ["dist", "README.md"],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "nuke": "rm -rf dist node_modules",
+    "build": "tsc --build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@stewie-js/core": "workspace:*"
+  }
+}

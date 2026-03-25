@@ -40,6 +40,27 @@ export interface Subscriber {
 export const isDev = typeof process !== 'undefined' ? process?.env?.NODE_ENV !== 'production' : true
 
 // ---------------------------------------------------------------------------
+// Dev hooks — populated by @stewie-js/devtools, no-op in production
+// ---------------------------------------------------------------------------
+
+export interface DevEffectMeta {
+  element?: Element
+  attr?: string
+  type: 'prop' | 'children' | 'show' | 'for' | 'switch'
+}
+
+export const __devHooks: {
+  onEffectRun?: (meta: DevEffectMeta | undefined) => void
+  onSignalWrite?: (value: unknown) => void
+} = {}
+
+let _pendingEffectMeta: DevEffectMeta | undefined
+
+export function _setNextEffectMeta(meta: DevEffectMeta): void {
+  _pendingEffectMeta = meta
+}
+
+// ---------------------------------------------------------------------------
 // Module-scope creation guard (dev-mode warning)
 // ---------------------------------------------------------------------------
 
@@ -166,6 +187,9 @@ class SignalNode<T> extends ReactiveNode<T> {
   write(value: T): void {
     if (value === this._value) return
     this._value = value
+    if (isDev && __devHooks.onSignalWrite) {
+      __devHooks.onSignalWrite(value)
+    }
     this._notifySubscribers()
   }
 }
@@ -264,9 +288,15 @@ export class EffectNode implements Subscriber {
   private _deps = new Set<Subscribable>()
   private _disposed = false
   private _running = false
+  _devMeta: DevEffectMeta | undefined = undefined
+  private _isFirstRun = true
 
   constructor(fn: () => void | (() => void)) {
     this._fn = fn
+    if (isDev) {
+      this._devMeta = _pendingEffectMeta
+      _pendingEffectMeta = undefined
+    }
     this._run()
   }
 
@@ -303,6 +333,13 @@ export class EffectNode implements Subscriber {
     for (const dep of scope.dependencies) {
       dep._subscribe(this)
       this._deps.add(dep)
+    }
+
+    if (isDev) {
+      if (!this._isFirstRun && __devHooks.onEffectRun) {
+        __devHooks.onEffectRun(this._devMeta)
+      }
+      this._isFirstRun = false
     }
   }
 
