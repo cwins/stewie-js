@@ -146,10 +146,12 @@ export function transformFile(
     source = source.slice(0, rep.start) + (rep.text ?? '') + source.slice(rep.end)
   }
 
-  // If JSX-to-DOM was applied, inject the `effect` import if not already present.
-  // We add it to the top of the file so generated code can reference effect().
+  // If JSX-to-DOM was applied, ensure `effect` is imported from @stewie-js/core.
+  // We check specifically for `effect` in a core import — an existing import of
+  // `signal` (or any other named export) is not sufficient.
   if (options.jsxToDom && jsxReplacements.length > 0) {
-    if (!source.includes("from '@stewie-js/core'") && !source.includes('from "@stewie-js/core"')) {
+    const alreadyImportsEffect = /\bimport\b[^;]*\beffect\b[^;]*from\s*['"]@stewie-js\/core['"]/.test(source)
+    if (!alreadyImportsEffect) {
       source = `import { effect } from '@stewie-js/core'\n` + source
     }
   }

@@ -127,6 +127,34 @@ function App() {
     expect(result.code).not.toContain('onInput=')
   })
 
+  it('jsxToDom — injects effect import when file already imports other things from core but not effect', () => {
+    // Regression: the old check was `!source.includes("from '@stewie-js/core'")`,
+    // which skipped injection when any core import existed — even if effect was absent.
+    const source = `import { signal } from '@stewie-js/core'
+function App() {
+  const active = signal(false)
+  return <div class={() => active() ? 'on' : 'off'} />
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false, jsxToDom: true })
+    expect(result.errors).toHaveLength(0)
+    // effect must appear in an import from @stewie-js/core
+    expect(result.code).toMatch(/import\s*\{[^}]*\beffect\b[^}]*\}\s*from\s*['"]@stewie-js\/core['"]/)
+  })
+
+  it('jsxToDom — does not double-inject effect import when already present', () => {
+    const source = `import { signal, effect } from '@stewie-js/core'
+function App() {
+  const active = signal(false)
+  return <div class={() => active() ? 'on' : 'off'} />
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false, jsxToDom: true })
+    expect(result.errors).toHaveLength(0)
+    const matches = result.code.match(/import\s*\{[^}]*\beffect\b[^}]*\}\s*from\s*['"]@stewie-js\/core['"]/g)
+    expect(matches).toHaveLength(1)
+  })
+
   it('inline sourcemap is appended to code when inlineSourcemap: true', () => {
     const source = `function App() { return <div /> }\n`
     const result = compile(source, {
