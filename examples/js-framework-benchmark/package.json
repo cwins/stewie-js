@@ -1,0 +1,18 @@
+{
+  "name": "stewie-js-framework-benchmark",
+  "version": "0.1.0",
+  "description": "Stewie implementation for js-framework-benchmark",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --port 8080",
+    "preview": "vite preview --port 8080"
+  },
+  "dependencies": {
+    "@stewie-js/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
