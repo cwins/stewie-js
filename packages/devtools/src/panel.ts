@@ -84,7 +84,11 @@ export function createPanel(): HTMLElement {
 }
 
 export function togglePanel(): void {
-  visible ? hidePanel() : showPanel()
+  if (visible) {
+    hidePanel()
+  } else {
+    showPanel()
+  }
 }
 
 export function showPanel(): void {

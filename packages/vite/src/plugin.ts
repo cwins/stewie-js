@@ -28,7 +28,7 @@ export function stewie(options?: StewiePluginOptions): Plugin {
     },
 
     // Transform .tsx files through the Stewie compiler
-    transform(code: string, id: string, transformOptions?: { ssr?: boolean }) {
+    transform(code: string, id: string, _transformOptions?: { ssr?: boolean }) {
       if (!id.endsWith('.tsx')) return null
 
       const isDev = process.env.NODE_ENV !== 'production'
