@@ -80,6 +80,14 @@ export function _warnModuleScope(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Ownership stack — tracks which effects belong to a createRoot() call
+// ---------------------------------------------------------------------------
+
+// Each entry is the list of EffectNodes owned by one createRoot() invocation.
+// Effects register themselves here on creation so the root can dispose them.
+const _ownerStack: EffectNode[][] = []
+
+// ---------------------------------------------------------------------------
 // Tracking scope stack (module-level — this is framework infrastructure)
 // ---------------------------------------------------------------------------
 
@@ -298,6 +306,11 @@ export class EffectNode implements Subscriber {
       this._devMeta = _pendingEffectMeta
       _pendingEffectMeta = undefined
     }
+    // Register with the nearest enclosing createRoot() owner so it can
+    // dispose this effect when the root is torn down (e.g. on component unmount).
+    if (_ownerStack.length > 0) {
+      _ownerStack[_ownerStack.length - 1].push(this)
+    }
     this._run()
   }
 
@@ -417,14 +430,36 @@ export function untrack<T>(fn: () => T): T {
   }
 }
 
-// Create a reactive root scope — clean alternative to _setAllowReactiveCreation.
-// All signal()/store()/computed()/effect() calls inside fn are allowed.
-export function createRoot<T>(fn: () => T): T {
+/**
+ * Create a reactive ownership root.
+ *
+ * - Allows signal()/store()/computed()/effect() creation inside `fn`.
+ * - Tracks every `effect()` created directly inside `fn` and registers them
+ *   under this root so they can all be disposed at once.
+ * - Passes a `dispose` callback to `fn`. Call it to dispose all owned effects
+ *   (e.g. when the component that created this root unmounts).
+ *
+ * The `dispose` parameter is optional from TypeScript's perspective — existing
+ * callers that use `createRoot(() => { ... })` continue to work unchanged.
+ */
+export function createRoot<T>(fn: (dispose: () => void) => T): T {
   const prev = _allowReactiveCreation
   _allowReactiveCreation = true
+
+  const ownedEffects: EffectNode[] = []
+  _ownerStack.push(ownedEffects)
+
+  const dispose = (): void => {
+    for (const e of ownedEffects) {
+      e.dispose()
+    }
+    ownedEffects.length = 0
+  }
+
   try {
-    return fn()
+    return fn(dispose)
   } finally {
+    _ownerStack.pop()
     _allowReactiveCreation = prev
   }
 }

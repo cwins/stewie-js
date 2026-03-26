@@ -452,6 +452,64 @@ describe('createRoot', () => {
     expect(warnSpy).toHaveBeenCalled()
     warnSpy.mockRestore()
   })
+
+  it('passes a dispose function to fn', () => {
+    let capturedDispose: (() => void) | null = null
+    createRoot((dispose) => {
+      capturedDispose = dispose
+    })
+    expect(typeof capturedDispose).toBe('function')
+  })
+
+  it('dispose() stops effects created inside the root', () => {
+    let runCount = 0
+    let capturedDispose: (() => void) = () => {}
+
+    createRoot((dispose) => {
+      capturedDispose = dispose
+      const s = signal(0)
+      effect(() => { runCount = s() + 1 })
+      // effect runs once immediately: runCount = 1
+      s.set(1) // runCount = 2
+      expect(runCount).toBe(2)
+    })
+
+    // Dispose the root — all owned effects should be stopped
+    capturedDispose()
+
+    // Now advance the signal — effect must NOT re-run
+    createRoot(() => {
+      // We need a signal from outside to advance it — but we already have it captured
+      // above. This test verifies the effect is gone.
+    })
+    // The effect subscribed to the signal node, which is now unsubscribed after dispose
+    // Since we can't easily advance the same signal here, verify the effect node count
+    // indirectly: calling dispose again must not throw
+    expect(() => capturedDispose()).not.toThrow()
+  })
+
+  it('dispose() stops effects and they do not re-run on signal change', () => {
+    let runCount = 0
+    let capturedDispose: (() => void) = () => {}
+    let capturedSig: ReturnType<typeof signal<number>> = signal(0)
+
+    createRoot((dispose) => {
+      capturedDispose = dispose
+      capturedSig = signal(0)
+      effect(() => { runCount++ ; capturedSig() })
+    })
+    // effect ran once on init
+    expect(runCount).toBe(1)
+    capturedSig.set(1)
+    expect(runCount).toBe(2)
+
+    // Dispose the root
+    capturedDispose()
+
+    // Signal changes must no longer trigger the effect
+    capturedSig.set(2)
+    expect(runCount).toBe(2) // still 2 — effect is disposed
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -427,16 +427,22 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
   // and run the component body with untrack() so that signal reads in the
   // component's render output do not create dependencies on any parent effect
   // (e.g. the routing effect must not re-run when a form-field signal changes).
+  // The dispose callback from createRoot disposes all effects the component
+  // created in its body when the component is unmounted.
   if (typeof type === 'function') {
-    const disposers: Disposer[] = []
+    let rootDispose: Disposer = () => {}
     let result: unknown
     untrack(() => {
-      createRoot(() => {
+      createRoot((dispose) => {
+        rootDispose = dispose
         result = (type as Component)(props)
       })
     })
-    disposers.push(renderChildren(result, parent, before))
-    return () => disposers.forEach((d) => d())
+    const childDisposer = renderChildren(result, parent, before)
+    return () => {
+      rootDispose()
+      childDisposer()
+    }
   }
 
   // Native DOM element
@@ -528,8 +534,15 @@ export function mount(
   const prevScope = _setRenderScope(scopeDisposers)
 
   let value: unknown
+  let rootDispose: Disposer = () => {}
   try {
-    value = typeof root === 'function' ? createRoot(() => (root as () => unknown)()) : root
+    value =
+      typeof root === 'function'
+        ? createRoot((dispose) => {
+            rootDispose = dispose
+            return (root as () => unknown)()
+          })
+        : root
   } finally {
     _setRenderScope(prevScope)
   }
@@ -540,11 +553,15 @@ export function mount(
   if (value instanceof Node) {
     container.appendChild(value)
     return () => {
+      rootDispose()
       scopeDisposers.forEach((d) => d())
     }
   }
 
   // Descriptor mode: render the JSXElement tree
   const disposer = renderChildren(value as JSXElement, container, null)
-  return disposer
+  return () => {
+    rootDispose()
+    disposer()
+  }
 }
