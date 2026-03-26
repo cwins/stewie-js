@@ -2,11 +2,53 @@
 
 <img src="stewie_ascii.png" width="320" alt="Stewie" />
 
-What is Stewie? A TypeScript web framework with fine-grained signal-based reactivity, server-side rendering, and a clean monorepo architecture. No virtual DOM. Stewie is a compact, yet formidable UI framework, with capabilities and performance that far exceeds its size.
+**Stewie** is a TypeScript-native UI framework for developers who want React's JSX ergonomics without the re-render tax, and Angular's built-in batteries without the weight. Fine-grained signal reactivity means DOM updates are surgical and predictable — no memoization, no cascades, no surprises. Built edge-first for WinterCG environments, with a compiler that handles the boilerplate so you don't have to.
 
 >❗ **Work in progress.**
 >
 >Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
+
+---
+
+## Why Stewie?
+
+### No re-renders. No memoization. Ever.
+
+In React, `setState` re-renders the component and every child. You fight this with `memo`, `useMemo`, and `useCallback` — manually, everywhere, forever. Get it wrong and performance craters.
+
+In Stewie, `signal.set()` updates **exactly the DOM nodes that depend on it**. Nothing else runs. There is no concept of re-rendering a component. You never write `useMemo`. You cannot accidentally cause a cascade.
+
+```tsx
+// React — manual memoization required to avoid re-render cascades
+const expensiveValue = useMemo(() => compute(a, b), [a, b])
+const stableCallback = useCallback(() => doThing(id), [id])
+
+// Stewie — just write code. Fine-grained reactivity handles it.
+const expensiveValue = computed(() => compute(a(), b()))
+```
+
+### TypeScript-native from day one
+
+React ships with Flow types internally; `@types/react` is a separately maintained package. Stewie is written in TypeScript and ships TypeScript. No `@types/*` package needed — types are part of the framework.
+
+### Batteries included, not bolted on
+
+Routing, reactivity, SSR, testing utilities, and devtools are coordinated first-party packages — not community add-ons that may conflict, lag behind, or disappear.
+
+| Need | React ecosystem | Stewie |
+|------|----------------|--------|
+| Routing | React Router / TanStack Router | `@stewie-js/router` |
+| Global state | Zustand / Jotai / MobX | `store()` built-in |
+| SSR | Next.js / Remix | `@stewie-js/server` |
+| Testing | React Testing Library | `@stewie-js/testing` |
+
+### JSX with TypeScript scope — everywhere
+
+Angular's string templates require an IDE extension to catch scope errors. Stewie uses JSX: TypeScript knows exactly what's in scope at every point, your editor flags errors inline, and `<PrimaryButton />` is a real identifier you can search, refactor, and navigate.
+
+### Edge-first
+
+`@stewie-js/server` targets [WinterCG](https://wintercg.org/) — it uses only `ReadableStream`, `TransformStream`, and `fetch` APIs. Deploy to Cloudflare Workers, Deno Deploy, Bun, or Node.js without adapter gymnastics.
 
 ---
 
