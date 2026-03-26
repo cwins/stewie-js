@@ -24,13 +24,13 @@ export function flashElement(el: Element): void {
     `top:${rect.top}px`,
     `width:${rect.width}px`,
     `height:${rect.height}px`,
-    'background:rgba(56,189,248,0.25)',
-    'outline:2px solid rgba(56,189,248,0.8)',
-    'outline-offset:-1px',
+    'background:rgba(4, 158, 163, 0.46)',
+    'border:4px solid rgba(56,189,248,0.9)',
+    'box-sizing:border-box',
     'pointer-events:none',
     'z-index:999999',
-    'border-radius:2px',
-    'animation:__sdt-flash 600ms ease-out forwards',
+    'border-radius:3px',
+    'animation:__sdt-flash 1000ms ease-in forwards',
   ].join(';')
   document.body.appendChild(flash)
   flash.addEventListener('animationend', () => flash.remove())

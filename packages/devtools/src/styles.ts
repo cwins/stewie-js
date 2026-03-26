@@ -102,7 +102,8 @@ export function injectStyles(): void {
 
 /* Flash animation (for highlight overlay) */
 @keyframes __sdt-flash {
-  0% { opacity: 1; }
+  0%   { opacity: 1; }
+  15%  { opacity: 1; }
   100% { opacity: 0; }
 }
 `
