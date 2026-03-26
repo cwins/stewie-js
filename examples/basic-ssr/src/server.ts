@@ -43,8 +43,10 @@ if (isProd) {
 
     // SSR render
     try {
-      const appHtml = await renderApp()
-      const html = template.replace('<!--ssr-outlet-->', appHtml)
+      const { html: appHtml, stateScript } = await renderApp()
+      const html = template
+        .replace('<!--ssr-outlet-->', appHtml)
+        .replace('</body>', `  ${stateScript}\n  </body>`)
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
       res.end(html)
     } catch (e) {
@@ -77,15 +79,17 @@ if (isProd) {
         try {
           // ssrLoadModule reloads on change — Vite handles invalidation
           const { renderApp } = (await vite.ssrLoadModule('/src/app.tsx')) as {
-            renderApp: () => Promise<string>
+            renderApp: () => Promise<{ html: string; stateScript: string }>
           }
 
           // transformIndexHtml injects Vite's HMR client script
           const rawTemplate = readFileSync(resolve(root, 'index.html'), 'utf-8')
           const template = await vite.transformIndexHtml(req.url ?? '/', rawTemplate)
 
-          const appHtml = await renderApp()
-          const html = template.replace('<!--ssr-outlet-->', appHtml)
+          const { html: appHtml, stateScript } = await renderApp()
+          const html = template
+            .replace('<!--ssr-outlet-->', appHtml)
+            .replace('</body>', `  ${stateScript}\n  </body>`)
 
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
           res.end(html)

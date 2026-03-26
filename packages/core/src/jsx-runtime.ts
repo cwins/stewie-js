@@ -7,11 +7,14 @@
 
 export type CSSProperties = Record<string, string | number>
 
+// A single renderable child node — element, text, or null.
+export type JSXChild = JSXElement | string | number | null
+
 export interface HTMLAttributes {
   class?: string | (() => string)
   style?: string | CSSProperties | (() => string)
   id?: string
-  children?: JSXElement | JSXElement[] | string | number | null | (() => unknown)
+  children?: JSXChild | JSXChild[] | (() => unknown)
   onClick?: (e: MouseEvent) => void
   onInput?: (e: InputEvent) => void
   onChange?: (e: Event) => void

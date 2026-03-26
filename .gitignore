@@ -12,6 +12,10 @@ examples/*/src/*.js.map
 examples/*/src/*.d.ts
 examples/*/src/*.d.ts.map
 
+skills-lock.json
+
+.codex/
+
 .playwright/
 .playwright-cli/
 

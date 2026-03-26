@@ -12,7 +12,7 @@ import type { JSXElement, Component } from './jsx-runtime.js'
 export interface ShowProps<T> {
   when: T | (() => T) | Signal<T>
   fallback?: JSXElement
-  children: JSXElement | JSXElement[]
+  children: JSXElement | JSXElement[] | (() => JSXElement | JSXElement[] | null)
 }
 
 export function Show<T>(props: ShowProps<T>): JSXElement {

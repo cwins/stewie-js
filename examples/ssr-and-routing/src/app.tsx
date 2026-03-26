@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 // app.tsx — isomorphic App component for the ssr-and-routing example
 //
 // Runs on both server (SSR) and client (hydration).

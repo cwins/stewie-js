@@ -5,7 +5,8 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "dist",
     "jsx": "react-jsx",
-    "jsxImportSource": "@stewie-js/core"
+    "jsxImportSource": "@stewie-js/core",
+    "types": ["vite/client"]
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules"]
