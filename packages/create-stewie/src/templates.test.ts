@@ -80,24 +80,38 @@ describe('generateFiles — static mode (no router)', () => {
 })
 
 describe('generateFiles — static mode (with router)', () => {
-  it('generates app.tsx, nav.tsx, and page files', () => {
+  it('generates app.tsx, nav.tsx, shell.tsx, and page files', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
     const paths = files.map((f) => f.path)
     expect(paths).toContain('src/app.tsx')
     expect(paths).toContain('src/nav.tsx')
+    expect(paths).toContain('src/shell.tsx')
     expect(paths).toContain('src/pages/home.tsx')
     expect(paths).toContain('src/pages/counter.tsx')
     expect(paths).toContain('src/pages/about.tsx')
     expect(paths).toContain('src/styles.css')
   })
 
-  it('app.tsx sets up Router with 3 routes', () => {
+  it('app.tsx has Router with ONLY direct Route children (no other elements)', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
     const app = files.find((f) => f.path === 'src/app.tsx')!
     expect(app.content).toContain('<Router')
     expect(app.content).toContain('path="/"')
     expect(app.content).toContain('path="/counter"')
     expect(app.content).toContain('path="/about"')
+    // Nav must NOT be in app.tsx — it belongs in shell.tsx
+    expect(app.content).not.toContain('<Nav')
+    // No wrapper elements inside Router
+    expect(app.content).not.toContain('<main')
+  })
+
+  it('shell.tsx renders Nav and wraps children in main', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
+    const shell = files.find((f) => f.path === 'src/shell.tsx')!
+    expect(shell.content).toContain('<Nav')
+    expect(shell.content).toContain('<main')
+    expect(shell.content).toContain('{children}')
+    expect(shell.content).toContain("from './nav.js'")
   })
 
   it('nav.tsx has reactive NavLink with active class', () => {
@@ -109,12 +123,14 @@ describe('generateFiles — static mode (with router)', () => {
     expect(nav.content).toContain('class={() =>')
   })
 
-  it('pages/home.tsx uses Show and For', () => {
+  it('pages/home.tsx uses Show and For, wrapped in Shell', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
     const home = files.find((f) => f.path === 'src/pages/home.tsx')!
     expect(home.content).toContain('<Show')
     expect(home.content).toContain('<For')
     expect(home.content).toContain('signal(')
+    expect(home.content).toContain('<Shell>')
+    expect(home.content).toContain("from '../shell.js'")
   })
 
   it('pages/home.tsx imports are at the top (no bottom imports)', () => {
@@ -127,19 +143,23 @@ describe('generateFiles — static mode (with router)', () => {
     expect(lastImportLine).toBeLessThan(firstNonImportNonBlank + 5)
   })
 
-  it('pages/counter.tsx uses signal and computed', () => {
+  it('pages/counter.tsx uses signal and computed, wrapped in Shell', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
     const counter = files.find((f) => f.path === 'src/pages/counter.tsx')!
     expect(counter.content).toContain('signal(')
     expect(counter.content).toContain('computed(')
     expect(counter.content).toContain('CounterPage')
+    expect(counter.content).toContain('<Shell>')
+    expect(counter.content).toContain("from '../shell.js'")
   })
 
-  it('pages/about.tsx uses For', () => {
+  it('pages/about.tsx uses For, wrapped in Shell', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
     const about = files.find((f) => f.path === 'src/pages/about.tsx')!
     expect(about.content).toContain('<For')
     expect(about.content).toContain('AboutPage')
+    expect(about.content).toContain('<Shell>')
+    expect(about.content).toContain("from '../shell.js'")
   })
 })
 
@@ -224,10 +244,11 @@ describe('generateFiles — SSR mode (node)', () => {
     expect(vite.content).toContain("input: 'src/server.ts'")
   })
 
-  it('SSR with router generates nav and page files', () => {
+  it('SSR with router generates nav, shell, and page files', () => {
     const files = generateFiles({ projectName: 'my-ssr-app', mode: 'ssr', ssrRuntime: 'node', includeRouter: true })
     const paths = files.map((f) => f.path)
     expect(paths).toContain('src/nav.tsx')
+    expect(paths).toContain('src/shell.tsx')
     expect(paths).toContain('src/pages/home.tsx')
     expect(paths).toContain('src/pages/counter.tsx')
     expect(paths).toContain('src/pages/about.tsx')

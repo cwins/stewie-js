@@ -422,24 +422,21 @@ export async function renderApp(url: string = '/'): Promise<RenderResult> {
       path: 'src/app.tsx',
       content: `import { Router, Route } from '@stewie-js/router'
 import type { JSXElement } from '@stewie-js/core'
-import { Nav } from './nav.js'
 import { HomePage } from './pages/home.js'
 import { CounterPage } from './pages/counter.js'
 import { AboutPage } from './pages/about.js'
 import './styles.css'
 
+// Router must have only <Route> elements as direct children —
+// the Router scans them to build the route table.
+// Layout (nav + wrapper) lives inside each page so it has RouterContext.
 export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
   return (
-    <div class="layout">
-      <Router initialUrl={initialUrl}>
-        <Nav title="${ctx.projectName}" />
-        <main class="main">
-          <Route path="/" component={HomePage} />
-          <Route path="/counter" component={CounterPage} />
-          <Route path="/about" component={AboutPage} />
-        </main>
-      </Router>
-    </div>
+    <Router initialUrl={initialUrl}>
+      <Route path="/" component={HomePage} />
+      <Route path="/counter" component={CounterPage} />
+      <Route path="/about" component={AboutPage} />
+    </Router>
   )
 }
 ${ssrExport}`,
@@ -597,14 +594,40 @@ export function Nav({ title }: { title: string }): JSXElement {
     })
 
     // -----------------------------------------------------------------------
+    // src/shell.tsx — layout wrapper used by every page
+    // -----------------------------------------------------------------------
+
+    files.push({
+      path: 'src/shell.tsx',
+      content: `import { Nav } from './nav.js'
+import type { JSXElement } from '@stewie-js/core'
+
+// Shell wraps each page with the persistent nav + main container.
+// It is rendered *inside* RouterContext (as part of a matched route component),
+// so Nav can safely call useRouter() for the active-link highlighting.
+export function Shell({ children }: { children: JSXElement }): JSXElement {
+  return (
+    <div class="layout">
+      <Nav title="${ctx.projectName}" />
+      <main class="main">
+        {children}
+      </main>
+    </div>
+  )
+}
+`,
+    })
+
+    // -----------------------------------------------------------------------
     // src/pages/home.tsx
     // -----------------------------------------------------------------------
 
     files.push({
       path: 'src/pages/home.tsx',
-      content: `import { signal, computed, createRoot, Show, For } from '@stewie-js/core'
+      content: `import { signal, createRoot, Show, For } from '@stewie-js/core'
 import { useRouter } from '@stewie-js/router'
 import type { JSXElement } from '@stewie-js/core'
+import { Shell } from '../shell.js'
 
 const FEATURES = [
   'Signal-based reactivity — no virtual DOM',
@@ -623,30 +646,32 @@ export function HomePage(): JSXElement {
   })
 
   return (
-    <div class="page">
-      <div class="hero">
-        <h1 class="hero-title">Hello from <strong>Stewie</strong></h1>
-        <p class="hero-subtitle">
-          Fine-grained signal-based reactivity. No virtual DOM. SSR built-in.
-        </p>
-        <div class="hero-actions">
-          <button class="btn btn-primary" onClick={() => router.navigate('/counter')}>
-            Try the counter →
-          </button>
-          <button class="btn btn-outline" onClick={() => showFeatures.update((v) => !v)}>
-            {() => (showFeatures() ? 'Hide features' : 'What makes it fast?')}
-          </button>
+    <Shell>
+      <div class="page">
+        <div class="hero">
+          <h1 class="hero-title">Hello from <strong>Stewie</strong></h1>
+          <p class="hero-subtitle">
+            Fine-grained signal-based reactivity. No virtual DOM. SSR built-in.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" onClick={() => router.navigate('/counter')}>
+              Try the counter →
+            </button>
+            <button class="btn btn-outline" onClick={() => showFeatures.update((v) => !v)}>
+              {() => (showFeatures() ? 'Hide features' : 'What makes it fast?')}
+            </button>
+          </div>
         </div>
-      </div>
 
-      <Show when={showFeatures}>
-        <ul class="features-list">
-          <For each={FEATURES}>
-            {(feature: string) => <li>{feature}</li>}
-          </For>
-        </ul>
-      </Show>
-    </div>
+        <Show when={showFeatures}>
+          <ul class="features-list">
+            <For each={FEATURES}>
+              {(feature: string) => <li>{feature}</li>}
+            </For>
+          </ul>
+        </Show>
+      </div>
+    </Shell>
   )
 }
 `,
@@ -660,6 +685,7 @@ export function HomePage(): JSXElement {
       path: 'src/pages/counter.tsx',
       content: `import { signal, computed, createRoot } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
+import { Shell } from '../shell.js'
 
 export function CounterPage(): JSXElement {
   let count!: ReturnType<typeof signal<number>>
@@ -670,23 +696,25 @@ export function CounterPage(): JSXElement {
   })
 
   return (
-    <div class="page">
-      <h1 class="page-title">Counter</h1>
-      <p class="page-subtitle">
-        Signals update only the exact DOM nodes that depend on them —
-        no component re-render, no diffing.
-      </p>
+    <Shell>
+      <div class="page">
+        <h1 class="page-title">Counter</h1>
+        <p class="page-subtitle">
+          Signals update only the exact DOM nodes that depend on them —
+          no component re-render, no diffing.
+        </p>
 
-      <div class="card counter-card">
-        <div class="counter-value">{count}</div>
-        <div class="counter-meta">doubled: {doubled}</div>
-        <div class="counter-controls">
-          <button class="btn btn-outline" onClick={() => count.update((n) => n - 1)}>−</button>
-          <button class="btn btn-ghost" onClick={() => count.set(0)}>Reset</button>
-          <button class="btn btn-primary" onClick={() => count.update((n) => n + 1)}>+</button>
+        <div class="card counter-card">
+          <div class="counter-value">{count}</div>
+          <div class="counter-meta">doubled: {doubled}</div>
+          <div class="counter-controls">
+            <button class="btn btn-outline" onClick={() => count.update((n) => n - 1)}>−</button>
+            <button class="btn btn-ghost" onClick={() => count.set(0)}>Reset</button>
+            <button class="btn btn-primary" onClick={() => count.update((n) => n + 1)}>+</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Shell>
   )
 }
 `,
@@ -700,6 +728,7 @@ export function CounterPage(): JSXElement {
       path: 'src/pages/about.tsx',
       content: `import { For } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
+import { Shell } from '../shell.js'
 
 const PRIMITIVES = [
   { name: 'signal(value)', desc: 'Reactive value — read with sig(), write with sig.set()' },
@@ -710,31 +739,33 @@ const PRIMITIVES = [
 
 export function AboutPage(): JSXElement {
   return (
-    <div class="page">
-      <h1 class="page-title">About</h1>
-      <p class="page-subtitle">
-        Stewie is a TypeScript web framework with fine-grained signal-based reactivity
-        and no virtual DOM. This app was scaffolded with <code>create-stewie</code>.
-      </p>
+    <Shell>
+      <div class="page">
+        <h1 class="page-title">About</h1>
+        <p class="page-subtitle">
+          Stewie is a TypeScript web framework with fine-grained signal-based reactivity
+          and no virtual DOM. This app was scaffolded with <code>create-stewie</code>.
+        </p>
 
-      <div class="section">
-        <h2 class="section-title">Core primitives</h2>
-        <p class="section-desc">Everything reactive builds on these four primitives.</p>
-        <ul class="features-list">
-          <For each={PRIMITIVES}>
-            {(p: typeof PRIMITIVES[number]) => (
-              <li>
-                <span>
-                  <strong>{p.name}</strong>
-                  {' — '}
-                  {p.desc}
-                </span>
-              </li>
-            )}
-          </For>
-        </ul>
+        <div class="section">
+          <h2 class="section-title">Core primitives</h2>
+          <p class="section-desc">Everything reactive builds on these four primitives.</p>
+          <ul class="features-list">
+            <For each={PRIMITIVES}>
+              {(p: typeof PRIMITIVES[number]) => (
+                <li>
+                  <span>
+                    <strong>{p.name}</strong>
+                    {' — '}
+                    {p.desc}
+                  </span>
+                </li>
+              )}
+            </For>
+          </ul>
+        </div>
       </div>
-    </div>
+    </Shell>
   )
 }
 `,
