@@ -76,6 +76,41 @@ describe('createRouter', () => {
   })
 })
 
+describe('router._dispose()', () => {
+  it('exists on the router object', () => {
+    const router = createRouter('/')
+    expect(typeof router._dispose).toBe('function')
+  })
+
+  it('can be called without throwing', () => {
+    const router = createRouter('/')
+    expect(() => router._dispose()).not.toThrow()
+  })
+
+  it('removes popstate listener so subsequent popstate does not update location', () => {
+    // Simulate a browser-like environment with location and popstate support
+    const listeners: EventListener[] = []
+    const mockLocation = { pathname: '/start', search: '', hash: '' }
+
+    vi.stubGlobal('location', mockLocation)
+    vi.stubGlobal('addEventListener', (type: string, fn: EventListener) => {
+      if (type === 'popstate') listeners.push(fn)
+    })
+    vi.stubGlobal('removeEventListener', (type: string, fn: EventListener) => {
+      if (type === 'popstate') {
+        const idx = listeners.indexOf(fn)
+        if (idx !== -1) listeners.splice(idx, 1)
+      }
+    })
+
+    const router = createRouter('/start')
+    expect(listeners.length).toBe(1)
+
+    router._dispose()
+    expect(listeners.length).toBe(0) // listener was removed
+  })
+})
+
 describe('useRouter', () => {
   it('throws when called outside RouterContext', () => {
     expect(() => useRouter()).toThrow('useRouter() called outside of <Router> provider')

@@ -359,6 +359,99 @@ describe('For', () => {
 })
 
 // ---------------------------------------------------------------------------
+// For — keyed mode
+// ---------------------------------------------------------------------------
+
+describe('For (keyed)', () => {
+  it('preserves DOM node identity for stable keys when list changes', () => {
+    const items = sig([{ id: 1, text: 'a' }, { id: 2, text: 'b' }, { id: 3, text: 'c' }])
+    const c = container()
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text }),
+      }),
+      c,
+    )
+
+    const firstLi = c.querySelector('li')!
+    expect(firstLi.textContent).toBe('a')
+
+    // Add an item at the end — existing nodes should not be recreated
+    items.set([{ id: 1, text: 'a' }, { id: 2, text: 'b' }, { id: 3, text: 'c' }, { id: 4, text: 'd' }])
+    expect(c.querySelector('li')).toBe(firstLi) // same DOM node
+    expect(c.querySelectorAll('li').length).toBe(4)
+    expect(c.querySelectorAll('li')[3].textContent).toBe('d')
+  })
+
+  it('removes only items whose keys disappear', () => {
+    const items = sig([{ id: 1 }, { id: 2 }, { id: 3 }])
+    const c = container()
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => jsx('li', { children: String((item as { id: number }).id) }),
+      }),
+      c,
+    )
+
+    items.set([{ id: 1 }, { id: 3 }])
+    expect(c.querySelectorAll('li').length).toBe(2)
+    expect(c.querySelectorAll('li')[0].textContent).toBe('1')
+    expect(c.querySelectorAll('li')[1].textContent).toBe('3')
+  })
+
+  it('reorders items by key without rebuilding stable nodes', () => {
+    const items = sig([{ id: 1, text: 'a' }, { id: 2, text: 'b' }, { id: 3, text: 'c' }])
+    const c = container()
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text }),
+      }),
+      c,
+    )
+
+    const [liA, liB, liC] = Array.from(c.querySelectorAll('li'))
+
+    // Reverse the order
+    items.set([{ id: 3, text: 'c' }, { id: 2, text: 'b' }, { id: 1, text: 'a' }])
+
+    const reordered = Array.from(c.querySelectorAll('li'))
+    expect(reordered[0].textContent).toBe('c')
+    expect(reordered[1].textContent).toBe('b')
+    expect(reordered[2].textContent).toBe('a')
+    // Same DOM node instances — just moved
+    expect(reordered[0]).toBe(liC)
+    expect(reordered[1]).toBe(liB)
+    expect(reordered[2]).toBe(liA)
+  })
+
+  it('handles inserting new item in the middle', () => {
+    const items = sig([{ id: 1, text: 'a' }, { id: 3, text: 'c' }])
+    const c = container()
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text }),
+      }),
+      c,
+    )
+
+    items.set([{ id: 1, text: 'a' }, { id: 2, text: 'b' }, { id: 3, text: 'c' }])
+    const lis = c.querySelectorAll('li')
+    expect(lis.length).toBe(3)
+    expect(lis[0].textContent).toBe('a')
+    expect(lis[1].textContent).toBe('b')
+    expect(lis[2].textContent).toBe('c')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Switch / Match
 // ---------------------------------------------------------------------------
 

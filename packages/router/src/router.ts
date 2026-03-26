@@ -34,6 +34,8 @@ export interface Router extends StewieRouterSPI {
   _setLocation(url: string, params?: Record<string, string>): void
   // Internal: list of registered route patterns (set by Router component)
   _routes: Array<{ path: string; component: unknown }>
+  // Internal: remove browser event listeners attached by createRouter()
+  _dispose(): void
 }
 
 export const RouterContext = createContext<Router | null>(null)
@@ -64,9 +66,17 @@ export function createRouter(initialUrl?: string): Router {
     location.params = params ?? resolveParams(parsed.pathname)
   }
 
+  // Holds the cleanup function for browser event listeners.
+  // Populated after the router object is created so the handlers can close over it.
+  let _listenersDisposer = () => {}
+
   const router: Router = {
     location,
     _routes: [],
+
+    _dispose() {
+      _listenersDisposer()
+    },
 
     navigate(to: string | NavigateOptions) {
       const url = typeof to === 'string' ? to : to.to
@@ -133,7 +143,7 @@ export function createRouter(initialUrl?: string): Router {
       // Navigation API: fires for ALL navigations including back/forward,
       // so we don't also need a popstate listener.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(globalThis as any).navigation.addEventListener('navigate', (event: any) => {
+      const navHandler = (event: any) => {
         if (!event.canIntercept || event.hashChange || event.downloadRequest !== null) return
         event.intercept({
           handler: () => {
@@ -142,10 +152,16 @@ export function createRouter(initialUrl?: string): Router {
             })
           },
         })
-      })
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(globalThis as any).navigation.addEventListener('navigate', navHandler)
+      _listenersDisposer = () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(globalThis as any).navigation.removeEventListener('navigate', navHandler)
+      }
     } else {
       // History API fallback: popstate fires on back/forward button
-      globalThis.addEventListener('popstate', () => {
+      const popHandler = () => {
         const url =
           globalThis.location.pathname +
           globalThis.location.search +
@@ -153,7 +169,11 @@ export function createRouter(initialUrl?: string): Router {
         withViewTransition(() => {
           applyLocation(url)
         })
-      })
+      }
+      globalThis.addEventListener('popstate', popHandler)
+      _listenersDisposer = () => {
+        globalThis.removeEventListener('popstate', popHandler)
+      }
     }
   }
 

@@ -177,6 +177,92 @@ function renderShow(props: Record<string, unknown>, parent: Node, before: Node |
 function renderFor(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
   const anchor = document.createComment('For')
   insertBefore(parent, anchor, before)
+
+  const renderFn = props.children as (item: unknown, index: number) => JSXElement
+  const keyFn = typeof props.key === 'function'
+    ? props.key as (item: unknown, index: number) => unknown
+    : null
+
+  if (keyFn) {
+    // Keyed mode: diff by key so stable items reuse their DOM nodes and effects.
+    interface KeyedEntry { nodes: ChildNode[]; disposer: Disposer }
+    const keyMap = new Map<unknown, KeyedEntry>()
+
+    if (isDev) _setNextEffectMeta({ type: 'for' })
+    const disposeEffect = effect(() => {
+      const each =
+        typeof props.each === 'function'
+          ? (props.each as () => unknown[])()
+          : (props.each as unknown[])
+
+      if (!Array.isArray(each)) {
+        keyMap.forEach(({ nodes, disposer }) => {
+          disposer()
+          nodes.forEach((n) => n.parentNode?.removeChild(n))
+        })
+        keyMap.clear()
+        return
+      }
+
+      const newKeys = each.map((item, i) => keyFn(item, i))
+      const newKeySet = new Set(newKeys)
+
+      // Remove entries whose keys are no longer in the list
+      for (const [key, { nodes, disposer }] of keyMap) {
+        if (!newKeySet.has(key)) {
+          disposer()
+          nodes.forEach((n) => n.parentNode?.removeChild(n))
+          keyMap.delete(key)
+        }
+      }
+
+      // Render new items not yet in the key map
+      for (let i = 0; i < each.length; i++) {
+        const key = newKeys[i]
+        if (!keyMap.has(key)) {
+          const frag = document.createDocumentFragment()
+          const disposer = renderChildren(renderFn(each[i], i), frag, null)
+          const nodes = Array.from(frag.childNodes) as ChildNode[]
+          keyMap.set(key, { nodes, disposer })
+          // Node is currently detached (in the fragment which was consumed); it
+          // will be placed in the correct position during the reorder pass below.
+        }
+      }
+
+      // Reorder: walk backwards through the new array, inserting each entry's
+      // nodes immediately before the reference node (which starts as the anchor
+      // and advances leftward as we place each entry).
+      let insertRef: Node = anchor
+      for (let i = each.length - 1; i >= 0; i--) {
+        const entry = keyMap.get(newKeys[i])!
+        if (entry.nodes.length === 0) continue
+
+        const lastNode = entry.nodes[entry.nodes.length - 1]
+        if (lastNode.nextSibling !== insertRef) {
+          // Collect into a fragment (removes from current DOM position) then
+          // insert in one operation to preserve node order.
+          const frag = document.createDocumentFragment()
+          for (const node of entry.nodes) frag.appendChild(node)
+          anchor.parentNode?.insertBefore(frag, insertRef)
+        }
+        insertRef = entry.nodes[0]
+      }
+    })
+
+    return () => {
+      disposeEffect()
+      keyMap.forEach(({ nodes, disposer }) => {
+        disposer()
+        nodes.forEach((n) => n.parentNode?.removeChild(n))
+      })
+      keyMap.clear()
+      anchor.parentNode?.removeChild(anchor)
+    }
+  }
+
+  // Unkeyed mode (no key prop): teardown and rebuild the whole list on each change.
+  // Simple and correct for static or small lists. Use key={fn} for large or
+  // interactive lists where DOM identity preservation matters.
   let childDisposers: Disposer[] = []
   let currentNodes: ChildNode[] = []
 
@@ -194,7 +280,6 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
 
     if (!Array.isArray(each)) return
 
-    const renderFn = props.children as (item: unknown, index: number) => JSXElement
     const frag = document.createDocumentFragment()
     childDisposers = each.map((item, i) => renderChildren(renderFn(item, i), frag, null))
     currentNodes = Array.from(frag.childNodes) as ChildNode[]
