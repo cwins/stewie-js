@@ -60,6 +60,12 @@ describe('generateFiles — static mode (no router)', () => {
     expect(app.content).toContain('<h1')
   })
 
+  it('includes @stewie-js/devtools in devDependencies', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
+    const pkgJson = JSON.parse(files.find((f) => f.path === 'package.json')!.content)
+    expect(pkgJson.devDependencies).toHaveProperty('@stewie-js/devtools')
+  })
+
   it('vitest.config.ts uses happy-dom environment', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
     const vitest = files.find((f) => f.path === 'vitest.config.ts')!

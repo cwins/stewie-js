@@ -33,6 +33,7 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
     vite: '^6.0.0',
     vitest: '^3.0.0',
     '@stewie-js/testing': '^0.1.0',
+    '@stewie-js/devtools': '^0.1.0',
   }
   if (ctx.mode === 'ssr' && ctx.ssrRuntime !== 'bun') {
     devDependencies['tsx'] = '^4.0.0'
