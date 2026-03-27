@@ -4,7 +4,12 @@
   "description": "Stewie implementation for js-framework-benchmark",
   "private": true,
   "type": "module",
+  "js-framework-benchmark": {
+    "frameworkVersionFromPackage": "@stewie-js/core",
+    "frameworkHomeURL": "https://github.com/stewiejs/stewie"
+  },
   "scripts": {
+    "build-prod": "vite build",
     "build": "vite build",
     "dev": "vite --port 8080",
     "preview": "vite preview --port 8080"
