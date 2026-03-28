@@ -92,6 +92,25 @@ function findDollarPropAttr(
   return null
 }
 
+/**
+ * Build the event-handler part of a two-way binding, picking the right DOM
+ * event and target property based on element type and bound prop.
+ *
+ * Rules:
+ * - `$checked` on `<input>` → onChange + e.target.checked (checkbox pattern)
+ * - `$value` on `<select>` → onChange + e.target.value (select fires change, not input)
+ * - everything else → onInput + e.target.value
+ */
+function buildTwoWayHandler(expr: string, elementName: string, propName: string): string {
+  if (propName === 'checked') {
+    return `onChange={(e: Event) => ${expr}.set((e.target as HTMLInputElement).checked)}`
+  }
+  if (elementName === 'select') {
+    return `onChange={(e: Event) => ${expr}.set((e.target as HTMLSelectElement).value)}`
+  }
+  return `onInput={(e: InputEvent) => ${expr}.set((e.target as HTMLInputElement).value)}`
+}
+
 export function transformFile(
   parsed: ParsedFile,
   analysis: AnalysisResult,
@@ -129,8 +148,9 @@ export function transformFile(
       // One-way binding only
       replacement = `${binding.propName}={${expr}()}`
     } else {
-      // Full two-way binding
-      replacement = `${binding.propName}={${expr}()} onInput={(e: InputEvent) => ${expr}.set((e.target as HTMLInputElement).value)}`
+      // Full two-way binding — event and accessor depend on element + prop
+      const twoWayHandler = buildTwoWayHandler(expr, binding.elementName, binding.propName)
+      replacement = `${binding.propName}={${expr}()} ${twoWayHandler}`
     }
 
     replacements.push({

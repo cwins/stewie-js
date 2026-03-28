@@ -112,6 +112,36 @@ function App() { return <div /> }
     expect(result.errors[0].message).toContain('module scope')
   })
 
+  it('$checked on input → onChange with .checked accessor', () => {
+    const source = `
+function App() {
+  const checked = signal(false)
+  return <input type="checkbox" $checked={checked} />
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false })
+    expect(result.errors).toHaveLength(0)
+    expect(result.code).toContain('checked={checked()}')
+    expect(result.code).toContain('onChange=')
+    expect(result.code).toContain('.checked')
+    expect(result.code).not.toContain('onInput=')
+  })
+
+  it('$value on select → onChange with .value accessor', () => {
+    const source = `
+function App() {
+  const selected = signal('a')
+  return <select $value={selected}><option value="a">A</option></select>
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false })
+    expect(result.errors).toHaveLength(0)
+    expect(result.code).toContain('value={selected()}')
+    expect(result.code).toContain('onChange=')
+    expect(result.code).toContain('HTMLSelectElement')
+    expect(result.code).not.toContain('onInput=')
+  })
+
   it('$prop + disabled → warning + one-way output', () => {
     const source = `
 function App() {
