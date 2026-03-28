@@ -6,6 +6,8 @@
 
 export interface Signal<T> {
   (): T
+  /** Read the current value without registering a reactive subscription. */
+  peek(): T
   set(value: T): void
   update(fn: (current: T) => T): void
 }
@@ -394,6 +396,10 @@ export function signal<T>(initialValue: T): Signal<T> {
   const sig = function (): T {
     return node.read()
   } as Signal<T>
+
+  sig.peek = function (): T {
+    return node._value
+  }
 
   sig.set = function (value: T): void {
     node.write(value)

@@ -64,6 +64,34 @@ describe('signal', () => {
     s.set(5)
     expect(count).toBe(1) // no re-run
   })
+
+  it('peek() returns current value without subscribing', () => {
+    const s = signal(10)
+    let effectRuns = 0
+    effect(() => {
+      s.peek() // read without subscribing
+      effectRuns++
+    })
+    expect(effectRuns).toBe(1) // runs once on init
+    s.set(20)
+    expect(effectRuns).toBe(1) // does NOT re-run — no subscription
+    expect(s.peek()).toBe(20) // still reads the new value
+  })
+
+  it('peek() works inside an effect without creating a dependency', () => {
+    const a = signal(1)
+    const b = signal(100)
+    const observed: number[] = []
+    effect(() => {
+      // a() creates subscription; b.peek() does not
+      observed.push(a() + b.peek())
+    })
+    expect(observed).toEqual([101])
+    b.set(200) // should NOT trigger the effect
+    expect(observed).toEqual([101])
+    a.set(2) // SHOULD trigger the effect
+    expect(observed).toEqual([101, 202]) // uses updated b value via peek
+  })
 })
 
 // ---------------------------------------------------------------------------
