@@ -7,6 +7,7 @@ import { Fragment } from './jsx-runtime.js'
 import type { JSXElement, Component } from './jsx-runtime.js'
 import { _pushContext, _popContext } from './context.js'
 import type { ContextProvider } from './context.js'
+import { HydrationCursor } from './hydration-cursor.js'
 
 type ElementType = JSXElement['type']
 import {
@@ -32,6 +33,28 @@ export function _setRenderScope(scope: Disposer[] | null): Disposer[] | null {
   const prev = _renderScope
   _renderScope = scope
   return prev
+}
+
+// ---------------------------------------------------------------------------
+// Hydration cursor — active cursor for the current rendering level.
+// Non-null only during a hydrate() pass; null during normal mount().
+// ---------------------------------------------------------------------------
+
+let _hydrationCursor: HydrationCursor | null = null
+
+/**
+ * Run `fn` with `_hydrationCursor` set to `cursor`, then restore the previous
+ * cursor. This is the standard way to descend into a sub-tree while threading
+ * a cursor through nested rendering calls.
+ */
+function _withCursor<T>(cursor: HydrationCursor | null, fn: () => T): T {
+  const prev = _hydrationCursor
+  _hydrationCursor = cursor
+  try {
+    return fn()
+  } finally {
+    _hydrationCursor = prev
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -85,13 +108,31 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
 
   // Function child — reactive, re-renders when called value changes
   if (typeof children === 'function') {
-    const anchor = document.createComment('')
-    insertBefore(parent, anchor, before)
+    // During hydration, claim the existing content nodes up to the <!---->  anchor.
+    const claimed = _hydrationCursor?.collectUntilComment('')
+    const anchor = claimed?.anchor ?? document.createComment('')
+    if (!claimed) insertBefore(parent, anchor, before)
+
     let childDisposer: Disposer = () => {}
-    let currentNodes: ChildNode[] = []
+    // Pre-populate with claimed nodes so the cleanup path always has the right set.
+    let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
+    let firstRun = !!claimed
 
     if (isDev) _setNextEffectMeta({ type: 'children' })
     const disposeEffect = effect(() => {
+      if (firstRun) {
+        firstRun = false
+        // Subscribe to signals (children() call) AND wire reactive effects onto the
+        // existing SSR nodes via a sub-cursor. No DOM insertions happen here.
+        const value = (children as () => unknown)()
+        const subCursor = new HydrationCursor(currentNodes)
+        const frag = document.createDocumentFragment()
+        childDisposer = _withCursor(subCursor, () => renderChildren(value, frag, null))
+        // Any overflow (mismatch fallback): insert before anchor.
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+        return
+      }
+
       const value = (children as () => unknown)()
       childDisposer()
       childDisposer = () => {}
@@ -116,6 +157,12 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
     typeof children === 'number' ||
     typeof children === 'boolean'
   ) {
+    // During hydration, claim the existing text node so we reuse it.
+    const existing = _hydrationCursor?.claimText()
+    if (existing) {
+      existing.data = String(children)
+      return () => existing.parentNode?.removeChild(existing)
+    }
     const text = document.createTextNode(String(children))
     insertBefore(parent, text, before)
     return () => text.parentNode?.removeChild(text)
@@ -134,16 +181,51 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
 // ---------------------------------------------------------------------------
 
 function renderShow(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
-  const anchor = document.createComment('Show')
-  insertBefore(parent, anchor, before)
+  // During hydration, claim nodes up to the <!--Show--> anchor.
+  const claimed = _hydrationCursor?.collectUntilComment('Show')
+  const anchor = claimed?.anchor ?? document.createComment('Show')
+  if (!claimed) insertBefore(parent, anchor, before)
+
   let childDisposer: Disposer = () => {}
   let currentNodes: ChildNode[] = []
   let showing: boolean | null = null
+  let firstRun = false
+
+  if (claimed) {
+    // Pre-populate to match the SSR state so the normal "no-op if unchanged" guard
+    // exits early after the first subscription is established.
+    const whenVal =
+      typeof props.when === 'function'
+        ? untrack(() => (props.when as () => unknown)())
+        : props.when
+    showing = Boolean(whenVal)
+    currentNodes = claimed.contentNodes.slice()
+    firstRun = true
+  }
 
   if (isDev) _setNextEffectMeta({ type: 'show' })
   const disposeEffect = effect(() => {
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when
     const shouldShow = Boolean(when)
+
+    if (firstRun) {
+      firstRun = false
+      // Wire reactive effects onto existing SSR nodes via a sub-cursor.
+      // The nodes are already correctly positioned in the DOM — no insertions.
+      if (shouldShow) {
+        const subCursor = new HydrationCursor(claimed!.contentNodes)
+        const frag = document.createDocumentFragment()
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.children, frag, null))
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+      } else if (!shouldShow && props.fallback !== undefined) {
+        const subCursor = new HydrationCursor(claimed!.contentNodes)
+        const frag = document.createDocumentFragment()
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.fallback, frag, null))
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+      }
+      return
+    }
+
     if (shouldShow === showing) return
     showing = shouldShow
 
@@ -220,8 +302,11 @@ function computeLIS(seq: number[]): Set<number> {
 // ---------------------------------------------------------------------------
 
 function renderFor(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
-  const anchor = document.createComment('For')
-  insertBefore(parent, anchor, before)
+  // During hydration, claim nodes up to the <!--For--> anchor.
+  // This must happen before the keyed/unkeyed split since both paths share the anchor.
+  const claimed = _hydrationCursor?.collectUntilComment('For')
+  const anchor = claimed?.anchor ?? document.createComment('For')
+  if (!claimed) insertBefore(parent, anchor, before)
 
   const renderFn = props.children as (item: unknown, index: number) => JSXElement
   const keyFn = typeof props.key === 'function'
@@ -240,6 +325,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
     // Keys in their current DOM order — maintained across renders to avoid
     // re-reading the DOM on every reconciliation.
     let prevKeys: unknown[] = []
+    let firstRun = !!claimed
 
     if (isDev) _setNextEffectMeta({ type: 'for' })
     const disposeEffect = effect(() => {
@@ -247,6 +333,35 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
         typeof props.each === 'function'
           ? (props.each as () => unknown[])()
           : (props.each as unknown[])
+
+      if (firstRun) {
+        firstRun = false
+        if (claimed && Array.isArray(each)) {
+          // Shared sub-cursor walks through contentNodes sequentially.
+          // Each item claims as many nodes as it needs; idx advances accordingly.
+          const subCursor = new HydrationCursor(claimed.contentNodes)
+          for (let i = 0; i < each.length; i++) {
+            const key = keyFn(each[i], i)
+            const startIdx = subCursor.idx
+            const itemFrag = document.createDocumentFragment()
+            const disposer = _withCursor(subCursor, () =>
+              renderChildren(renderFn(each[i], i), itemFrag, null),
+            )
+            const claimedCount = subCursor.idx - startIdx
+            const itemNodes = claimed.contentNodes.slice(startIdx, startIdx + claimedCount) as ChildNode[]
+            // Handle mismatch overflow (nodes that weren't claimed from the cursor).
+            if (itemFrag.childNodes.length > 0) {
+              const overflowNodes = Array.from(itemFrag.childNodes) as ChildNode[]
+              anchor.parentNode?.insertBefore(itemFrag, anchor)
+              keyMap.set(key, { nodes: [...itemNodes, ...overflowNodes], disposer })
+            } else {
+              keyMap.set(key, { nodes: itemNodes, disposer })
+            }
+          }
+          prevKeys = each.map((item, i) => keyFn(item, i))
+        }
+        return
+      }
 
       if (!Array.isArray(each)) {
         keyMap.forEach(({ nodes, disposer }) => {
@@ -344,7 +459,8 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
   // Simple and correct for static or small lists. Use key={fn} for large or
   // interactive lists where DOM identity preservation matters.
   let childDisposers: Disposer[] = []
-  let currentNodes: ChildNode[] = []
+  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
+  let firstRun = !!claimed
 
   if (isDev) _setNextEffectMeta({ type: 'for' })
   const disposeEffect = effect(() => {
@@ -352,6 +468,19 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
       typeof props.each === 'function'
         ? (props.each as () => unknown[])()
         : (props.each as unknown[])
+
+    if (firstRun) {
+      firstRun = false
+      if (claimed && Array.isArray(each)) {
+        const subCursor = new HydrationCursor(claimed.contentNodes)
+        const frag = document.createDocumentFragment()
+        childDisposers = _withCursor(subCursor, () =>
+          each.map((item, i) => renderChildren(renderFn(item, i), frag, null)),
+        )
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+      }
+      return
+    }
 
     childDisposers.forEach((d) => d())
     childDisposers = []
@@ -379,19 +508,57 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
 // ---------------------------------------------------------------------------
 
 function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
-  const anchor = document.createComment('Switch')
-  insertBefore(parent, anchor, before)
+  // During hydration, claim nodes up to the <!--Switch--> anchor.
+  const claimed = _hydrationCursor?.collectUntilComment('Switch')
+  const anchor = claimed?.anchor ?? document.createComment('Switch')
+  if (!claimed) insertBefore(parent, anchor, before)
+
   let childDisposer: Disposer = () => {}
-  let currentNodes: ChildNode[] = []
+  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
+  let firstRun = !!claimed
 
   if (isDev) _setNextEffectMeta({ type: 'switch' })
   const disposeEffect = effect(() => {
+    const children = Array.isArray(props.children) ? props.children : [props.children]
+
+    if (firstRun) {
+      firstRun = false
+      // Find the active branch and wire reactive effects onto existing SSR nodes.
+      let matched = false
+      for (const child of children as JSXElement[]) {
+        if (!child || child.type !== (Match as unknown)) continue
+        const matchProps = child.props as { when: unknown; children: unknown }
+        const when =
+          typeof matchProps.when === 'function'
+            ? (matchProps.when as () => unknown)()
+            : matchProps.when
+        if (when) {
+          matched = true
+          const content =
+            typeof matchProps.children === 'function'
+              ? (matchProps.children as (v: unknown) => JSXElement)(when)
+              : matchProps.children
+          const subCursor = new HydrationCursor(claimed!.contentNodes)
+          const frag = document.createDocumentFragment()
+          childDisposer = _withCursor(subCursor, () => renderChildren(content, frag, null))
+          if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+          break
+        }
+      }
+      if (!matched && props.fallback !== undefined) {
+        const subCursor = new HydrationCursor(claimed!.contentNodes)
+        const frag = document.createDocumentFragment()
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.fallback, frag, null))
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+      }
+      return
+    }
+
     childDisposer()
     childDisposer = () => {}
     currentNodes.forEach((n) => n.parentNode?.removeChild(n))
     currentNodes = []
 
-    const children = Array.isArray(props.children) ? props.children : [props.children]
     let matched = false
 
     for (const child of children as JSXElement[]) {
@@ -525,8 +692,9 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
     }
   }
 
-  // Native DOM element
-  const domEl = document.createElement(type as string)
+  // Native DOM element — during hydration, try to claim the existing SSR node.
+  const existingEl = _hydrationCursor?.claimElement(type as string)
+  const domEl = existingEl ?? document.createElement(type as string)
   const disposers: Disposer[] = []
 
   for (const [key, value] of Object.entries(props)) {
@@ -556,10 +724,19 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
   }
 
   if (props.children !== undefined) {
-    disposers.push(renderChildren(props.children, domEl, null))
+    if (existingEl) {
+      // Render children with a fresh cursor scoped to this element's existing children.
+      const childCursor = new HydrationCursor(existingEl.childNodes)
+      disposers.push(_withCursor(childCursor, () => renderChildren(props.children, domEl, null)))
+    } else {
+      disposers.push(renderChildren(props.children, domEl, null))
+    }
   }
 
-  insertBefore(parent, domEl, before)
+  // Only insert the element if it was freshly created; claimed elements are already in the DOM.
+  if (!existingEl) {
+    insertBefore(parent, domEl, before)
+  }
 
   return () => {
     disposers.forEach((d) => d())
@@ -640,6 +817,63 @@ export function mount(
 
   // Descriptor mode: render the JSXElement tree
   const disposer = renderChildren(value as JSXElement, container, null)
+  return () => {
+    rootDispose()
+    disposer()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _hydrateInto — like mount() but reuses existing SSR DOM nodes
+// ---------------------------------------------------------------------------
+
+/**
+ * Render a JSX tree into a container that already contains server-rendered HTML.
+ *
+ * Instead of clearing and remounting (like mount()), this walks the existing
+ * childNodes via `cursor` and claims live DOM nodes for the renderer to attach
+ * reactive effects to. Freshly created nodes are only emitted when the SSR
+ * DOM is missing or mismatched.
+ *
+ * Used exclusively by hydrate() in hydrate.ts.
+ */
+export function _hydrateInto(
+  root: JSXElement | Node | (() => JSXElement | Node | null) | null,
+  container: Element,
+  cursor: HydrationCursor,
+): Disposer {
+  const scopeDisposers: Disposer[] = []
+  const prevScope = _setRenderScope(scopeDisposers)
+
+  let value: unknown
+  let rootDispose: Disposer = () => {}
+  try {
+    value =
+      typeof root === 'function'
+        ? createRoot((dispose) => {
+            rootDispose = dispose
+            return (root as () => unknown)()
+          })
+        : root
+  } finally {
+    _setRenderScope(prevScope)
+  }
+
+  if (value === null || value === undefined) return () => {}
+
+  // DOM runtime mode: root returned a real Node — no cursor support for this path
+  if (value instanceof Node) {
+    container.appendChild(value)
+    return () => {
+      rootDispose()
+      scopeDisposers.forEach((d) => d())
+    }
+  }
+
+  // Descriptor mode: render with the hydration cursor active
+  const disposer = _withCursor(cursor, () =>
+    renderChildren(value as JSXElement, container, null),
+  )
   return () => {
     rootDispose()
     disposer()

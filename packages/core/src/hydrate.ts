@@ -3,11 +3,12 @@
 // then mounts the app so components can access their initial server state.
 
 import { provide } from './context.js'
-import { mount } from './dom-renderer.js'
+import { _hydrateInto } from './dom-renderer.js'
 import { HydrationRegistryContext } from './hydration.js'
 import type { HydrationRegistry } from './hydration.js'
 import type { JSXElement } from './jsx-runtime.js'
 import type { Disposer } from './dom-renderer.js'
+import { HydrationCursor } from './hydration-cursor.js'
 
 declare global {
   interface Window {
@@ -108,9 +109,11 @@ export function hydrate(
 
   const registry = createClientRegistry(initialState as Record<string, unknown>)
 
+  const cursor = new HydrationCursor(container.childNodes)
+
   let disposer!: Disposer
   provide(HydrationRegistryContext, registry, () => {
-    disposer = mount(root, container)
+    disposer = _hydrateInto(root, container, cursor)
   })
 
   // After mount, compare client output against server HTML.
