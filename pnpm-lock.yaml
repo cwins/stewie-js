@@ -58,6 +58,16 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.15)(happy-dom@20.8.4)(terser@5.46.1)(tsx@4.21.0)
 
+  examples/js-framework-benchmark:
+    dependencies:
+      '@stewie-js/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+    devDependencies:
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0)
+
   examples/ssr-and-routing:
     dependencies:
       '@stewie-js/adapter-node':

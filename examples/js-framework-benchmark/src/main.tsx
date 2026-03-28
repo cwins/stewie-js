@@ -39,7 +39,7 @@ let nextId = 1
 // so that signal() creation is allowed (Stewie's creation guard only warns
 // when signals are created at module scope without a reactive root).
 function buildData(count: number): Row[] {
-  const rows: Row[] = new Array(count)
+  const rows: Row[] = Array.from({ length: count })
   for (let i = 0; i < count; i++) {
     rows[i] = {
       id: nextId++,

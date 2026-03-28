@@ -171,6 +171,51 @@ function renderShow(props: Record<string, unknown>, parent: Node, before: Node |
 }
 
 // ---------------------------------------------------------------------------
+// LIS (Longest Increasing Subsequence) for keyed For reconciliation
+//
+// Given a sequence of old DOM indices (-1 = new item, excluded from LIS),
+// returns the Set of positions in the sequence that form the LIS.
+// Items at LIS positions are already in correct relative order and need
+// no DOM move; only non-LIS items are repositioned.
+// Time: O(n log n).  Space: O(n).
+// ---------------------------------------------------------------------------
+
+function computeLIS(seq: number[]): Set<number> {
+  const n = seq.length
+  // tails[k] = index into seq of the smallest tail for an IS of length k+1
+  const tails: number[] = []
+  // parent[i] = predecessor index in seq for the IS ending at i (-1 = none)
+  const parent: number[] = Array.from({ length: n }, () => -1)
+
+  for (let i = 0; i < n; i++) {
+    const v = seq[i]
+    if (v === -1) continue // new item — skip
+
+    // Binary search: leftmost position where seq[tails[pos]] >= v
+    let lo = 0
+    let hi = tails.length
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1
+      if (seq[tails[mid]] < v) lo = mid + 1
+      else hi = mid
+    }
+    parent[i] = lo > 0 ? tails[lo - 1] : -1
+    if (lo === tails.length) tails.push(i)
+    else tails[lo] = i
+  }
+
+  // Backtrack from the last tail to collect the actual LIS indices
+  const result = new Set<number>()
+  if (tails.length === 0) return result
+  let cur = tails[tails.length - 1]
+  while (cur !== -1) {
+    result.add(cur)
+    cur = parent[cur]
+  }
+  return result
+}
+
+// ---------------------------------------------------------------------------
 // Control flow: For
 // ---------------------------------------------------------------------------
 
@@ -185,8 +230,16 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
 
   if (keyFn) {
     // Keyed mode: diff by key so stable items reuse their DOM nodes and effects.
+    //
+    // Uses a Longest Increasing Subsequence (LIS) approach to find the minimum
+    // number of DOM moves required. Items in the LIS are already in correct
+    // relative order and never move; only the O(k) non-LIS items are repositioned.
+    // This reduces a 2-element swap from ~998 DOM moves to 2.
     interface KeyedEntry { nodes: ChildNode[]; disposer: Disposer }
     const keyMap = new Map<unknown, KeyedEntry>()
+    // Keys in their current DOM order — maintained across renders to avoid
+    // re-reading the DOM on every reconciliation.
+    let prevKeys: unknown[] = []
 
     if (isDev) _setNextEffectMeta({ type: 'for' })
     const disposeEffect = effect(() => {
@@ -201,22 +254,34 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
           nodes.forEach((n) => n.parentNode?.removeChild(n))
         })
         keyMap.clear()
+        prevKeys = []
         return
       }
 
       const newKeys = each.map((item, i) => keyFn(item, i))
       const newKeySet = new Set(newKeys)
 
-      // Remove entries whose keys are no longer in the list
-      for (const [key, { nodes, disposer }] of keyMap) {
-        if (!newKeySet.has(key)) {
-          disposer()
-          nodes.forEach((n) => n.parentNode?.removeChild(n))
-          keyMap.delete(key)
+      // 1. Remove entries whose keys are no longer in the list.
+      //    Build currentKeys = prevKeys minus removed keys (preserves DOM order).
+      let currentKeys: unknown[]
+      if (prevKeys.length === 0) {
+        currentKeys = []
+      } else {
+        currentKeys = []
+        for (let i = 0; i < prevKeys.length; i++) {
+          const k = prevKeys[i]
+          if (newKeySet.has(k)) {
+            currentKeys.push(k)
+          } else {
+            const entry = keyMap.get(k)!
+            entry.disposer()
+            entry.nodes.forEach((n) => n.parentNode?.removeChild(n))
+            keyMap.delete(k)
+          }
         }
       }
 
-      // Render new items not yet in the key map
+      // 2. Render new items not yet in the key map (detached; placed in step 4).
       for (let i = 0; i < each.length; i++) {
         const key = newKeys[i]
         if (!keyMap.has(key)) {
@@ -224,29 +289,44 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
           const disposer = renderChildren(renderFn(each[i], i), frag, null)
           const nodes = Array.from(frag.childNodes) as ChildNode[]
           keyMap.set(key, { nodes, disposer })
-          // Node is currently detached (in the fragment which was consumed); it
-          // will be placed in the correct position during the reorder pass below.
         }
       }
 
-      // Reorder: walk backwards through the new array, inserting each entry's
-      // nodes immediately before the reference node (which starts as the anchor
-      // and advances leftward as we place each entry).
+      // 3. Find which positions in newKeys are already in a stable (non-moving)
+      //    relative order via LIS on their old DOM indices.
+      //    New items (not in currentKeys) get oldIdx = -1 and are excluded from
+      //    the LIS — they always need to be inserted.
+      const keyToOldIdx = new Map<unknown, number>()
+      for (let i = 0; i < currentKeys.length; i++) keyToOldIdx.set(currentKeys[i], i)
+
+      const oldIdxSeq: number[] = Array.from({ length: newKeys.length })
+      for (let i = 0; i < newKeys.length; i++) {
+        oldIdxSeq[i] = keyToOldIdx.get(newKeys[i]) ?? -1
+      }
+
+      const stable = computeLIS(oldIdxSeq)
+
+      // 4. Backward pass: move non-stable items, advance insertRef past stable items.
+      //    Stable items are already in correct relative order — touching them would
+      //    be wasted DOM work (and would cause cascading moves for swap operations).
       let insertRef: Node = anchor
-      for (let i = each.length - 1; i >= 0; i--) {
+      for (let i = newKeys.length - 1; i >= 0; i--) {
         const entry = keyMap.get(newKeys[i])!
         if (entry.nodes.length === 0) continue
-
-        const lastNode = entry.nodes[entry.nodes.length - 1]
-        if (lastNode.nextSibling !== insertRef) {
-          // Collect into a fragment (removes from current DOM position) then
-          // insert in one operation to preserve node order.
+        if (stable.has(i)) {
+          // Already in place relative to its neighbours — just advance the cursor.
+          insertRef = entry.nodes[0]
+        } else {
+          // Move (or insert) before insertRef.
           const frag = document.createDocumentFragment()
           for (const node of entry.nodes) frag.appendChild(node)
           anchor.parentNode?.insertBefore(frag, insertRef)
+          insertRef = entry.nodes[0]
         }
-        insertRef = entry.nodes[0]
       }
+
+      // 5. Record the new DOM order for the next reconciliation.
+      prevKeys = newKeys.slice()
     })
 
     return () => {

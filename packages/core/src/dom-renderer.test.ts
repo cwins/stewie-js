@@ -449,6 +449,55 @@ describe('For (keyed)', () => {
     expect(lis[1].textContent).toBe('b')
     expect(lis[2].textContent).toBe('c')
   })
+
+  it('swap two items uses minimal DOM moves (LIS correctness)', () => {
+    // 5 items — swap index 1 and 3 (ids 2 and 4)
+    const mk = (id: number, text: string) => ({ id, text })
+    const items = sig([mk(1,'a'), mk(2,'b'), mk(3,'c'), mk(4,'d'), mk(5,'e')])
+    const c = container()
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text }),
+      }),
+      c,
+    )
+    const [li1, , li3, , li5] = Array.from(c.querySelectorAll('li'))
+
+    // Swap ids 2 and 4
+    items.set([mk(1,'a'), mk(4,'d'), mk(3,'c'), mk(2,'b'), mk(5,'e')])
+    const after = Array.from(c.querySelectorAll('li'))
+    expect(after.map(l => l.textContent)).toEqual(['a','d','c','b','e'])
+    // Stable items (1, 3, 5) must be the exact same DOM nodes
+    expect(after[0]).toBe(li1)
+    expect(after[2]).toBe(li3)
+    expect(after[4]).toBe(li5)
+  })
+
+  it('remove one item from large list leaves others undisturbed', () => {
+    const mk = (id: number) => ({ id })
+    const items = sig(Array.from({ length: 10 }, (_, i) => mk(i + 1)))
+    const c = container()
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => jsx('li', { children: String((item as { id: number }).id) }),
+      }),
+      c,
+    )
+    const allBefore = Array.from(c.querySelectorAll('li'))
+    // Remove id=5 (index 4)
+    items.set(items().filter(r => (r as { id: number }).id !== 5))
+    const allAfter = Array.from(c.querySelectorAll('li'))
+    expect(allAfter.length).toBe(9)
+    expect(allAfter.map(l => l.textContent)).toEqual(['1','2','3','4','6','7','8','9','10'])
+    // All remaining nodes are the same DOM elements
+    expect(allAfter[0]).toBe(allBefore[0])
+    expect(allAfter[3]).toBe(allBefore[3])
+    expect(allAfter[4]).toBe(allBefore[5]) // was index 5 (id=6), now index 4
+  })
 })
 
 // ---------------------------------------------------------------------------

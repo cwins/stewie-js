@@ -9,7 +9,7 @@ export default defineConfig({
     // Single-file output: the benchmark runner serves dist/index.html
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks: undefined
       },
     },
   },
