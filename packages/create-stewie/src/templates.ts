@@ -31,7 +31,7 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
   const devDependencies: Record<string, string> = {
     typescript: '^5.8.0',
     vite: '^7.0.0',
-    vitest: '^3.0.0',
+    vitest: '^4.0.0',
     '@stewie-js/testing': '^0.1.0',
     '@stewie-js/devtools': '^0.1.0',
   }
