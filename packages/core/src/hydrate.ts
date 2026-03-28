@@ -103,7 +103,7 @@ export function hydrate(
   const initialState = typeof window !== 'undefined' ? (window.__STEWIE_STATE__ ?? {}) : {}
 
   // Capture server HTML before we overwrite it (dev only)
-  const isDev = process.env.NODE_ENV !== 'production'
+  const isDev = typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : true
   const serverHtml = isDev ? container.innerHTML : ''
 
   const registry = createClientRegistry(initialState as Record<string, unknown>)
