@@ -60,6 +60,27 @@ describe('generateFiles — static mode (no router)', () => {
     expect(app.content).toContain('<h1')
   })
 
+  it('app.tsx demonstrates $value two-way binding for filter input', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
+    const app = files.find((f) => f.path === 'src/app.tsx')!
+    expect(app.content).toContain('filter = signal(')
+    expect(app.content).toContain('$value={filter}')
+  })
+
+  it('app.tsx uses compiler auto-wrap (no explicit () => for signal ternary)', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
+    const app = files.find((f) => f.path === 'src/app.tsx')!
+    // The show/hide button text uses the signal directly — compiler wraps it
+    expect(app.content).toContain("{showTodos() ? 'Hide' : 'Show'}")
+    expect(app.content).not.toContain("{() => (showTodos() ? 'Hide' : 'Show')}")
+  })
+
+  it('styles.css includes .input class', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
+    const css = files.find((f) => f.path === 'src/styles.css')!
+    expect(css.content).toContain('.input')
+  })
+
   it('includes @stewie-js/devtools in devDependencies', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
     const pkgJson = JSON.parse(files.find((f) => f.path === 'package.json')!.content)
@@ -166,6 +187,30 @@ describe('generateFiles — static mode (with router)', () => {
     expect(about.content).toContain('AboutPage')
     expect(about.content).toContain('<Shell>')
     expect(about.content).toContain("from '../shell.js'")
+  })
+
+  it('pages/about.tsx includes signal.peek() in primitives list', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
+    const about = files.find((f) => f.path === 'src/pages/about.tsx')!
+    expect(about.content).toContain('peek()')
+  })
+
+  it('app.tsx uses lazy() for page imports', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
+    const app = files.find((f) => f.path === 'src/app.tsx')!
+    expect(app.content).toContain("import { lazy } from '@stewie-js/core'")
+    expect(app.content).toContain('lazy(() => import(')
+    // Should not use static imports for page components
+    expect(app.content).not.toContain("import { HomePage }")
+    expect(app.content).not.toContain("import { CounterPage }")
+    expect(app.content).not.toContain("import { AboutPage }")
+  })
+
+  it('pages/home.tsx uses compiler auto-wrap (no explicit () => for showFeatures ternary)', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
+    const home = files.find((f) => f.path === 'src/pages/home.tsx')!
+    expect(home.content).toContain("{showFeatures() ? 'Hide features' : 'What makes it fast?'}")
+    expect(home.content).not.toContain("{() => (showFeatures()")
   })
 })
 

@@ -195,6 +195,10 @@ class SignalNode<T> extends ReactiveNode<T> {
     return this._value
   }
 
+  peek(): T {
+    return this._value
+  }
+
   write(value: T): void {
     if (value === this._value) return
     this._value = value
@@ -398,7 +402,7 @@ export function signal<T>(initialValue: T): Signal<T> {
   } as Signal<T>
 
   sig.peek = function (): T {
-    return node._value
+    return node.peek()
   }
 
   sig.set = function (value: T): void {

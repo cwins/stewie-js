@@ -398,6 +398,15 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: system
 }
 .features-list li::before { content: '⚡'; flex-shrink: 0; }
 
+/* Input */
+.input {
+  width: 100%; padding: 0.5rem 0.875rem; font-size: 0.9rem;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  outline: none; transition: border-color 0.15s;
+}
+.input:focus { border-color: var(--primary); }
+
 /* Page subtitle */
 .page-title { font-size: 1.75rem; font-weight: 700; margin: 0 0 0.375rem; letter-spacing: -0.02em; }
 .page-subtitle { color: var(--text-muted); margin: 0 0 2rem; }
@@ -422,11 +431,15 @@ export async function renderApp(url: string = '/'): Promise<RenderResult> {
     files.push({
       path: 'src/app.tsx',
       content: `import { Router, Route } from '@stewie-js/router'
+import { lazy } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
-import { HomePage } from './pages/home.js'
-import { CounterPage } from './pages/counter.js'
-import { AboutPage } from './pages/about.js'
 import './styles.css'
+
+// lazy() code-splits each page — the bundle for that page is only loaded
+// when the user navigates to it for the first time.
+const HomePage = lazy(() => import('./pages/home.js').then((m) => m.HomePage))
+const CounterPage = lazy(() => import('./pages/counter.js').then((m) => m.CounterPage))
+const AboutPage = lazy(() => import('./pages/about.js').then((m) => m.AboutPage))
 
 // Router must have only <Route> elements as direct children —
 // the Router scans them to build the route table.
@@ -471,11 +484,13 @@ export function App(): JSXElement {
   let count!: ReturnType<typeof signal<number>>
   let doubled!: ReturnType<typeof computed<number>>
   let showTodos!: ReturnType<typeof signal<boolean>>
+  let filter!: ReturnType<typeof signal<string>>
   let todos!: TodoItem[]
   createRoot(() => {
     count = signal(0)
     doubled = computed(() => count() * 2)
     showTodos = signal(true)
+    filter = signal('')
     todos = store([
       { id: 1, text: 'Learn Stewie signals', done: false },
       { id: 2, text: 'Try fine-grained reactivity', done: false },
@@ -517,16 +532,24 @@ export function App(): JSXElement {
           <div class="section">
             <div class="section-header">
               <h2 class="section-title">Todo list</h2>
+              {/* The compiler auto-wraps signal reads in JSX — no () => needed here */}
               <button class="btn btn-sm btn-outline" onClick={() => showTodos.update((v) => !v)}>
-                {() => (showTodos() ? 'Hide' : 'Show')}
+                {showTodos() ? 'Hide' : 'Show'}
               </button>
             </div>
             <p class="section-desc">
               Store Proxy — clicking an item updates only that row, not the whole list.
             </p>
             <Show when={showTodos}>
+              {/* $value creates a two-way binding — no onChange handler needed */}
+              <input $value={filter} placeholder="Filter todos…" class="input" style="margin-bottom:0.75rem" />
               <ul class="todo-list">
-                <For each={todos}>
+                <For
+                  each={() => todos.filter((t: TodoItem) =>
+                    t.text.toLowerCase().includes(filter().toLowerCase())
+                  )}
+                  key={(item: TodoItem) => item.id}
+                >
                   {(item: TodoItem) => (
                     <li
                       class={() => \`todo-item\${item.done ? ' done' : ''}\`}
@@ -658,8 +681,9 @@ export function HomePage(): JSXElement {
             <button class="btn btn-primary" onClick={() => router.navigate('/counter')}>
               Try the counter →
             </button>
+            {/* The compiler auto-wraps signal reads in JSX — no () => needed */}
             <button class="btn btn-outline" onClick={() => showFeatures.update((v) => !v)}>
-              {() => (showFeatures() ? 'Hide features' : 'What makes it fast?')}
+              {showFeatures() ? 'Hide features' : 'What makes it fast?'}
             </button>
           </div>
         </div>
@@ -733,6 +757,7 @@ import { Shell } from '../shell.js'
 
 const PRIMITIVES = [
   { name: 'signal(value)', desc: 'Reactive value — read with sig(), write with sig.set()' },
+  { name: 'sig.peek()', desc: 'Read current value without registering a subscription' },
   { name: 'computed(fn)', desc: 'Derived value — lazy, memoized, auto-tracked' },
   { name: 'effect(fn)', desc: 'Side effect — re-runs when any accessed signal changes' },
   { name: 'store(object)', desc: 'Reactive object — path-level subscriptions via Proxy' },
