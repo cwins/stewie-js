@@ -211,7 +211,7 @@ describe('Route guards (beforeEnter)', () => {
       {
         path: '/protected',
         component: null as any,
-        beforeEnter: async () => true,
+        beforeEnter: async () => true as const,
       },
     ]
     await router.navigate('/protected')

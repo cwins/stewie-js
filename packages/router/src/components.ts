@@ -1,6 +1,6 @@
 // components.ts — route components
 
-import { jsx, inject } from '@stewie-js/core'
+import { jsx, inject, effect } from '@stewie-js/core'
 import type { JSXElement, Component } from '@stewie-js/core'
 import { createRouter, RouterContext } from './router.js'
 import type { Router, RouteGuard } from './router.js'
@@ -114,6 +114,11 @@ export function Router(props: RouterProps): JSXElement {
 
   // Register routes so navigate() can resolve params
   router._routes = routes
+
+  // Wire router teardown into component lifecycle. This effect has no reactive
+  // dependencies so it runs once; its cleanup fires when the Router component
+  // is unmounted (the dom-renderer disposes createRoot effects on unmount).
+  effect(() => () => router._dispose())
 
   // matchedContent is a reactive function — the DOM renderer wraps it in effect()
   // and re-renders whenever router.location.pathname changes.

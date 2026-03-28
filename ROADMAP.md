@@ -11,14 +11,25 @@ These exist and work — not listed as open items below.
 | Feature | Package | Notes |
 |---|---|---|
 | `signal`, `computed`, `effect`, `store`, `batch` | `@stewie-js/core` | Fully implemented and exported |
+| `signal.peek()` | `@stewie-js/core` | Read without subscribing |
 | `Show`, `For`, `Switch`/`Match` | `@stewie-js/core` | DOM renderer handles all four |
+| `For` keyed reconciliation | `@stewie-js/core` | LIS-based minimal DOM moves |
 | `Portal`, `ErrorBoundary`, `Suspense`, `ClientOnly` | `@stewie-js/core` | DOM renderer and SSR renderer handle all |
+| `lazy()` | `@stewie-js/core` | Code-split components with signal-driven loading |
 | Context (`createContext`, `inject`, `provide`) | `@stewie-js/core` | Full implementation |
+| `createRoot()` effect ownership | `@stewie-js/core` | Synchronous effects tracked and disposed on unmount |
 | `renderToString` | `@stewie-js/server` | Working with hydration state injection |
 | `renderToStream` | `@stewie-js/server` | Progressive streaming with Suspense boundary flushing |
 | Hydration mismatch detection | `@stewie-js/core` | Dev-mode warning in `hydrate.ts` |
 | View Transitions | `@stewie-js/router` | `document.startViewTransition` wrapping in router |
 | Client-side routing, `<Link>` | `@stewie-js/router` | History + Navigation API, parameterized routes |
+| Route guards (`beforeEnter`) | `@stewie-js/router` | Async allow/redirect on `navigate()` |
+| Route-level data loading (`load`) | `@stewie-js/router` | Async loader result via `useRouteData()` |
+| Router listener teardown | `@stewie-js/router` | `_dispose()` wired into `Router` component unmount |
+| `$prop` two-way binding transform | `@stewie-js/compiler` | `$value`, `$checked` with conflict detection |
+| Compiler auto-wrap | `@stewie-js/compiler` | Signal reads in JSX auto-wrapped in `() =>` |
+| `effect` import injection | `@stewie-js/compiler` | Correctly injected even when other core imports exist |
+| Source maps | `@stewie-js/compiler` | Inline (dev) and external `.map` (prod) |
 | Node and Bun adapters | `@stewie-js/adapter-node/bun` | Thin HTTP adapter wrappers |
 | Vite plugin + HMR | `@stewie-js/vite` | TSX transform, devtools injection |
 | Devtools panel | `@stewie-js/devtools` | Renders, Stores, Routes tabs |
@@ -36,33 +47,18 @@ Genuine gaps in the current implementation.
 **True hydration / DOM reuse**
 `hydrate()` currently delegates to `mount()`, which clears the container and re-renders from scratch. Real hydration should walk the existing SSR DOM and attach reactive subscriptions to existing nodes rather than discarding and recreating them. This is the largest gap in the SSR story and is architecturally significant work.
 
-**`createRoot()` ownership and disposal**
-`createRoot()` currently only guards against module-scope reactive primitive creation. It does not create an ownership tree, does not track child effects, and does not dispose them on component unmount. This means effects created inside component bodies accumulate and are never cleaned up, which is a correctness and memory concern for long-lived apps. A proper ownership model (closer to Solid's `createRoot` semantics) is needed.
+**`createRoot()` async ownership**
+Synchronous effects created during a `createRoot()` body are now tracked and disposed on unmount. What remains: effects created from async callbacks (after `await`) are not automatically owned by the root and will not be disposed with it. A fully async-aware ownership tree (closer to Solid's `createOwner` semantics) is needed for long-lived async workflows.
 
-**Router listener teardown**
-`createRouter()` installs `popstate` or Navigation API event listeners but provides no teardown API. Repeated mount/unmount cycles — common in tests and microfrontend contexts — can accumulate process-global listeners.
+**Route guards and data loading on initial render**
+`beforeEnter` and `load` currently run only on `navigate()` calls. They do not fire on the initial render, on first client mount, or during SSR. This limits their usefulness for auth protection of the landing route and for SSR data prefetching.
 
 ### Compiler
 
-**`$prop` two-way binding transform**
-The spec is fully designed: `$value={sig}` expands to `value={sig()} onInput={e => sig.set(e.target.value)}`, with collision detection (error if `value` is also set) and readonly/disabled downgrade (warning + one-way). The transform is not yet wired into the emitter.
-
-**`effect` import injection correctness**
-When the compiler emits `effect(...)` calls into a file that already imports other things from `@stewie-js/core` but not `effect`, the import injection logic does not add the missing `effect` import. Files that start with zero `@stewie-js/core` imports work correctly; this is the edge case.
-
 **Fine-grained reactive output**
-The compiler currently handles JSX transformation and validation. The deeper optimization — statically distinguishing reactive vs. static JSX attribute expressions and emitting direct DOM subscriptions — is partially designed but not fully implemented in the emitter.
-
-**Source maps**
-Dev-mode inline source maps and production external `.map` files for compiled TSX output are not yet generated.
+The compiler currently handles JSX transformation and validation. The deeper optimization — statically distinguishing reactive vs. static JSX attribute expressions and emitting direct DOM subscriptions instead of delegating to the runtime — is partially designed but not fully implemented in the emitter.
 
 ### Router
-
-**Route guards**
-Async `beforeEnter(to, from)` hook on route definitions that can redirect or block navigation. Essential for auth flows; not yet implemented.
-
-**Lazy routes with code splitting**
-`component: lazy(() => import('./Page'))` with automatic route-boundary code splitting. All routes are currently eagerly bundled.
 
 **Typed params and query**
 `useParams<{ id: string }>()` and `useQuery<{ tab: string }>()` with types inferred from route definitions rather than requiring manual annotation.
@@ -71,9 +67,6 @@ Async `beforeEnter(to, from)` hook on route definitions that can redirect or blo
 
 **`resource()` primitive**
 A `resource(fetcher)` primitive that wraps async functions and returns `{ data, loading, error }` signals. Integrates naturally with `<Suspense>` and route-level data loading. Currently users must manage loading state manually with signals.
-
-**Route-level data loading**
-A `load` function on route definitions that resolves before the component renders and integrates with `<Suspense>`. Eliminates the need for loading spinners inside page components.
 
 ### Adapters
 
@@ -88,10 +81,6 @@ Cloudflare Workers and Pages adapter. Workers speak `Request`/`Response` nativel
 ## Potential Enhancements
 
 Things not strictly missing but that would meaningfully improve the project.
-
-### `For` keying
-
-The `For` component accepts a `key` prop but the DOM renderer's list reconciliation may not be using it for minimal diffing. Worth auditing and hardening — unkeyed list teardown/rebuild on every change is the worst case for interactive lists.
 
 ### Store proxy identity
 
@@ -128,13 +117,10 @@ Nested store objects are re-proxied on each property access with no caching laye
 
 ## Priority Order
 
-1. True hydration / DOM reuse — biggest gap in the SSR story
-2. `createRoot()` ownership and disposal — foundational correctness
-3. Router listener teardown — correctness for test and embedded use
-4. `$prop` compiler transform — already fully specced, needs wiring
-5. `effect` import injection fix — compiler correctness bug
-6. `resource()` + route-level data loading — unlocks real async patterns
-7. Route guards + lazy routes — required for production auth and performance
-8. Fine-grained compiler output — the core performance differentiator
-9. Form primitives — highest-value DX enhancement
-10. Documentation site — needed before recommending Stewie to others
+1. True hydration / DOM reuse — biggest remaining gap in the SSR story
+2. Route guards and data loading on initial render — required for real auth flows
+3. `createRoot()` async ownership — correctness for async-heavy apps
+4. `resource()` primitive — unlocks real async patterns without manual signal management
+5. Fine-grained compiler output — the core performance differentiator
+6. Form primitives — highest-value DX enhancement
+7. Documentation site — needed before recommending Stewie to others

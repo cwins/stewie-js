@@ -1,5 +1,5 @@
 // components.ts — built-in control flow components for @stewie-js/core
-// These create element descriptors; actual rendering logic is in the renderer (future phase).
+// These create element descriptors; actual rendering logic lives in dom-renderer.ts.
 
 import type { Signal } from './reactive.js'
 import { jsx } from './jsx-runtime.js'

@@ -12,11 +12,11 @@
 
 ## Why Stewie?
 
-### No re-renders. No memoization. Ever.
+### No component re-renders. No memoization.
 
 In React, `setState` re-renders the component and every child. You fight this with `memo`, `useMemo`, and `useCallback` — manually, everywhere, forever. Get it wrong and performance craters.
 
-In Stewie, `signal.set()` updates **exactly the DOM nodes that depend on it**. Nothing else runs. There is no concept of re-rendering a component. You never write `useMemo`. You cannot accidentally cause a cascade.
+In Stewie, `signal.set()` updates **exactly the DOM nodes that depend on it**. Component functions do not re-run. There is no render cycle to optimize. You never write `useMemo`. Cascading re-renders are not a failure mode that exists.
 
 ```tsx
 // React — manual memoization required to avoid re-render cascades

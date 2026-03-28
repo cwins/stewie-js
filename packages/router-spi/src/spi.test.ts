@@ -52,13 +52,14 @@ describe('@stewie-js/router-spi interface definitions', () => {
       backCalls = 0
       forwardCalls = 0
 
-      navigate(to: string | NavigateOptions): void {
+      navigate(to: string | NavigateOptions): Promise<void> {
         this.navigateCalls.push(to)
         if (typeof to === 'string') {
           this.location.pathname = to
         } else {
           this.location.pathname = to.to
         }
+        return Promise.resolve()
       }
 
       back(): void {
@@ -118,7 +119,7 @@ describe('@stewie-js/router-spi interface definitions', () => {
         query: {},
         hash: '',
       },
-      navigate: () => {},
+      navigate: () => Promise.resolve(),
       back: () => {},
       forward: () => {},
       match: () => null,
