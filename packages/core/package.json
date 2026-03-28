@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Reactivity primitives, JSX runtime, context, and control flow for the Stewie framework",
   "author": "",
   "license": "MIT",

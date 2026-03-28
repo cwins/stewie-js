@@ -13,27 +13,27 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
   // -------------------------------------------------------------------------
 
   const dependencies: Record<string, string> = {
-    '@stewie-js/core': '^0.1.0',
-    '@stewie-js/vite': '^0.1.0',
+    '@stewie-js/core': '^0.2.0',
+    '@stewie-js/vite': '^0.2.0',
   }
   if (ctx.mode === 'ssr') {
-    dependencies['@stewie-js/server'] = '^0.1.0'
+    dependencies['@stewie-js/server'] = '^0.2.0'
     if (ctx.ssrRuntime === 'bun') {
-      dependencies['@stewie-js/adapter-bun'] = '^0.1.0'
+      dependencies['@stewie-js/adapter-bun'] = '^0.2.0'
     } else {
-      dependencies['@stewie-js/adapter-node'] = '^0.1.0'
+      dependencies['@stewie-js/adapter-node'] = '^0.2.0'
     }
   }
   if (ctx.includeRouter) {
-    dependencies['@stewie-js/router'] = '^0.1.0'
+    dependencies['@stewie-js/router'] = '^0.2.0'
   }
 
   const devDependencies: Record<string, string> = {
     typescript: '^5.8.0',
     vite: '^7.0.0',
     vitest: '^4.0.0',
-    '@stewie-js/testing': '^0.1.0',
-    '@stewie-js/devtools': '^0.1.0',
+    '@stewie-js/testing': '^0.2.0',
+    '@stewie-js/devtools': '^0.2.0',
   }
   if (ctx.mode === 'ssr' && ctx.ssrRuntime !== 'bun') {
     devDependencies['tsx'] = '^4.0.0'
