@@ -199,3 +199,98 @@ describe('location reactivity: pathname vs query independence', () => {
     disposeQuery()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Route guards
+// ---------------------------------------------------------------------------
+
+describe('Route guards (beforeEnter)', () => {
+  it('allows navigation when guard returns true', async () => {
+    const router = createRouter('/')
+    router._routes = [
+      {
+        path: '/protected',
+        component: null as any,
+        beforeEnter: async () => true,
+      },
+    ]
+    await router.navigate('/protected')
+    expect(router.location.pathname).toBe('/protected')
+  })
+
+  it('redirects when guard returns a string', async () => {
+    const router = createRouter('/')
+    router._routes = [
+      { path: '/login', component: null as any },
+      {
+        path: '/protected',
+        component: null as any,
+        beforeEnter: async () => '/login',
+      },
+    ]
+    await router.navigate('/protected')
+    // Guard redirected to /login
+    expect(router.location.pathname).toBe('/login')
+  })
+
+  it('calls guard with correct to and from arguments', async () => {
+    const router = createRouter('/home')
+    const guard = vi.fn(async () => true as const)
+    router._routes = [
+      { path: '/home', component: null as any },
+      { path: '/about', component: null as any, beforeEnter: guard },
+    ]
+    await router.navigate('/about')
+    expect(guard).toHaveBeenCalledWith('/about', '/home')
+  })
+
+  it('skips guard on routes that do not match', async () => {
+    const router = createRouter('/')
+    const guard = vi.fn(async () => true as const)
+    router._routes = [
+      { path: '/protected', component: null as any, beforeEnter: guard },
+      { path: '/open', component: null as any },
+    ]
+    await router.navigate('/open')
+    // Guard should NOT be called — /open doesn't have a guard
+    expect(guard).not.toHaveBeenCalled()
+    expect(router.location.pathname).toBe('/open')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Route data loading (useRouteData / load)
+// ---------------------------------------------------------------------------
+
+describe('Route data loading (load)', () => {
+  it('stores loaded data in _routeData signal after navigation', async () => {
+    const router = createRouter('/')
+    router._routes = [
+      {
+        path: '/data',
+        component: null as any,
+        load: async () => ({ items: [1, 2, 3] }),
+      },
+    ]
+    await router.navigate('/data')
+    expect(router._routeData()).toEqual({ items: [1, 2, 3] })
+  })
+
+  it('resets _routeData to undefined before loading', async () => {
+    const router = createRouter('/')
+    let duringLoad: unknown = 'not-checked'
+    router._routes = [
+      {
+        path: '/a',
+        component: null as any,
+        load: async () => {
+          duringLoad = router._routeData()
+          return 'done'
+        },
+      },
+    ]
+    await router.navigate('/a')
+    expect(duringLoad).toBeUndefined()
+    expect(router._routeData()).toBe('done')
+  })
+})

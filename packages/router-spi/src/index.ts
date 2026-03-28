@@ -22,7 +22,7 @@ export interface RouteMatch {
 
 export interface StewieRouterSPI {
   readonly location: ReactiveLocation
-  navigate(to: string | NavigateOptions): void
+  navigate(to: string | NavigateOptions): Promise<void>
   back(): void
   forward(): void
   match(pattern: string): RouteMatch | null

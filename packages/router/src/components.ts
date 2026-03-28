@@ -3,7 +3,7 @@
 import { jsx, inject } from '@stewie-js/core'
 import type { JSXElement, Component } from '@stewie-js/core'
 import { createRouter, RouterContext } from './router.js'
-import type { Router } from './router.js'
+import type { Router, RouteGuard } from './router.js'
 import { matchRoute } from './matcher.js'
 
 export interface RouterProps {
@@ -16,6 +16,16 @@ export interface RouterProps {
 export interface RouteProps {
   path: string
   component: Component
+  /**
+   * Guard called before this route is activated. Return `true` to allow
+   * navigation, or a redirect URL string to redirect instead.
+   */
+  beforeEnter?: RouteGuard
+  /**
+   * Async data loader. Called before the route component renders; result is
+   * available via `useRouteData()` in the component tree.
+   */
+  load?: () => Promise<unknown>
 }
 
 export interface LinkProps {
@@ -32,6 +42,8 @@ export interface LinkProps {
 interface RouteConfig {
   path: string
   component: Component
+  beforeEnter?: RouteGuard
+  load?: () => Promise<unknown>
 }
 
 // ---------------------------------------------------------------------------
@@ -45,7 +57,12 @@ function extractRoutes(children: JSXElement | JSXElement[] | undefined): RouteCo
   return arr
     .filter((c): c is JSXElement => c !== null && c !== undefined && typeof c === 'object' && 'type' in c)
     .filter((c) => c.type === (Route as unknown))
-    .map((c) => ({ path: c.props.path as string, component: c.props.component as Component }))
+    .map((c) => ({
+      path: c.props.path as string,
+      component: c.props.component as Component,
+      beforeEnter: c.props.beforeEnter as RouteGuard | undefined,
+      load: c.props.load as (() => Promise<unknown>) | undefined,
+    }))
 }
 
 /** Find the best-matching route for a given pathname. */

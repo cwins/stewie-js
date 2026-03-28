@@ -50,6 +50,9 @@ export type { HydrationRegistry } from './hydration.js'
 export { HydrationRegistryContext, useHydrationRegistry } from './hydration.js'
 export { hydrate } from './hydrate.js'
 
+// Lazy-loaded components
+export { lazy } from './lazy.js'
+
 // Built-in control flow components
 export type {
   ShowProps,

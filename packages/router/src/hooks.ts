@@ -14,3 +14,11 @@ export function useParams<T extends Record<string, string>>(): T {
 export function useQuery<T extends Record<string, string>>(): T {
   return useRouter().location.query as T
 }
+
+/**
+ * Returns the data loaded by the current route's `load()` function.
+ * Reactive — re-reads when navigation loads new data.
+ */
+export function useRouteData<T = unknown>(): T {
+  return useRouter()._routeData() as T
+}
