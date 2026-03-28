@@ -21,6 +21,7 @@ export type {
   TwoWayBinding,
   ModuleScopeCall,
   BindingConflict,
+  AutoWrapCandidate,
 } from './analyzer.js'
 export { parseFile } from './parser.js'
 export { analyzeFile } from './analyzer.js'

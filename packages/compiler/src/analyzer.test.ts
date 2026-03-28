@@ -88,6 +88,50 @@ describe('analyzeFile()', () => {
     expect(result.bindingConflicts.some((c) => c.type === 'disabled')).toBe(true)
   })
 
+  it('auto-wrap — detects signal read in ternary attribute', () => {
+    const source = `function App() { const active = signal(false); return <div class={active() ? 'on' : 'off'} /> }\n`
+    const parsed = parseFile(source, 'test.tsx')
+    const result = analyzeFile(parsed)
+    expect(result.autoWrapCandidates).toHaveLength(1)
+    expect(result.autoWrapCandidates[0].expressionText).toBe("active() ? 'on' : 'off'")
+  })
+
+  it('auto-wrap — skips attribute already wrapped in arrow function', () => {
+    const source = `function App() { const active = signal(false); return <div class={() => active() ? 'on' : 'off'} /> }\n`
+    const parsed = parseFile(source, 'test.tsx')
+    const result = analyzeFile(parsed)
+    expect(result.autoWrapCandidates).toHaveLength(0)
+  })
+
+  it('auto-wrap — skips event handler (on* attribute)', () => {
+    const source = `function App() { const handler = signal(() => {}); return <div onClick={handler()} /> }\n`
+    const parsed = parseFile(source, 'test.tsx')
+    const result = analyzeFile(parsed)
+    expect(result.autoWrapCandidates).toHaveLength(0)
+  })
+
+  it('auto-wrap — skips custom component props', () => {
+    const source = `function App() { const sig = signal(false); return <MyComp active={sig()} /> }\n`
+    const parsed = parseFile(source, 'test.tsx')
+    const result = analyzeFile(parsed)
+    expect(result.autoWrapCandidates).toHaveLength(0)
+  })
+
+  it('auto-wrap — detects signal read in JSX expression child', () => {
+    const source = `function App() { const count = signal(0); return <span>{count()}</span> }\n`
+    const parsed = parseFile(source, 'test.tsx')
+    const result = analyzeFile(parsed)
+    expect(result.autoWrapCandidates).toHaveLength(1)
+    expect(result.autoWrapCandidates[0].expressionText).toBe('count()')
+  })
+
+  it('auto-wrap — skips static attribute with no signal reads', () => {
+    const source = `function App() { return <div class="foo" /> }\n`
+    const parsed = parseFile(source, 'test.tsx')
+    const result = analyzeFile(parsed)
+    expect(result.autoWrapCandidates).toHaveLength(0)
+  })
+
   it('store path tracking — reads store.a.b', () => {
     const source = `
 function App() {

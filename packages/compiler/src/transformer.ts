@@ -100,6 +100,15 @@ export function transformFile(
   let source = parsed.source
   const replacements: Replacement[] = []
 
+  // Auto-wrap: reactive reads in JSX expressions that aren't already functions
+  for (const candidate of analysis.autoWrapCandidates) {
+    replacements.push({
+      start: candidate.start,
+      end: candidate.end,
+      text: `{() => ${candidate.expressionText}}`,
+    })
+  }
+
   for (const binding of analysis.twoWayBindings) {
     if (binding.hasConflictingValue) {
       // Don't transform conflicting bindings; let validator handle this

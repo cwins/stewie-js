@@ -35,14 +35,48 @@ export interface BindingConflict {
   column: number
 }
 
+export interface AutoWrapCandidate {
+  /** Character offset of the opening `{` in the source */
+  start: number
+  /** Character offset just past the closing `}` */
+  end: number
+  /** Expression text without the surrounding braces */
+  expressionText: string
+}
+
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[]
   twoWayBindings: TwoWayBinding[]
   moduleScopeReactiveCalls: ModuleScopeCall[]
   bindingConflicts: BindingConflict[]
+  autoWrapCandidates: AutoWrapCandidate[]
 }
 
 const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect'])
+
+/**
+ * Returns true if `node` or any descendant is a no-arg call to a simple
+ * identifier — i.e. the `sig()` pattern that reads a Stewie signal.
+ * Method calls (`obj.method()`) and calls with arguments are excluded.
+ */
+function containsNoArgIdentifierCall(node: ts.Node): boolean {
+  if (
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.arguments.length === 0
+  ) {
+    return true
+  }
+  return (
+    ts.forEachChild(node, (child): true | undefined =>
+      containsNoArgIdentifierCall(child) ? true : undefined,
+    ) === true
+  )
+}
+
+function isIntrinsicElement(name: string): boolean {
+  return /^[a-z]/.test(name)
+}
 
 function getLineAndColumn(
   node: ts.Node,
@@ -76,6 +110,7 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
   const twoWayBindings: TwoWayBinding[] = []
   const moduleScopeReactiveCalls: ModuleScopeCall[] = []
   const bindingConflicts: BindingConflict[] = []
+  const autoWrapCandidates: AutoWrapCandidate[] = []
 
   function visitModuleScope(node: ts.Node): void {
     // Check for reactive calls at module scope
@@ -114,8 +149,27 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
     }
   }
 
+  function visitJsxChildren(node: ts.JsxElement): void {
+    const tagName = node.openingElement.tagName.getText()
+    if (!isIntrinsicElement(tagName)) return
+
+    for (const child of node.children) {
+      if (!ts.isJsxExpression(child) || !child.expression) continue
+      const expr = child.expression
+      if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) continue
+      if (!containsNoArgIdentifierCall(expr)) continue
+
+      autoWrapCandidates.push({
+        start: child.getStart(sourceFile),
+        end: child.getEnd(),
+        expressionText: expr.getText(sourceFile),
+      })
+    }
+  }
+
   function visitJsxElement(node: ts.JsxOpeningLikeElement): void {
     const elementName = getJsxElementName(node)
+    const isIntrinsic = isIntrinsicElement(elementName)
     const attrs = node.attributes.properties
 
     // Collect all attribute names for conflict detection
@@ -201,6 +255,22 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
           line: pos.line,
           column: pos.column,
         })
+
+        // Auto-wrap: if this is an intrinsic element, the attribute is not an
+        // event handler, the expression is not already a function, but it
+        // contains a no-arg identifier call (signal read pattern) → wrap in () =>
+        if (
+          isIntrinsic &&
+          !attrName.startsWith('on') &&
+          !isReactive &&
+          containsNoArgIdentifierCall(expr)
+        ) {
+          autoWrapCandidates.push({
+            start: attr.initializer.getStart(sourceFile),
+            end: attr.initializer.getEnd(),
+            expressionText: expr.getText(sourceFile),
+          })
+        }
       }
     }
   }
@@ -210,6 +280,10 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
 
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       visitJsxElement(node)
+    }
+
+    if (ts.isJsxElement(node)) {
+      visitJsxChildren(node)
     }
 
     ts.forEachChild(node, visit)
@@ -222,5 +296,6 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
     twoWayBindings,
     moduleScopeReactiveCalls,
     bindingConflicts,
+    autoWrapCandidates,
   }
 }

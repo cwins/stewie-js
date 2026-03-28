@@ -155,6 +155,71 @@ function App() {
     expect(matches).toHaveLength(1)
   })
 
+  it('auto-wrap — ternary with signal read becomes arrow function', () => {
+    const source = `
+function App() {
+  const active = signal(false)
+  return <div class={active() ? 'on' : 'off'} />
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false })
+    expect(result.errors).toHaveLength(0)
+    expect(result.code).toContain("class={() => active() ? 'on' : 'off'}")
+    expect(result.code).not.toContain("class={active()")
+  })
+
+  it('auto-wrap — expression child with signal read becomes arrow function', () => {
+    const source = `
+function App() {
+  const count = signal(0)
+  return <span>{count() * 2}</span>
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false })
+    expect(result.errors).toHaveLength(0)
+    expect(result.code).toContain('{() => count() * 2}')
+  })
+
+  it('auto-wrap — already-wrapped attribute is left unchanged', () => {
+    const source = `
+function App() {
+  const active = signal(false)
+  return <div class={() => active() ? 'on' : 'off'} />
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false })
+    expect(result.errors).toHaveLength(0)
+    // Arrow function should appear exactly once — not double-wrapped
+    expect(result.code).toContain("() => active() ? 'on' : 'off'")
+    expect(result.code).not.toContain("() => () =>")
+  })
+
+  it('auto-wrap — event handler is not wrapped', () => {
+    const source = `
+function App() {
+  const getHandler = signal(() => {})
+  return <button onClick={getHandler()}>click</button>
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false })
+    expect(result.errors).toHaveLength(0)
+    expect(result.code).toContain('onClick={getHandler()}')
+    expect(result.code).not.toContain('onClick={() =>')
+  })
+
+  it('auto-wrap — component prop is not wrapped', () => {
+    const source = `
+function App() {
+  const sig = signal(false)
+  return <MyComp active={sig()} />
+}
+`
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false })
+    expect(result.errors).toHaveLength(0)
+    expect(result.code).toContain('active={sig()}')
+    expect(result.code).not.toContain('active={() =>')
+  })
+
   it('inline sourcemap is appended to code when inlineSourcemap: true', () => {
     const source = `function App() { return <div /> }\n`
     const result = compile(source, {
