@@ -502,9 +502,9 @@ export async function renderApp(_url: string = '/'): Promise<RenderResult> {
 
     files.push({
       path: 'src/app.tsx',
-      content: `import { signal, store, computed, createRoot } from '@stewie-js/core'
-import { Show, For } from '@stewie-js/core'
-import type { JSXElement } from '@stewie-js/core'
+      content: `import { signal, store, computed, batch, createRoot, resource } from '@stewie-js/core'
+import { Show, For, Switch, Match } from '@stewie-js/core'
+import type { Resource, JSXElement } from '@stewie-js/core'
 import './styles.css'
 
 interface TodoItem {
@@ -513,15 +513,24 @@ interface TodoItem {
   done: boolean
 }
 
+// Simulated async data load — replace with fetch('/api/...').then(r => r.json())
+async function loadWelcomeTip(): Promise<{ tip: string }> {
+  await new Promise<void>((r) => setTimeout(r, 600))
+  return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
+}
+
 export function App(): JSXElement {
   let count!: ReturnType<typeof signal<number>>
   let doubled!: ReturnType<typeof computed<number>>
+  let resets!: ReturnType<typeof signal<number>>
   let showTodos!: ReturnType<typeof signal<boolean>>
   let filter!: ReturnType<typeof signal<string>>
   let todos!: TodoItem[]
+  let tipResource!: Resource<{ tip: string }>
   createRoot(() => {
     count = signal(0)
     doubled = computed(() => count() * 2)
+    resets = signal(0)
     showTodos = signal(true)
     filter = signal('')
     todos = store([
@@ -529,6 +538,8 @@ export function App(): JSXElement {
       { id: 2, text: 'Try fine-grained reactivity', done: false },
       { id: 3, text: 'Build something great', done: false },
     ])
+    // resource() wraps any async function — exposes .loading, .data, .error signals
+    tipResource = resource(loadWelcomeTip)
   })
 
   return (
@@ -547,18 +558,46 @@ export function App(): JSXElement {
           </div>
 
           <div class="section">
+            <h2 class="section-title">Async data</h2>
+            <p class="section-desc">
+              resource() wraps any async function with reactive loading, data, and error signals.
+            </p>
+            {/* resource() — show fallback while loading, content once resolved */}
+            <div class="card">
+              <Show
+                when={() => !tipResource.loading()}
+                fallback={<p class="section-desc">Loading…</p>}
+              >
+                <p>{() => tipResource.data()?.tip ?? ''}</p>
+              </Show>
+            </div>
+          </div>
+
+          <div class="section">
             <h2 class="section-title">Counter</h2>
             <p class="section-desc">
               Signals update only the exact DOM nodes that depend on them.
             </p>
             <div class="card counter-card">
-              <div class="counter-value">{count}</div>
-              <div class="counter-meta">doubled: {doubled}</div>
+              <div class="counter-value">{() => count()}</div>
+              <div class="counter-meta">
+                {/* Switch/Match: only the first matching branch is mounted in the DOM */}
+                <Switch>
+                  <Match when={() => count() < 0}><span>negative · </span></Match>
+                  <Match when={() => count() === 0}><span>zero · </span></Match>
+                  <Match when={() => count() > 0}><span>positive · </span></Match>
+                </Switch>
+                <span>{() => \`doubled: \${doubled()}\`}</span>
+              </div>
               <div class="counter-controls">
                 <button class="btn btn-outline" onClick={() => count.update((n) => n - 1)}>−</button>
-                <button class="btn btn-ghost" onClick={() => count.set(0)}>Reset</button>
+                {/* batch() groups two signal writes into one notification pass */}
+                <button class="btn btn-ghost" onClick={() => batch(() => { count.set(0); resets.update((n) => n + 1) })}>Reset</button>
                 <button class="btn btn-primary" onClick={() => count.update((n) => n + 1)}>+</button>
               </div>
+              <Show when={() => resets() > 0}>
+                <p class="counter-meta">{() => \`Reset \${resets()} \${resets() === 1 ? 'time' : 'times'}\`}</p>
+              </Show>
             </div>
           </div>
 
@@ -681,10 +720,16 @@ export function Shell({ children }: { children: JSXElement }): JSXElement {
 
     files.push({
       path: 'src/pages/home.tsx',
-      content: `import { signal, createRoot, Show, For } from '@stewie-js/core'
+      content: `import { signal, createRoot, Show, For, resource } from '@stewie-js/core'
+import type { Resource, JSXElement } from '@stewie-js/core'
 import { useRouter } from '@stewie-js/router'
-import type { JSXElement } from '@stewie-js/core'
 import { Shell } from '../shell.js'
+
+// Simulated async data load — in a real app replace with fetch('/api/...').then(r => r.json())
+async function loadWelcomeTip(): Promise<{ tip: string }> {
+  await new Promise<void>((r) => setTimeout(r, 600))
+  return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
+}
 
 const FEATURES = [
   'Signal-based reactivity — no virtual DOM',
@@ -698,8 +743,11 @@ export function HomePage(): JSXElement {
   const router = useRouter()
 
   let showFeatures!: ReturnType<typeof signal<boolean>>
+  let tipResource!: Resource<{ tip: string }>
   createRoot(() => {
     showFeatures = signal(false)
+    // resource() wraps any async function — exposes .loading, .data, .error signals
+    tipResource = resource(loadWelcomeTip)
   })
 
   return (
@@ -718,6 +766,19 @@ export function HomePage(): JSXElement {
             <button class="btn btn-outline" onClick={() => showFeatures.update((v) => !v)}>
               {showFeatures() ? 'Hide features' : 'What makes it fast?'}
             </button>
+          </div>
+        </div>
+
+        {/* resource() — reactive loading/data/error signals for async operations */}
+        <div class="section">
+          <h2 class="section-title">Async data</h2>
+          <div class="card">
+            <Show
+              when={() => !tipResource.loading()}
+              fallback={<p class="section-desc">Loading…</p>}
+            >
+              <p>{() => tipResource.data()?.tip ?? ''}</p>
+            </Show>
           </div>
         </div>
 
@@ -741,16 +802,18 @@ export function HomePage(): JSXElement {
 
     files.push({
       path: 'src/pages/counter.tsx',
-      content: `import { signal, computed, createRoot } from '@stewie-js/core'
+      content: `import { signal, computed, batch, createRoot, Show, Switch, Match } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
 import { Shell } from '../shell.js'
 
 export function CounterPage(): JSXElement {
   let count!: ReturnType<typeof signal<number>>
   let doubled!: ReturnType<typeof computed<number>>
+  let resets!: ReturnType<typeof signal<number>>
   createRoot(() => {
     count = signal(0)
     doubled = computed(() => count() * 2)
+    resets = signal(0)
   })
 
   return (
@@ -763,13 +826,25 @@ export function CounterPage(): JSXElement {
         </p>
 
         <div class="card counter-card">
-          <div class="counter-value">{count}</div>
-          <div class="counter-meta">doubled: {doubled}</div>
+          <div class="counter-value">{() => count()}</div>
+          <div class="counter-meta">
+            {/* Switch/Match: only the first matching branch is mounted in the DOM */}
+            <Switch>
+              <Match when={() => count() < 0}><span>negative · </span></Match>
+              <Match when={() => count() === 0}><span>zero · </span></Match>
+              <Match when={() => count() > 0}><span>positive · </span></Match>
+            </Switch>
+            <span>{() => \`doubled: \${doubled()}\`}</span>
+          </div>
           <div class="counter-controls">
             <button class="btn btn-outline" onClick={() => count.update((n) => n - 1)}>−</button>
-            <button class="btn btn-ghost" onClick={() => count.set(0)}>Reset</button>
+            {/* batch() groups two signal writes into one notification pass */}
+            <button class="btn btn-ghost" onClick={() => batch(() => { count.set(0); resets.update((n) => n + 1) })}>Reset</button>
             <button class="btn btn-primary" onClick={() => count.update((n) => n + 1)}>+</button>
           </div>
+          <Show when={() => resets() > 0}>
+            <p class="counter-meta">{() => \`Reset \${resets()} \${resets() === 1 ? 'time' : 'times'}\`}</p>
+          </Show>
         </div>
       </div>
     </Shell>

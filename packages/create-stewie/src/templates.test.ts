@@ -170,11 +170,13 @@ describe('generateFiles — static mode (with router)', () => {
     expect(lastImportLine).toBeLessThan(firstNonImportNonBlank + 5)
   })
 
-  it('pages/counter.tsx uses signal and computed, wrapped in Shell', () => {
+  it('pages/counter.tsx uses signal, computed, batch and Switch/Match, wrapped in Shell', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
     const counter = files.find((f) => f.path === 'src/pages/counter.tsx')!
     expect(counter.content).toContain('signal(')
     expect(counter.content).toContain('computed(')
+    expect(counter.content).toContain('batch(')
+    expect(counter.content).toContain('<Switch>')
     expect(counter.content).toContain('CounterPage')
     expect(counter.content).toContain('<Shell>')
     expect(counter.content).toContain("from '../shell.js'")
@@ -323,5 +325,52 @@ describe('generateFiles — SSR mode (bun)', () => {
     const files = generateFiles({ projectName: 'bun-app', mode: 'ssr', ssrRuntime: 'bun', includeRouter: false })
     const pkgJson = JSON.parse(files.find((f) => f.path === 'package.json')!.content)
     expect(pkgJson.devDependencies).not.toHaveProperty('tsx')
+  })
+})
+
+describe('generateFiles — new feature coverage', () => {
+  it('counter page (router) uses Switch/Match for count state label', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
+    const counter = files.find((f) => f.path === 'src/pages/counter.tsx')!
+    expect(counter.content).toContain('<Switch>')
+    expect(counter.content).toContain('<Match when=')
+    expect(counter.content).toContain('negative')
+    expect(counter.content).toContain('positive')
+  })
+
+  it('counter page (router) uses batch() on reset', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
+    const counter = files.find((f) => f.path === 'src/pages/counter.tsx')!
+    expect(counter.content).toContain('batch(')
+    expect(counter.content).toContain('resets.update(')
+  })
+
+  it('home page (router) uses resource() for async data', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true })
+    const home = files.find((f) => f.path === 'src/pages/home.tsx')!
+    expect(home.content).toContain("import { signal, createRoot, Show, For, resource } from '@stewie-js/core'")
+    expect(home.content).toContain('resource(loadWelcomeTip)')
+    expect(home.content).toContain('tipResource.loading()')
+    expect(home.content).toContain('tipResource.data()')
+  })
+
+  it('no-router app uses resource() for async data', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
+    const app = files.find((f) => f.path === 'src/app.tsx')!
+    expect(app.content).toContain('resource(')
+    expect(app.content).toContain('tipResource.loading()')
+  })
+
+  it('no-router app uses Switch/Match and batch()', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false })
+    const app = files.find((f) => f.path === 'src/app.tsx')!
+    expect(app.content).toContain('<Switch>')
+    expect(app.content).toContain('batch(')
+  })
+
+  it('SSR router variant home page also uses resource()', () => {
+    const files = generateFiles({ projectName: 'my-app', mode: 'ssr', ssrRuntime: 'node', includeRouter: true })
+    const home = files.find((f) => f.path === 'src/pages/home.tsx')!
+    expect(home.content).toContain('resource(')
   })
 })
