@@ -53,6 +53,10 @@ export { hydrate } from './hydrate.js'
 // Lazy-loaded components
 export { lazy } from './lazy.js'
 
+// Async resource primitive
+export type { Resource } from './resource.js'
+export { resource } from './resource.js'
+
 // Built-in control flow components
 export type {
   ShowProps,

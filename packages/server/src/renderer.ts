@@ -211,12 +211,36 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   }
 
   if (type === (Suspense as unknown)) {
-    try {
-      return await renderNode(props.children, opts)
-    } catch {
-      // If rendering throws (e.g. a promise is thrown), fall back to fallback
-      return renderNode(props.fallback, opts)
+    // If a child throws a Promise (e.g. resource().read()), await it and retry.
+    //
+    // Important: For this to work correctly, the `resource()` that throws must be
+    // created OUTSIDE the component function so the same instance is reused on retry.
+    // When `resource()` is created inside a component, each retry creates a new
+    // resource and a new Promise — in that case retries are capped and the fallback
+    // is rendered instead. For SSR data loading, prefer route-level `load()` functions.
+    const MAX_RETRIES = 3
+    let retries = 0
+    const seenPromises = new Set<Promise<unknown>>()
+    const tryRender = async (): Promise<string> => {
+      try {
+        return await renderNode(props.children, opts)
+      } catch (thrown) {
+        if (thrown instanceof Promise && !seenPromises.has(thrown) && retries < MAX_RETRIES) {
+          seenPromises.add(thrown)
+          retries++
+          try {
+            await thrown
+          } catch {
+            // Promise rejected (fetch failed) — render fallback immediately.
+            return renderNode(props.fallback, opts)
+          }
+          return tryRender()
+        }
+        // Non-Promise throw, repeated Promise, or retry limit reached → render fallback.
+        return renderNode(props.fallback, opts)
+      }
     }
+    return tryRender()
   }
 
   if (type === (Switch as unknown)) {

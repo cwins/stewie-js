@@ -37,6 +37,7 @@ These exist and work — not listed as open items below.
 | Devtools panel | `@stewie-js/devtools` | Renders, Stores, Routes tabs |
 | Testing utilities | `@stewie-js/testing` | `mount`, query helpers, signal assertions |
 | `create-stewie` CLI | `create-stewie` | Static and SSR scaffolding with router option |
+| `resource()` primitive | `@stewie-js/core` | Signals (`data`, `loading`, `error`), `read()` for Suspense, `refetch()` |
 
 ---
 
@@ -64,11 +65,6 @@ The compiler currently handles JSX transformation and validation. The deeper opt
 
 **Typed params and query**
 `useParams<{ id: string }>()` and `useQuery<{ tab: string }>()` with types inferred from route definitions rather than requiring manual annotation.
-
-### Data and Async
-
-**`resource()` primitive**
-A `resource(fetcher)` primitive that wraps async functions and returns `{ data, loading, error }` signals. Integrates naturally with `<Suspense>` and route-level data loading. Currently users must manage loading state manually with signals.
 
 ### Adapters
 
@@ -121,9 +117,9 @@ Nested store objects are re-proxied on each property access with no caching laye
 
 1. ~~True hydration / DOM reuse~~ — done
 2. ~~Route guards and data loading on initial render~~ — done (client); SSR guard execution remains
-3. Route guards and data loading during SSR — required for complete auth flows
-3. `createRoot()` async ownership — correctness for async-heavy apps
-4. `resource()` primitive — unlocks real async patterns without manual signal management
-5. Fine-grained compiler output — the core performance differentiator
+3. ~~`resource()` primitive~~ — done
+4. Route guards and data loading during SSR — required for complete auth flows
+5. `createRoot()` async ownership — correctness for async-heavy apps
+6. Fine-grained compiler output — the core performance differentiator
 6. Form primitives — highest-value DX enhancement
 7. Documentation site — needed before recommending Stewie to others

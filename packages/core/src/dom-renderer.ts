@@ -599,6 +599,74 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
 }
 
 // ---------------------------------------------------------------------------
+// Control flow: Suspense
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders Suspense children. If the children throw a Promise (e.g. from
+ * resource().read()), shows the fallback until the Promise resolves, then
+ * re-renders the children (which should now succeed).
+ *
+ * The "seen" Set prevents infinite loops if the same Promise is thrown again.
+ */
+function renderSuspense(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
+  const anchor = document.createComment('Suspense')
+  insertBefore(parent, anchor, before)
+
+  let activeNodes: ChildNode[] = []
+  let activeDisposer: Disposer = () => {}
+  const seenPromises = new Set<Promise<unknown>>()
+  let retryCount = 0
+  const MAX_RETRIES = 10
+
+  function clearActive(): void {
+    activeDisposer()
+    activeDisposer = () => {}
+    activeNodes.forEach((n) => n.parentNode?.removeChild(n))
+    activeNodes = []
+  }
+
+  function tryRenderContent(): void {
+    try {
+      const frag = document.createDocumentFragment()
+      activeDisposer = renderChildren(props.children, frag, null)
+      activeNodes = Array.from(frag.childNodes) as ChildNode[]
+      anchor.parentNode?.insertBefore(frag, anchor)
+    } catch (thrown) {
+      if (thrown instanceof Promise && !seenPromises.has(thrown) && retryCount < MAX_RETRIES) {
+        seenPromises.add(thrown)
+        retryCount++
+        // Show fallback while the Promise is pending.
+        const frag = document.createDocumentFragment()
+        activeDisposer = renderChildren(props.fallback, frag, null)
+        activeNodes = Array.from(frag.childNodes) as ChildNode[]
+        anchor.parentNode?.insertBefore(frag, anchor)
+
+        thrown.then(
+          () => {
+            clearActive()
+            tryRenderContent()
+          },
+          // On rejection leave fallback visible; let ErrorBoundary above handle errors.
+          () => {},
+        )
+      } else {
+        // Re-throw non-Promise throws, repeated Promises, or retry-limit exceeded.
+        anchor.parentNode?.removeChild(anchor)
+        throw thrown
+      }
+    }
+  }
+
+  tryRenderContent()
+
+  return () => {
+    clearActive()
+    anchor.parentNode?.removeChild(anchor)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // renderElement — dispatch on JSXElement type
 // ---------------------------------------------------------------------------
 
@@ -632,8 +700,7 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
   }
 
   if (type === (Suspense as unknown)) {
-    // Client-side: render children immediately (no streaming needed)
-    return renderChildren(props.children, parent, before)
+    return renderSuspense(props, parent, before)
   }
 
   if (type === (Portal as unknown)) {
@@ -676,13 +743,22 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
   // (e.g. the routing effect must not re-run when a form-field signal changes).
   // The dispose callback from createRoot disposes all effects the component
   // created in its body when the component is unmounted.
+  //
+  // If the component throws (e.g. resource().read() throws a Promise for Suspense),
+  // dispose any reactive effects created before the throw to prevent leaks, then
+  // re-throw so the nearest Suspense or ErrorBoundary can catch it.
   if (typeof type === 'function') {
     let rootDispose: Disposer = () => {}
     let result: unknown
     untrack(() => {
       createRoot((dispose) => {
         rootDispose = dispose
-        result = (type as Component)(props)
+        try {
+          result = (type as Component)(props)
+        } catch (err) {
+          dispose() // clean up effects created before the throw
+          throw err
+        }
       })
     })
     const childDisposer = renderChildren(result, parent, before)
