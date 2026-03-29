@@ -195,28 +195,61 @@ hydrate(<App />, document.getElementById('app')!)
     if (ctx.ssrRuntime === 'bun') {
       files.push({
         path: 'src/server.ts',
-        content: `import { readFileSync } from 'node:fs'
+        content: `import { createServer } from 'node:http'
+import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createBunHandler } from '@stewie-js/adapter-bun'
-import { renderApp } from './app.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
+const isProd = process.env.NODE_ENV === 'production'
 const PORT = parseInt(process.env.PORT ?? '3000', 10)
 
-const template = readFileSync(resolve(root, 'dist/client/index.html'), 'utf-8')
+if (isProd) {
+  const { createBunHandler } = await import('@stewie-js/adapter-bun')
+  const { renderApp } = await import('./app.js')
+  const template = readFileSync(resolve(root, 'dist/client/index.html'), 'utf-8')
 
-const fetch = createBunHandler(async (req) => {
-  const url = new URL(req.url).pathname
-  const { html, stateScript } = await renderApp(url)
-  const page = template
-    .replace('<!--ssr-outlet-->', html)
-    .replace('</body>', \`  \${stateScript}\\n  </body>\`)
-  return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } })
-})
+  // Bun.serve() keeps the process alive and handles connections natively.
+  ;(globalThis as any).Bun.serve(createBunHandler(async (req: Request) => {
+    const url = new URL(req.url).pathname
+    const { html, stateScript } = await renderApp(url)
+    const page = template
+      .replace('<!--ssr-outlet-->', html)
+      .replace('</body>', \`  \${stateScript}\\n  </body>\`)
+    return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+  }, { port: PORT }))
+  console.log(\`Server running at http://localhost:\${PORT}\`)
+} else {
+  // Dev: Bun supports node:http, so Vite's middleware mode works here.
+  const { createServer: createVite } = await import('vite')
 
-export default { fetch, port: PORT }
+  const vite = await createVite({ root, server: { middlewareMode: true }, appType: 'custom' })
+
+  createServer((req, res) => {
+    vite.middlewares(req, res, () => {
+      ;(async () => {
+        const { renderApp } = (await vite.ssrLoadModule('/src/app.tsx')) as {
+          renderApp: (url: string) => Promise<{ html: string; stateScript: string }>
+        }
+        const rawTemplate = readFileSync(resolve(root, 'index.html'), 'utf-8')
+        const template = await vite.transformIndexHtml(req.url ?? '/', rawTemplate)
+        const { html, stateScript } = await renderApp(req.url ?? '/')
+        const page = template
+          .replace('<!--ssr-outlet-->', html)
+          .replace('</body>', \`  \${stateScript}\\n  </body>\`)
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+        res.end(page)
+      })().catch((e) => {
+        vite.ssrFixStacktrace(e as Error)
+        res.writeHead(500)
+        res.end(String(e))
+      })
+    })
+  }).listen(PORT, () => {
+    console.log(\`Dev server running at http://localhost:\${PORT}\`)
+  })
+}
 `,
       })
     } else {
