@@ -7,8 +7,7 @@ export interface StewiePluginOptions {
    * with direct `document.createElement()` calls and fine-grained `effect()`
    * subscriptions — no virtual DOM diffing at runtime.
    *
-   * This is the core differentiator of the Stewie compiler. Defaults to
-   * `false` while the transform stabilises; set to `true` to opt in.
+   * Defaults to `true`. Set to `false` to opt out (e.g. for debugging).
    */
   jsxToDom?: boolean
 }
@@ -38,7 +37,7 @@ export function stewie(options?: StewiePluginOptions): Plugin {
         dev: isDev,
         sourcemap: true,
         inlineSourcemap: isDev,
-        jsxToDom: options?.jsxToDom,
+        jsxToDom: options?.jsxToDom ?? true,
       })
 
       // Surface compiler errors to Vite's error overlay

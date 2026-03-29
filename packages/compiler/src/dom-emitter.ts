@@ -25,26 +25,71 @@ import ts from 'typescript'
 // Reactive expression detection
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Expression analysis helpers
+// ---------------------------------------------------------------------------
+
 /**
- * Returns true if `expr` is reactive (arrow/function expression, or a zero-arg
- * call which is the signal-read pattern `mySignal()`).
+ * Returns true if `node` or any descendant contains a zero-arg call to a
+ * simple identifier — the `sig()` pattern used to read Stewie signals.
+ * Method calls and calls with arguments are excluded.
+ */
+function containsNoArgCall(node: ts.Node): boolean {
+  if (
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.arguments.length === 0
+  ) return true
+  return (
+    ts.forEachChild(node, (c): true | undefined => (containsNoArgCall(c) ? true : undefined)) === true
+  )
+}
+
+/**
+ * Returns true if `node` or any descendant is a JSX element, self-closing
+ * element, or fragment. Used to detect expressions that might return JSX nodes
+ * (e.g. items.map(item => <li>{item}</li>)) that cannot safely be emitted as
+ * a plain text node.
+ */
+function containsJsx(node: ts.Node): boolean {
+  if (
+    ts.isJsxElement(node) ||
+    ts.isJsxSelfClosingElement(node) ||
+    ts.isJsxFragment(node)
+  ) return true
+  return (
+    ts.forEachChild(node, (c): true | undefined => (containsJsx(c) ? true : undefined)) === true
+  )
+}
+
+/**
+ * Returns true if `expr` is reactive — meaning it reads signal values and
+ * should be wrapped in an effect() when used as an attribute or text child.
+ *
+ * Reactive patterns:
+ * - Arrow/function expressions: `() => count()`
+ * - Zero-arg calls: `count()` (direct signal read)
+ * - Expressions that contain zero-arg calls: `count() + 1`, `items().length`
  */
 function isReactive(expr: ts.Expression): boolean {
   if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return true
   if (ts.isCallExpression(expr) && expr.arguments.length === 0) return true
+  if (containsNoArgCall(expr)) return true
   return false
 }
 
 /**
- * Return the source text of an expression, wrapping arrow/function expressions
- * in parens if needed to call them as getters.
+ * Return the source text of an expression suitable for use as a reactive value
+ * inside an effect(). Arrow/function expressions are called as `(fn)()`. All
+ * other expressions (zero-arg calls, complex expressions with embedded signal
+ * reads) are returned as-is and evaluated inline inside the effect body.
  */
 function asGetter(expr: ts.Expression, sourceFile: ts.SourceFile): string {
   const text = expr.getText(sourceFile)
   if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
     return `(${text})()`
   }
-  return text // zero-arg call — already a call expression
+  return text // zero-arg call or complex expression — evaluated inline
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +145,13 @@ export function canTransformJsx(
   sourceFile: ts.SourceFile,
 ): boolean {
   if (ts.isJsxText(node)) return true
-  if (ts.isJsxExpression(node)) return true
+  if (ts.isJsxExpression(node)) {
+    // Safe only if the expression doesn't contain JSX — expressions like
+    // items.map(item => <li>{item}</li>) return an array of nodes, which
+    // cannot be emitted as a plain text node.
+    if (node.expression && containsJsx(node.expression)) return false
+    return true
+  }
 
   if (ts.isJsxFragment(node)) {
     // Fragments at the top level — only transform if all children are native
@@ -188,6 +239,8 @@ function emitElement(
   const tagName = opening.tagName.getText(sourceFile)
   const elVar = `__el${counter.n++}`
   const lines: string[] = []
+  // ref callbacks are deferred until after all attributes and children are set
+  const refLines: string[] = []
 
   lines.push(`const ${elVar} = document.createElement(${JSON.stringify(tagName)})`)
 
@@ -196,6 +249,25 @@ function emitElement(
     if (!ts.isJsxAttribute(attr)) continue
 
     const attrName = ts.isIdentifier(attr.name) ? attr.name.text : attr.name.getText(sourceFile)
+
+    // key — framework hint, no DOM output
+    if (attrName === 'key') continue
+
+    // ref — callback ref: ref={el => ...}  or  ref={myRef}
+    // Deferred to after element setup so all attributes are set first.
+    // Stored and emitted at the end of this function.
+    if (attrName === 'ref') {
+      if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+        const exprText = attr.initializer.expression.getText(sourceFile)
+        // ref callback / ref object — emit after attributes
+        refLines.push(
+          ts.isArrowFunction(attr.initializer.expression) || ts.isFunctionExpression(attr.initializer.expression)
+            ? `(${exprText})(${elVar})`
+            : `(typeof ${exprText} === 'function' ? ${exprText}(${elVar}) : (${exprText}.current = ${elVar}))`,
+        )
+      }
+      continue
+    }
 
     if (!attr.initializer) {
       // Boolean attribute (e.g. `disabled`)
@@ -222,6 +294,18 @@ function emitElement(
         const evtName = eventName(attrName)
         const exprText = expr.getText(sourceFile)
         lines.push(`${elVar}.addEventListener(${JSON.stringify(evtName)}, ${exprText})`)
+        continue
+      }
+
+      // style — object or reactive object
+      if (attrName === 'style') {
+        if (isReactive(expr)) {
+          const getter = asGetter(expr, sourceFile)
+          lines.push(`effect(() => { Object.assign(${elVar}.style, ${getter}) })`)
+        } else {
+          const exprText = expr.getText(sourceFile)
+          lines.push(`Object.assign(${elVar}.style, ${exprText})`)
+        }
         continue
       }
 
@@ -256,6 +340,11 @@ function emitElement(
       lines.push(...childResult.lines)
       lines.push(`${elVar}.appendChild(${childResult.varName})`)
     }
+  }
+
+  // Emit ref callbacks after element is fully set up
+  if (refLines.length > 0) {
+    lines.push(...refLines)
   }
 
   return { lines, varName: elVar }

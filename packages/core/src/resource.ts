@@ -1,6 +1,6 @@
 // resource.ts — async resource primitive
 
-import { signal, createRoot } from './reactive.js'
+import { signal } from './reactive.js'
 import type { Signal } from './reactive.js'
 
 // ---------------------------------------------------------------------------

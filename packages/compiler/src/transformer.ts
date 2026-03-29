@@ -163,25 +163,47 @@ export function transformFile(
   // Collect JSX-to-DOM replacements (if enabled)
   const jsxReplacements = options.jsxToDom ? findJsxReplacements(parsed.sourceFile) : []
 
+  // Filter auto-wrap and $prop replacements that fall inside a jsxToDom range.
+  // jsxToDom emits those expressions as DOM setup code — applying a text
+  // replacement at the original offset would corrupt the already-replaced region.
+  const filteredReplacements =
+    jsxReplacements.length === 0
+      ? replacements
+      : replacements.filter(
+          (r) =>
+            !jsxReplacements.some((jsx) => r.start >= jsx.start && r.end <= jsx.end),
+        )
+
   // Merge all replacements and sort in reverse source order
-  type AnyReplacement = { start: number; end: number; text?: string; replacement?: string }
-  const allReplacements: AnyReplacement[] = [
-    ...replacements.map((r) => ({ ...r, text: r.text })),
+  const allReplacements: Array<{ start: number; end: number; text: string }> = [
+    ...filteredReplacements.map((r) => ({ start: r.start, end: r.end, text: r.text })),
     ...jsxReplacements.map((r) => ({ start: r.start, end: r.end, text: r.replacement })),
   ]
   allReplacements.sort((a, b) => b.start - a.start)
 
   for (const rep of allReplacements) {
-    source = source.slice(0, rep.start) + (rep.text ?? '') + source.slice(rep.end)
+    source = source.slice(0, rep.start) + rep.text + source.slice(rep.end)
   }
 
   // If JSX-to-DOM was applied, ensure `effect` is imported from @stewie-js/core.
-  // We check specifically for `effect` in a core import — an existing import of
-  // `signal` (or any other named export) is not sufficient.
+  // Merge into an existing named import rather than adding a duplicate import.
   if (options.jsxToDom && jsxReplacements.length > 0) {
     const alreadyImportsEffect = /\bimport\b[^;]*\beffect\b[^;]*from\s*['"]@stewie-js\/core['"]/.test(source)
     if (!alreadyImportsEffect) {
-      source = `import { effect } from '@stewie-js/core'\n` + source
+      // Check for an existing @stewie-js/core import to merge into
+      const existingImportMatch = source.match(
+        /import\s*\{([^}]*)\}\s*from\s*['"]@stewie-js\/core['"]/,
+      )
+      if (existingImportMatch) {
+        // Add `effect` to the existing named imports
+        const newImport = existingImportMatch[0].replace(
+          `{${existingImportMatch[1]}}`,
+          `{${existingImportMatch[1].trimEnd().replace(/,?\s*$/, '')}, effect }`,
+        )
+        source = source.replace(existingImportMatch[0], newImport)
+      } else {
+        source = `import { effect } from '@stewie-js/core'\n` + source
+      }
     }
   }
 

@@ -30,7 +30,8 @@ These exist and work — not listed as open items below.
 | Route guards on back/forward | `@stewie-js/router` | `popstate` and Navigation API intercept handlers run guards before applying location |
 | `$prop` two-way binding transform | `@stewie-js/compiler` | `$value`, `$checked` with conflict detection |
 | Compiler auto-wrap | `@stewie-js/compiler` | Signal reads in JSX auto-wrapped in `() =>` |
-| `effect` import injection | `@stewie-js/compiler` | Correctly injected even when other core imports exist |
+| `effect` import injection | `@stewie-js/compiler` | Merged into existing core imports, or prepended if none |
+| Fine-grained reactive output | `@stewie-js/compiler` | Native JSX → `createElement` + per-attribute `effect()` subscriptions; `key`, `ref`, `style`, complex reactive expressions (`count() + 1`) all handled |
 | Source maps | `@stewie-js/compiler` | Inline (dev) and external `.map` (prod) |
 | Node and Bun adapters | `@stewie-js/adapter-node/bun` | Thin HTTP adapter wrappers |
 | Vite plugin + HMR | `@stewie-js/vite` | TSX transform, devtools injection |
@@ -55,11 +56,6 @@ Synchronous effects created during a `createRoot()` body are now tracked and dis
 
 **Route guards and data loading during SSR**
 `beforeEnter` and `load` now run on initial client render and on browser back/forward navigation. They do not yet run during SSR (`renderToString`). An SSR guard redirect requires Suspense + `resource()` integration so the async result can be awaited inside the render pipeline. Until then, apps that need SSR guard redirects should run guards before calling `renderToString` and return an HTTP redirect response from their server handler.
-
-### Compiler
-
-**Fine-grained reactive output**
-The compiler currently handles JSX transformation and validation. The deeper optimization — statically distinguishing reactive vs. static JSX attribute expressions and emitting direct DOM subscriptions instead of delegating to the runtime — is partially designed but not fully implemented in the emitter.
 
 ### Router
 
@@ -120,6 +116,6 @@ Nested store objects are re-proxied on each property access with no caching laye
 3. ~~`resource()` primitive~~ — done
 4. Route guards and data loading during SSR — required for complete auth flows
 5. `createRoot()` async ownership — correctness for async-heavy apps
-6. Fine-grained compiler output — the core performance differentiator
-6. Form primitives — highest-value DX enhancement
+6. ~~Fine-grained compiler output~~ — done
+7. Form primitives — highest-value DX enhancement
 7. Documentation site — needed before recommending Stewie to others
