@@ -1,6 +1,6 @@
 // components.ts — route components
 
-import { jsx, inject, effect } from '@stewie-js/core'
+import { jsx, inject, effect, signal, createRoot } from '@stewie-js/core'
 import type { JSXElement, Component } from '@stewie-js/core'
 import { createRouter, RouterContext } from './router.js'
 import type { Router, RouteGuard } from './router.js'
@@ -9,6 +9,11 @@ import { matchRoute } from './matcher.js'
 export interface RouterProps {
   /** Starting URL — defaults to window.location on browser, '/' on server. */
   initialUrl?: string
+  /**
+   * Rendered while the initial route's guard or data loader is resolving.
+   * Defaults to null (nothing shown) if omitted.
+   */
+  fallback?: JSXElement
   /** <Route> elements that define the route table. */
   children: JSXElement | JSXElement[]
 }
@@ -120,10 +125,41 @@ export function Router(props: RouterProps): JSXElement {
   // is unmounted (the dom-renderer disposes createRoot effects on unmount).
   effect(() => () => router._dispose())
 
+  // Determine whether the initial URL's matching route needs async resolution
+  // (a beforeEnter guard or a load function). If so, hold off rendering the
+  // matched content until those promises settle so the guard can redirect and
+  // the loader can populate _routeData before anything is shown.
+  const initialPathname = initialUrl.split('?')[0].split('#')[0]
+  const initialRouteNeedsAsync = routes.some((r) => {
+    const result = matchRoute(r.path, initialPathname)
+    return result !== null && (r.beforeEnter !== undefined || r.load !== undefined)
+  })
+
+  let _ready!: ReturnType<typeof signal<boolean>>
+  createRoot(() => {
+    _ready = signal(!initialRouteNeedsAsync)
+  })
+
+  if (initialRouteNeedsAsync) {
+    // Fire-and-forget: run the guard / loader for the initial URL in the
+    // background. When they resolve, flip _ready which triggers matchedContent
+    // to re-evaluate and render the (possibly redirected) route.
+    ;(async () => {
+      const redirect = await router._runGuardsAndLoad(initialUrl)
+      if (redirect !== null) {
+        // Guard issued a redirect — navigate() runs the redirect's own guards too.
+        await router.navigate(redirect)
+      }
+      _ready.set(true)
+    })()
+  }
+
   // matchedContent is a reactive function — the DOM renderer wraps it in effect()
   // and re-renders whenever router.location.pathname changes.
   // The SSR renderer calls it once synchronously.
   const matchedContent = (): JSXElement | null => {
+    // Show fallback (or nothing) while the initial guard/loader is pending.
+    if (!_ready()) return props.fallback ?? null
     const match = findBestMatch(routes, router.location.pathname)
     if (!match) return null
     // Keep params in sync with the current match

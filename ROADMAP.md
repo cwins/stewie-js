@@ -26,6 +26,8 @@ These exist and work — not listed as open items below.
 | Route guards (`beforeEnter`) | `@stewie-js/router` | Async allow/redirect on `navigate()` |
 | Route-level data loading (`load`) | `@stewie-js/router` | Async loader result via `useRouteData()` |
 | Router listener teardown | `@stewie-js/router` | `_dispose()` wired into `Router` component unmount |
+| Route guards on initial render | `@stewie-js/router` | `beforeEnter` and `load` run before content shows; `fallback` prop for loading state |
+| Route guards on back/forward | `@stewie-js/router` | `popstate` and Navigation API intercept handlers run guards before applying location |
 | `$prop` two-way binding transform | `@stewie-js/compiler` | `$value`, `$checked` with conflict detection |
 | Compiler auto-wrap | `@stewie-js/compiler` | Signal reads in JSX auto-wrapped in `() =>` |
 | `effect` import injection | `@stewie-js/compiler` | Correctly injected even when other core imports exist |
@@ -50,8 +52,8 @@ Genuine gaps in the current implementation.
 **`createRoot()` async ownership**
 Synchronous effects created during a `createRoot()` body are now tracked and disposed on unmount. What remains: effects created from async callbacks (after `await`) are not automatically owned by the root and will not be disposed with it. A fully async-aware ownership tree (closer to Solid's `createOwner` semantics) is needed for long-lived async workflows.
 
-**Route guards and data loading on initial render**
-`beforeEnter` and `load` currently run only on `navigate()` calls. They do not fire on the initial render, on first client mount, or during SSR. This limits their usefulness for auth protection of the landing route and for SSR data prefetching.
+**Route guards and data loading during SSR**
+`beforeEnter` and `load` now run on initial client render and on browser back/forward navigation. They do not yet run during SSR (`renderToString`). An SSR guard redirect requires Suspense + `resource()` integration so the async result can be awaited inside the render pipeline. Until then, apps that need SSR guard redirects should run guards before calling `renderToString` and return an HTTP redirect response from their server handler.
 
 ### Compiler
 
@@ -117,8 +119,9 @@ Nested store objects are re-proxied on each property access with no caching laye
 
 ## Priority Order
 
-1. True hydration / DOM reuse — biggest remaining gap in the SSR story
-2. Route guards and data loading on initial render — required for real auth flows
+1. ~~True hydration / DOM reuse~~ — done
+2. ~~Route guards and data loading on initial render~~ — done (client); SSR guard execution remains
+3. Route guards and data loading during SSR — required for complete auth flows
 3. `createRoot()` async ownership — correctness for async-heavy apps
 4. `resource()` primitive — unlocks real async patterns without manual signal management
 5. Fine-grained compiler output — the core performance differentiator

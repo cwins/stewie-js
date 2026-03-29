@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { jsx } from '@stewie-js/core'
 import { mount } from '@stewie-js/core'
 import { createRoot } from '@stewie-js/core'
@@ -288,6 +288,145 @@ describe('Link DOM', () => {
   it('renders as plain anchor without router context', async () => {
     const { html } = await renderToString(jsx(Link as any, { to: '/x', children: 'X' }))
     expect(html).toContain('href="/x"')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Initial render: guards and data loaders run before content is shown
+// ---------------------------------------------------------------------------
+
+describe('Router initial render: beforeEnter guard', () => {
+  function Protected() {
+    return jsx('div', { children: 'Protected content' })
+  }
+  function Login() {
+    return jsx('div', { children: 'Login page' })
+  }
+
+  it('shows nothing while guard is pending, then renders when it allows', async () => {
+    let resolveGuard!: (v: true) => void
+    const slowGuard = () =>
+      new Promise<true>((resolve) => {
+        resolveGuard = resolve
+      })
+
+    const container = document.createElement('div')
+    createRoot(() => {
+      mount(
+        jsx(Router as any, {
+          initialUrl: '/protected',
+          children: [jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: slowGuard })],
+        }),
+        container,
+      )
+    })
+
+    // Guard is still pending — nothing rendered yet
+    expect(container.textContent).toBe('')
+
+    // Allow the guard to resolve
+    resolveGuard(true)
+    await vi.waitFor(() => expect(container.textContent).toContain('Protected content'))
+  })
+
+  it('shows fallback prop while guard is pending', async () => {
+    let resolveGuard!: (v: true) => void
+    const slowGuard = () =>
+      new Promise<true>((resolve) => {
+        resolveGuard = resolve
+      })
+
+    const container = document.createElement('div')
+    const fallback = jsx('span', { children: 'Loading…' })
+    createRoot(() => {
+      mount(
+        jsx(Router as any, {
+          initialUrl: '/protected',
+          fallback,
+          children: [jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: slowGuard })],
+        }),
+        container,
+      )
+    })
+
+    expect(container.textContent).toContain('Loading…')
+
+    resolveGuard(true)
+    await vi.waitFor(() => expect(container.textContent).toContain('Protected content'))
+    expect(container.textContent).not.toContain('Loading…')
+  })
+
+  it('redirects to login when initial guard returns a redirect URL', async () => {
+    const container = document.createElement('div')
+    createRoot(() => {
+      mount(
+        jsx(Router as any, {
+          initialUrl: '/protected',
+          children: [
+            jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: async () => '/login' }),
+            jsx(Route as any, { path: '/login', component: Login }),
+          ],
+        }),
+        container,
+      )
+    })
+
+    // Nothing during guard execution
+    expect(container.textContent).toBe('')
+
+    // After redirect resolves, /login route should be shown
+    await vi.waitFor(() => expect(container.textContent).toContain('Login page'))
+    expect(container.textContent).not.toContain('Protected content')
+  })
+
+  it('routes without guards render immediately', () => {
+    const container = document.createElement('div')
+    createRoot(() => {
+      mount(
+        jsx(Router as any, {
+          initialUrl: '/',
+          children: [jsx(Route as any, { path: '/', component: () => jsx('div', { children: 'Home' }) })],
+        }),
+        container,
+      )
+    })
+    // No guard — renders synchronously
+    expect(container.textContent).toContain('Home')
+  })
+})
+
+describe('Router initial render: load function', () => {
+  it('runs load before rendering and data is available via _routeData', async () => {
+    let capturedData: unknown = 'not-yet'
+
+    function DataPage() {
+      const router = useRouter()
+      capturedData = router._routeData()
+      return jsx('div', { children: 'ready' })
+    }
+
+    const container = document.createElement('div')
+    createRoot(() => {
+      mount(
+        jsx(Router as any, {
+          initialUrl: '/data',
+          children: [
+            jsx(Route as any, {
+              path: '/data',
+              component: DataPage,
+              load: async () => ({ value: 42 }),
+            }),
+          ],
+        }),
+        container,
+      )
+    })
+
+    // Load is pending — content not shown yet
+    expect(container.textContent).toBe('')
+
+    await vi.waitFor(() => expect(container.textContent).toContain('ready'))
+    expect(capturedData).toEqual({ value: 42 })
   })
 })
 

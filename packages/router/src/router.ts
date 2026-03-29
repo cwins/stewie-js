@@ -58,6 +58,8 @@ export interface Router extends StewieRouterSPI {
   _routeData: Signal<unknown>
   // Internal: remove browser event listeners attached by createRouter()
   _dispose(): void
+  // Internal: run guards + loader for the given URL, returns redirect URL or null
+  _runGuardsAndLoad(url: string): Promise<string | null>
 }
 
 export const RouterContext = createContext<Router | null>(null)
@@ -154,6 +156,10 @@ export function createRouter(initialUrl?: string): Router {
       _listenersDisposer()
     },
 
+    _runGuardsAndLoad(url: string): Promise<string | null> {
+      return runGuardsAndLoad(url)
+    },
+
     navigate(to: string | NavigateOptions): Promise<void> {
       const url = typeof to === 'string' ? to : to.to
       const replace = typeof to !== 'string' && !!to.replace
@@ -232,12 +238,37 @@ export function createRouter(initialUrl?: string): Router {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const navHandler = (event: any) => {
         if (!event.canIntercept || event.hashChange || event.downloadRequest !== null) return
+        const destUrl = new URL(event.destination.url)
+        const destPath = destUrl.pathname + destUrl.search + destUrl.hash
         event.intercept({
-          handler: () => {
-            withViewTransition(() => {
-              applyLocation(new URL(event.destination.url).pathname + new URL(event.destination.url).search + new URL(event.destination.url).hash)
-            })
-          },
+          // The handler is async so the Navigation API shows a loading state while
+          // guards / loaders run.
+          //
+          // event.userInitiated is true for browser-UI navigations (back/forward
+          // button, address bar, link clicks that the browser handles natively).
+          // It is false for programmatic navigation.navigate() calls — those come
+          // from our own navigate() which already ran guards. Checking this flag
+          // prevents running guards twice for programmatic navigations.
+          handler: event.userInitiated
+            ? async () => {
+                const redirect = await runGuardsAndLoad(destPath)
+                if (redirect !== null) {
+                  // Guard redirected. Apply the redirect URL directly so the
+                  // reactive location and browser history both show the target.
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ;(globalThis as any).navigation.navigate(redirect, { history: 'replace' })
+                  return
+                }
+                withViewTransition(() => {
+                  applyLocation(destPath)
+                })
+              }
+            : () => {
+                // Programmatic path — guards already ran in navigate(); just apply.
+                withViewTransition(() => {
+                  applyLocation(destPath)
+                })
+              },
         })
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -247,15 +278,24 @@ export function createRouter(initialUrl?: string): Router {
         ;(globalThis as any).navigation.removeEventListener('navigate', navHandler)
       }
     } else {
-      // History API fallback: popstate fires on back/forward button
+      // History API fallback: popstate fires on back/forward button.
+      // Run guards before applying the new location so that auth redirects
+      // and data loaders work on browser back/forward navigation.
       const popHandler = () => {
         const url =
           globalThis.location.pathname +
           globalThis.location.search +
           globalThis.location.hash
-        withViewTransition(() => {
-          applyLocation(url)
-        })
+        ;(async () => {
+          const redirect = await runGuardsAndLoad(url)
+          if (redirect !== null) {
+            applyLocationAndPush(redirect, true)
+            return
+          }
+          withViewTransition(() => {
+            applyLocation(url)
+          })
+        })()
       }
       globalThis.addEventListener('popstate', popHandler)
       _listenersDisposer = () => {

@@ -259,6 +259,72 @@ describe('Route guards (beforeEnter)', () => {
 })
 
 // ---------------------------------------------------------------------------
+// popstate: guards run on browser back/forward (History API path)
+// ---------------------------------------------------------------------------
+
+describe('popstate guard execution', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('runs beforeEnter guard on popstate and allows navigation', async () => {
+    const guard = vi.fn(async () => true as const)
+    const listeners: Record<string, EventListener[]> = {}
+    const mockLocation = { pathname: '/home', search: '', hash: '' }
+
+    vi.stubGlobal('location', mockLocation)
+    vi.stubGlobal('addEventListener', (type: string, fn: EventListener) => {
+      listeners[type] = listeners[type] ?? []
+      listeners[type].push(fn)
+    })
+    vi.stubGlobal('removeEventListener', (type: string, fn: EventListener) => {
+      listeners[type] = (listeners[type] ?? []).filter((f) => f !== fn)
+    })
+
+    const router = createRouter('/home')
+    router._routes = [
+      { path: '/home', component: null as any },
+      { path: '/about', component: null as any, beforeEnter: guard },
+    ]
+
+    // Simulate browser navigating back/forward to /about
+    mockLocation.pathname = '/about'
+    listeners['popstate']?.forEach((fn) => fn(new Event('popstate')))
+
+    // Guard runs asynchronously — wait for it to settle
+    await vi.waitFor(() => expect(guard).toHaveBeenCalledWith('/about', '/home'))
+    await vi.waitFor(() => expect(router.location.pathname).toBe('/about'))
+  })
+
+  it('redirects on popstate when guard returns a string', async () => {
+    const listeners: Record<string, EventListener[]> = {}
+    const mockLocation = { pathname: '/home', search: '', hash: '' }
+
+    vi.stubGlobal('location', mockLocation)
+    vi.stubGlobal('history', { pushState: vi.fn(), replaceState: vi.fn() })
+    vi.stubGlobal('addEventListener', (type: string, fn: EventListener) => {
+      listeners[type] = listeners[type] ?? []
+      listeners[type].push(fn)
+    })
+    vi.stubGlobal('removeEventListener', (type: string, fn: EventListener) => {
+      listeners[type] = (listeners[type] ?? []).filter((f) => f !== fn)
+    })
+
+    const router = createRouter('/home')
+    router._routes = [
+      { path: '/home', component: null as any },
+      { path: '/login', component: null as any },
+      { path: '/protected', component: null as any, beforeEnter: async () => '/login' },
+    ]
+
+    mockLocation.pathname = '/protected'
+    listeners['popstate']?.forEach((fn) => fn(new Event('popstate')))
+
+    await vi.waitFor(() => expect(router.location.pathname).toBe('/login'))
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Route data loading (useRouteData / load)
 // ---------------------------------------------------------------------------
 
