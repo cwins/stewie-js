@@ -12,7 +12,9 @@ import {
   runWithContext,
   withRenderIsolation,
   createRoot,
+  _LazyBoundary,
 } from '@stewie-js/core'
+import type { _LazyBoundaryProps } from '@stewie-js/core'
 import type { ContextProvider, ContextSnapshot } from '@stewie-js/core'
 import type { RenderToStringOptions, RenderResult } from './types.js'
 import {
@@ -194,6 +196,17 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   if (type === (ClientOnly as unknown)) {
     // Never render on server
     return ''
+  }
+
+  if (type === (_LazyBoundary as unknown)) {
+    // Emit <!--Lazy--> as the named boundary anchor so the client hydration
+    // cursor can distinguish it from the generic <!---> function-child anchors.
+    const lazyProps = props as unknown as _LazyBoundaryProps
+    if (lazyProps.loaded()) {
+      const inner = await renderNode(lazyProps.render(), opts)
+      return `${inner}<!--Lazy-->`
+    }
+    return '<!--Lazy-->'
   }
 
   if (type === (Portal as unknown)) {

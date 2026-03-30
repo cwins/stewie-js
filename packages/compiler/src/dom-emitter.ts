@@ -430,16 +430,34 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
   const counter: Counter = { n: 0 }
 
   function visit(node: ts.Node): void {
-    // Look for JSX elements/fragments that are the direct value of a return
-    // statement or a variable initializer. These are the common patterns:
-    //   return <div>...</div>
-    //   const el = <div>...</div>
+    // Only transform JSX elements that are NOT inside another JSX element.
+    // Elements nested as children of component JSX (e.g. <div> inside <Shell>)
+    // run eagerly as IIFEs before the hydration cursor reaches their parent,
+    // which breaks SSR hydration by creating fresh DOM nodes instead of
+    // claiming existing server-rendered nodes.
+    //
+    // Safe patterns (parent is JS, not JSX):
+    //   return <div>...</div>          parent = ReturnStatement
+    //   const el = <div>...</div>      parent = VariableDeclaration / JsxExpression
+    //   <div>{<span>...</span>}</div>  outer div not transformable (component child) →
+    //                                  we recurse into it and span IS visited, but its
+    //                                  parent is a JsxExpression whose grandparent IS JSX
+    //
+    // Skip when the JSX node is a direct child of another JSX element/fragment.
     if (
       ts.isJsxElement(node) ||
       ts.isJsxSelfClosingElement(node) ||
       ts.isJsxFragment(node)
     ) {
-      if (canTransformJsx(node, sourceFile)) {
+      const parent = node.parent
+      const insideJsx =
+        ts.isJsxElement(parent) ||
+        ts.isJsxFragment(parent) ||
+        // JsxExpression ({...}) whose grandparent is JSX
+        (ts.isJsxExpression(parent) &&
+          (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)))
+
+      if (!insideJsx && canTransformJsx(node, sourceFile)) {
         const result = emitJsxToDom(
           node as ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
           sourceFile,

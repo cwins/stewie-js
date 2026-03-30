@@ -15,6 +15,9 @@ export interface StewiePluginOptions {
 export function stewie(options?: StewiePluginOptions): Plugin {
   return {
     name: 'stewie',
+    // Run before Vite's internal esbuild plugin so the Stewie compiler sees
+    // the raw .tsx source (with JSX) rather than already-transpiled jsxDEV calls.
+    enforce: 'pre' as const,
 
     // Configure esbuild's jsxImportSource so JSX in .tsx files compiles to
     // @stewie-js/core's descriptor runtime without relying on per-file pragma comments.
@@ -27,17 +30,20 @@ export function stewie(options?: StewiePluginOptions): Plugin {
     },
 
     // Transform .tsx files through the Stewie compiler
-    transform(code: string, id: string, _transformOptions?: { ssr?: boolean }) {
+    transform(code: string, id: string, transformOptions?: { ssr?: boolean }) {
       if (!id.endsWith('.tsx')) return null
 
       const isDev = process.env.NODE_ENV !== 'production'
+      // jsxToDom emits document.createElement() calls — DOM APIs don't exist on
+      // the server, so disable the transform for SSR module evaluation.
+      const jsxToDom = !transformOptions?.ssr && (options?.jsxToDom ?? true)
 
       const result = compile(code, {
         filename: id,
         dev: isDev,
         sourcemap: true,
         inlineSourcemap: isDev,
-        jsxToDom: options?.jsxToDom ?? true,
+        jsxToDom,
       })
 
       // Surface compiler errors to Vite's error overlay

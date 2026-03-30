@@ -8,6 +8,8 @@ import type { JSXElement, Component } from './jsx-runtime.js'
 import { _pushContext, _popContext } from './context.js'
 import type { ContextProvider } from './context.js'
 import { HydrationCursor } from './hydration-cursor.js'
+import { _LazyBoundary } from './lazy.js'
+import type { _LazyBoundaryProps } from './lazy.js'
 
 type ElementType = JSXElement['type']
 import {
@@ -667,6 +669,62 @@ function renderSuspense(props: Record<string, unknown>, parent: Node, before: No
 }
 
 // ---------------------------------------------------------------------------
+// Control flow: LazyBoundary — handles lazy() components
+// ---------------------------------------------------------------------------
+
+function renderLazy(props: _LazyBoundaryProps, parent: Node, before: Node | null): Disposer {
+  // During hydration, claim nodes up to the <!--Lazy--> anchor.
+  // The named marker distinguishes this boundary from the generic <!---->
+  // used for function children, preventing cursor ambiguity when a lazy
+  // component is nested inside a reactive parent (e.g. Router matchedContent).
+  const claimed = _hydrationCursor?.collectUntilComment('Lazy')
+  const anchor = claimed?.anchor ?? document.createComment('Lazy')
+  if (!claimed) insertBefore(parent, anchor, before)
+
+  let childDisposer: Disposer = () => {}
+  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
+  let firstRun = !!claimed
+
+  if (isDev) _setNextEffectMeta({ type: 'children' })
+  const disposeEffect = effect(() => {
+    const isLoaded = props.loaded()
+
+    if (firstRun) {
+      firstRun = false
+      if (isLoaded) {
+        // Wire reactive effects onto existing SSR nodes — no DOM insertions.
+        const subCursor = new HydrationCursor(claimed!.contentNodes)
+        const frag = document.createDocumentFragment()
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.render(), frag, null))
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+      }
+      // !isLoaded: placeholder — nothing to render, anchor marks empty region.
+      return
+    }
+
+    // After firstRun: loaded changed (false → true). Re-render.
+    childDisposer()
+    childDisposer = () => {}
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
+    currentNodes = []
+
+    if (isLoaded) {
+      const frag = document.createDocumentFragment()
+      childDisposer = renderChildren(props.render(), frag, null)
+      currentNodes = Array.from(frag.childNodes) as ChildNode[]
+      anchor.parentNode?.insertBefore(frag, anchor)
+    }
+  })
+
+  return () => {
+    disposeEffect()
+    childDisposer()
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
+    anchor.parentNode?.removeChild(anchor)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // renderElement — dispatch on JSXElement type
 // ---------------------------------------------------------------------------
 
@@ -677,6 +735,7 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
     return renderChildren(props.children, parent, before)
   }
 
+  if (type === (_LazyBoundary as unknown)) return renderLazy(props as unknown as _LazyBoundaryProps, parent, before)
   if (type === (Show as unknown)) return renderShow(props, parent, before)
   if (type === (For as unknown)) return renderFor(props, parent, before)
   if (type === (Switch as unknown)) return renderSwitch(props, parent, before)

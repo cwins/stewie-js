@@ -380,3 +380,43 @@ describe('JSX-to-DOM: style prop', () => {
     expect(normalise(code)).toContain('Object.assign(__el0.style,')
   })
 })
+
+// ---------------------------------------------------------------------------
+// IIFE-in-JSX: native children inside component JSX are NOT transformed
+// (prevents hydration issues — IIFEs bypass SSR cursor claim mechanism)
+// ---------------------------------------------------------------------------
+
+describe('JSX-to-DOM: native child inside component JSX is NOT transformed', () => {
+  it('does NOT transform native element that is a child of a component-containing parent', () => {
+    // <div> contains <MyComp /> so the outer div is NOT transformed.
+    // The inner <span> could be transformable on its own, but it is a CHILD of a JSX
+    // element — transforming it would create a fresh DOM node during component evaluation,
+    // bypassing the hydration cursor and breaking SSR hydration.
+    const code = compileJsx(`
+      function C() {
+        return (
+          <div>
+            <span id="native">hello</span>
+            <MyComp />
+          </div>
+        )
+      }
+    `)
+    // Neither the outer <div> nor the inner <span> should be transformed to DOM calls
+    expect(code).not.toContain('document.createElement("div")')
+    expect(code).not.toContain('document.createElement("span")')
+    // Both remain as JSX
+    expect(code).toContain('<div>')
+    expect(code).toContain('<span')
+  })
+
+  it('DOES transform native element returned directly by a component (not inside JSX)', () => {
+    const code = compileJsx(`
+      function Button() {
+        return <button class="btn">Click</button>
+      }
+    `)
+    expect(code).toContain('document.createElement("button")')
+    expect(code).not.toContain('jsxDEV("button"')
+  })
+})

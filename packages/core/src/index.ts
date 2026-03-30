@@ -51,7 +51,8 @@ export { HydrationRegistryContext, useHydrationRegistry } from './hydration.js'
 export { hydrate } from './hydrate.js'
 
 // Lazy-loaded components
-export { lazy } from './lazy.js'
+export { lazy, _LazyBoundary } from './lazy.js'
+export type { _LazyBoundaryProps } from './lazy.js'
 
 // Async resource primitive
 export type { Resource } from './resource.js'
