@@ -5,45 +5,85 @@ export interface MatchResult {
   score: number
 }
 
+// ---------------------------------------------------------------------------
+// Compiled pattern — pre-parsed once per unique pattern string
+// ---------------------------------------------------------------------------
+
+interface CompiledPattern {
+  /** Segments with the trailing '*' removed (if present). */
+  segments: string[]
+  hasWildcard: boolean
+  /**
+   * Static specificity score for sorting — same formula as matchRoute uses
+   * per-match but computed once rather than on every navigation.
+   */
+  score: number
+}
+
+// Module-level cache: pattern strings are immutable, so a plain Map is safe.
+// Route tables are small (typically <20 entries) so memory is not a concern.
+const _compiledPatterns = new Map<string, CompiledPattern>()
+
+function getCompiledPattern(pattern: string): CompiledPattern {
+  let compiled = _compiledPatterns.get(pattern)
+  if (!compiled) {
+    const raw = pattern.split('/').filter(Boolean)
+    const hasWildcard = raw[raw.length - 1] === '*'
+    const segments = hasWildcard ? raw.slice(0, -1) : raw
+    let score = 0
+    for (const seg of segments) {
+      if (seg === '*') {
+        // wildcard mid-pattern (unusual, treat as low-specificity)
+      } else if (seg.startsWith(':')) {
+        score += 1
+      } else {
+        score += 10
+      }
+    }
+    compiled = { segments, hasWildcard, score }
+    _compiledPatterns.set(pattern, compiled)
+  }
+  return compiled
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 // Match a URL pathname against a route pattern.
 // Pattern syntax: '/users/:id', '/users/:id/posts', '/about'
 // Returns null if no match, or params + score if matched.
 export function matchRoute(pattern: string, pathname: string): MatchResult | null {
-  const patternSegments = pattern.split('/').filter(Boolean)
+  const { segments: patternSegments, hasWildcard, score: baseScore } = getCompiledPattern(pattern)
   const pathSegments = pathname.split('/').filter(Boolean)
-
-  // Check for wildcard at the end
-  const hasWildcard = patternSegments[patternSegments.length - 1] === '*'
-  const effectivePatternSegments = hasWildcard ? patternSegments.slice(0, -1) : patternSegments
 
   // Segment count must match exactly unless there's a wildcard
   if (hasWildcard) {
-    if (pathSegments.length < effectivePatternSegments.length) return null
+    if (pathSegments.length < patternSegments.length) return null
   } else {
     if (patternSegments.length !== pathSegments.length) return null
   }
 
   const params: Record<string, string> = {}
-  let score = 0
+  let score = baseScore
 
-  for (let i = 0; i < effectivePatternSegments.length; i++) {
-    const patSeg = effectivePatternSegments[i]
+  for (let i = 0; i < patternSegments.length; i++) {
+    const patSeg = patternSegments[i]
     const pathSeg = pathSegments[i]
 
     if (patSeg.startsWith(':')) {
-      // Dynamic param segment
+      // Dynamic param segment — score already included in baseScore
       const paramName = patSeg.slice(1)
       // Empty param is not a match
       if (!pathSeg || pathSeg.length === 0) return null
       params[paramName] = pathSeg
-      score += 1
     } else {
-      // Static segment — must match exactly
+      // Static segment — must match exactly; score already in baseScore
       if (patSeg !== pathSeg) return null
-      score += 10
     }
   }
 
+  // Wildcard matches add no score for the extra path segments
   return { params, score }
 }
 
@@ -51,24 +91,7 @@ export function matchRoute(pattern: string, pathname: string): MatchResult | nul
 // Higher score = more specific = earlier in array.
 export function sortRoutes<T extends { path: string }>(routes: T[]): T[] {
   return [...routes].sort((a, b) => {
-    const scoreA = getPatternScore(a.path)
-    const scoreB = getPatternScore(b.path)
-    // Higher score = more specific = sort first
-    return scoreB - scoreA
+    // getCompiledPattern caches, so this is cheap on repeat calls
+    return getCompiledPattern(b.path).score - getCompiledPattern(a.path).score
   })
-}
-
-function getPatternScore(pattern: string): number {
-  const segments = pattern.split('/').filter(Boolean)
-  let score = 0
-  for (const seg of segments) {
-    if (seg.startsWith(':')) {
-      score += 1
-    } else if (seg === '*') {
-      score += 0
-    } else {
-      score += 10
-    }
-  }
-  return score
 }

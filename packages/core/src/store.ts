@@ -39,6 +39,18 @@ class StoreNode implements Subscribable {
 
 type PathNodeMap = Map<string, StoreNode>
 
+/**
+ * Two-level cache: WeakMap<targetObject, Map<path, proxy>>.
+ *
+ * Keyed by both the raw target object AND the path so that the same object
+ * referenced at two different store paths (e.g. store.a = store.b = shared)
+ * gets separate proxies with the correct subscription paths for each.
+ *
+ * WeakMap ensures that when the target object is garbage-collected (e.g. after
+ * a store property is overwritten) the cached proxy is collected too — no leak.
+ */
+type ProxyCache = WeakMap<object, Map<string, object>>
+
 function getOrCreateNode(nodeMap: PathNodeMap, path: string): StoreNode {
   let node = nodeMap.get(path)
   if (!node) {
@@ -56,8 +68,21 @@ function trackNode(nodeMap: PathNodeMap, path: string): void {
   scope.dependencies.add(node)
 }
 
-function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: string): T {
-  return new Proxy(target, {
+function makeProxy<T extends object>(
+  target: T,
+  nodeMap: PathNodeMap,
+  path: string,
+  proxyCache: ProxyCache,
+): T {
+  // Return a cached proxy when the same (target, path) pair is seen again.
+  // This gives stable referential identity: store.user === store.user.
+  let pathMap = proxyCache.get(target)
+  if (pathMap) {
+    const cached = pathMap.get(path)
+    if (cached) return cached as T
+  }
+
+  const proxy = new Proxy(target, {
     get(obj: T, key: string | symbol): unknown {
       // Pass through symbols (like Symbol.iterator, Symbol.toPrimitive, etc.)
       if (typeof key === 'symbol') {
@@ -109,9 +134,9 @@ function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: stri
         }
       }
 
-      // Recursively proxy nested objects/arrays
+      // Recursively proxy nested objects/arrays — use the cache to preserve identity
       if (value !== null && typeof value === 'object') {
-        return makeProxy(value as object, nodeMap, fullPath)
+        return makeProxy(value as object, nodeMap, fullPath, proxyCache)
       }
 
       return value
@@ -124,6 +149,15 @@ function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: stri
       }
 
       const fullPath = path ? `${path}.${key}` : key
+
+      // Invalidate any cached proxy for the old value at this path so that
+      // subsequent reads of this property create a fresh proxy for the new value.
+      const oldValue = (obj as Record<string, unknown>)[key]
+      if (oldValue !== null && typeof oldValue === 'object') {
+        const oldPathMap = proxyCache.get(oldValue as object)
+        if (oldPathMap) oldPathMap.delete(fullPath)
+      }
+
       ;(obj as Record<string, unknown>)[key] = value
 
       if (isDev && __devHooks.onStoreWrite) {
@@ -139,6 +173,15 @@ function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: stri
       return true
     },
   })
+
+  // Store in cache before returning
+  if (!pathMap) {
+    pathMap = new Map()
+    proxyCache.set(target, pathMap)
+  }
+  pathMap.set(path, proxy)
+
+  return proxy
 }
 
 // ---------------------------------------------------------------------------
@@ -153,5 +196,6 @@ export function store<T extends object>(initial: T): T {
   }
 
   const nodeMap: PathNodeMap = new Map()
-  return makeProxy(initial, nodeMap, '')
+  const proxyCache: ProxyCache = new WeakMap()
+  return makeProxy(initial, nodeMap, '', proxyCache)
 }

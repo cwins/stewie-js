@@ -236,6 +236,38 @@ describe('store — object replacement', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Proxy identity / caching
+// ---------------------------------------------------------------------------
+
+describe('store — proxy identity', () => {
+  it('repeated access to the same nested object returns the same proxy', () => {
+    const s = store({ user: { name: 'Alice' } })
+    expect(s.user).toBe(s.user)
+  })
+
+  it('two different nested objects return different proxies', () => {
+    const s = store({ a: { x: 1 }, b: { x: 2 } })
+    expect(s.a).not.toBe(s.b)
+  })
+
+  it('proxy identity survives multiple levels of nesting', () => {
+    const s = store({ a: { b: { c: 42 } } })
+    expect(s.a.b).toBe(s.a.b)
+    expect(s.a.b.c).toBe(42)
+  })
+
+  it('reassigning a nested property invalidates the cached proxy for the old value', () => {
+    const s = store({ data: { value: 1 } })
+    const first = s.data
+    s.data = { value: 2 }
+    const second = s.data
+    // After reassignment the proxy should reflect the new object
+    expect(second.value).toBe(2)
+    expect(first).not.toBe(second)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Integration with signals
 // ---------------------------------------------------------------------------
 
