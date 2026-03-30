@@ -429,21 +429,25 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
   const replacements: JsxReplacement[] = []
   const counter: Counter = { n: 0 }
 
-  function visit(node: ts.Node): void {
-    // Only transform JSX elements that are NOT inside another JSX element.
-    // Elements nested as children of component JSX (e.g. <div> inside <Shell>)
-    // run eagerly as IIFEs before the hydration cursor reaches their parent,
-    // which breaks SSR hydration by creating fresh DOM nodes instead of
-    // claiming existing server-rendered nodes.
+  /**
+   * @param insideReactiveFn - true when we are inside an arrow/function
+   * expression that is a JSX expression child (i.e. a render-prop passed to
+   * <For>, <Show>, etc.). JSX inside such functions must NOT be transformed
+   * to IIFEs because the resulting DOM nodes would bypass the hydration cursor
+   * — the hydration system would never claim the server-rendered nodes and
+   * fresh client nodes would be inserted alongside them (duplication).
+   */
+  function visit(node: ts.Node, insideReactiveFn = false): void {
+    // Only transform JSX elements that are NOT inside another JSX element and
+    // NOT inside a render-prop function passed as a JSX expression child.
     //
-    // Safe patterns (parent is JS, not JSX):
+    // Safe patterns (parent is JS, not JSX, not inside a reactive fn):
     //   return <div>...</div>          parent = ReturnStatement
-    //   const el = <div>...</div>      parent = VariableDeclaration / JsxExpression
-    //   <div>{<span>...</span>}</div>  outer div not transformable (component child) →
-    //                                  we recurse into it and span IS visited, but its
-    //                                  parent is a JsxExpression whose grandparent IS JSX
+    //   const el = <div>...</div>      parent = VariableDeclaration
     //
-    // Skip when the JSX node is a direct child of another JSX element/fragment.
+    // Skipped patterns:
+    //   <div>{<span/>}</div>           grandparent is JSX (insideJsx)
+    //   <For>{item => <div/>}</For>    inside a render-prop (insideReactiveFn)
     if (
       ts.isJsxElement(node) ||
       ts.isJsxSelfClosingElement(node) ||
@@ -457,7 +461,7 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
         (ts.isJsxExpression(parent) &&
           (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)))
 
-      if (!insideJsx && canTransformJsx(node, sourceFile)) {
+      if (!insideJsx && !insideReactiveFn && canTransformJsx(node, sourceFile)) {
         const result = emitJsxToDom(
           node as ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
           sourceFile,
@@ -478,7 +482,21 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
       }
     }
 
-    ts.forEachChild(node, visit)
+    // When entering a function whose parent is a JsxExpression inside JSX
+    // (i.e. a render-prop: <For>{item => <div/>}</For>), mark insideReactiveFn
+    // so any JSX inside it is left untransformed and handled by the JSX runtime.
+    if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+      const parent = node.parent
+      if (
+        ts.isJsxExpression(parent) &&
+        (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent))
+      ) {
+        ts.forEachChild(node, (child) => visit(child, true))
+        return
+      }
+    }
+
+    ts.forEachChild(node, (child) => visit(child, insideReactiveFn))
   }
 
   visit(sourceFile)

@@ -420,3 +420,57 @@ describe('JSX-to-DOM: native child inside component JSX is NOT transformed', () 
     expect(code).not.toContain('jsxDEV("button"')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Render-prop functions: JSX inside arrow/function passed as JSX child
+// must NOT be transformed (would bypass hydration cursor → duplication)
+// ---------------------------------------------------------------------------
+
+describe('JSX-to-DOM: render-prop functions are NOT transformed', () => {
+  it('does NOT transform JSX inside an arrow function passed as a JSX child', () => {
+    // Simulates: <For each={items}>{(item) => <div>{item.name}</div>}</For>
+    const code = compileJsx(`
+      function List({ items }: { items: { name: string }[] }) {
+        return (
+          <For each={items}>
+            {(item: { name: string }) => (
+              <div class="item">{item.name}</div>
+            )}
+          </For>
+        )
+      }
+    `)
+    // The inner <div> must remain as JSX — not transformed to DOM IIFE
+    expect(code).not.toContain('document.createElement("div")')
+    // JSX source still present (compiler does text replacement, not full emit)
+    expect(code).toContain('<div class="item">')
+  })
+
+  it('does NOT transform JSX inside a function expression passed as a JSX child', () => {
+    const code = compileJsx(`
+      function Comp() {
+        return (
+          <Show when={true}>
+            {function() {
+              return <span class="content">hello</span>
+            }}
+          </Show>
+        )
+      }
+    `)
+    expect(code).not.toContain('document.createElement("span")')
+    expect(code).toContain('<span class="content">')
+  })
+
+  it('DOES transform JSX returned directly from the outer component', () => {
+    // The outer <Show> wrapping is a component — not transformed, but the
+    // outer component's return value IS a JSX expression that goes through normal flow.
+    // The key assertion: native element DIRECTLY returned by a component IS transformed.
+    const code = compileJsx(`
+      function Card() {
+        return <div class="card">content</div>
+      }
+    `)
+    expect(code).toContain('document.createElement("div")')
+  })
+})

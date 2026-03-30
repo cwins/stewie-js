@@ -114,7 +114,7 @@ function DashboardView(): JSXElement {
                 onClick={() => router.navigate(`/project/${project.id}`)}
               >
                 <p class="card-title">{project.name}</p>
-                <p class="card-subtitle">{String(count)} active task{count !== 1 ? 's' : ''}</p>
+                <p class="card-subtitle">{`${String(count)} active task${count !== 1 ? 's' : ''}`}</p>
               </div>
             )
           }}
