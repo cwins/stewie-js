@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "WinterCG-compatible server-side rendering for the Stewie framework",
   "author": "",
   "license": "MIT",

@@ -3,6 +3,6 @@ import { version } from './index.js'
 
 describe('@stewie-js/core', () => {
   it('exports version', () => {
-    expect(version).toBe('0.1.0')
+    expect(version).toBe('0.3.0')
   })
 })
