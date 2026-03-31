@@ -22,7 +22,7 @@ if (import.meta.env.DEV) {
 
 ### Option B — Auto-injected by the Vite plugin
 
-When using `@stewie-js/vite`, the devtools are automatically injected in development mode via the `transformIndexHtml` hook. No manual setup is needed.
+When using `@stewie-js/vite`, the devtools are automatically injected in development mode — provided `@stewie-js/devtools` is installed in the project. The Vite plugin adds a dynamic import for this package, so it must be resolvable. No other manual setup is needed.
 
 ## Keyboard Shortcut
 
@@ -38,7 +38,7 @@ Includes a toggle to enable/disable the render highlight overlay.
 
 ### Stores
 
-Shows a live log of signal write events. Each entry displays the new value and a timestamp. Useful for tracking how often and when reactive state changes.
+Shows a live log of signal and store write events. Each entry displays the new value and a timestamp. Useful for tracking how often and when reactive state changes.
 
 ### Routes
 

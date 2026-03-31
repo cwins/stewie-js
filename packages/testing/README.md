@@ -10,6 +10,28 @@ Designed for use with [Vitest](https://vitest.dev/).
 
 Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
+## Prerequisites
+
+`@stewie-js/testing` requires Vitest and a DOM environment. This package does not install Vitest or a DOM environment for you — add them to your project:
+
+```bash
+pnpm add -D vitest happy-dom
+```
+
+Then configure your `vitest.config.ts`:
+
+```ts
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    environment: 'happy-dom',
+  },
+})
+```
+
+Or set `// @vitest-environment happy-dom` at the top of individual test files.
+
 ## Install
 
 ```bash
@@ -31,7 +53,9 @@ describe('Counter', () => {
     createRoot(() => { count = signal(0) })
 
     const result = mount(
-      jsx('div', { children: () => String(count()) })
+      jsx('div', { children: [
+        jsx('span', { 'data-testid': 'count', children: () => String(count()) }),
+      ]})
     )
 
     expect(result.getByTestId('count').textContent).toBe('0')
@@ -90,6 +114,7 @@ expect(html).toContain('<h1>Hello</h1>')
 
 ```ts
 import { mount, withContext } from '@stewie-js/testing'
+import { createContext, inject } from '@stewie-js/core'
 
 const ThemeCtx = createContext('light')
 
@@ -115,3 +140,6 @@ withContext(ThemeCtx, 'dark', () => {
 | `flushEffects()` | Returns a promise that resolves after pending reactive effects settle |
 | `renderToString(element)` | SSR helper — returns `{ html, stateScript }` |
 | `withContext(ctx, value, fn)` | Run `fn` with a context value provided |
+| `findByText(container, text)` | Standalone: find element by text content, returns `null` if not found |
+| `findByTestId(container, id)` | Standalone: find element by `data-testid`, returns `null` if not found |
+| `findByRole(container, role)` | Standalone: find element by ARIA role, returns `null` if not found |

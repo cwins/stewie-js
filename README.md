@@ -46,9 +46,9 @@ Routing, reactivity, SSR, testing utilities, and devtools are coordinated first-
 
 Angular's string templates require an IDE extension to catch scope errors. Stewie uses JSX: TypeScript knows exactly what's in scope at every point, your editor flags errors inline, and `<PrimaryButton />` is a real identifier you can search, refactor, and navigate.
 
-### Edge-first
+### Edge-first by design
 
-`@stewie-js/server` targets [WinterCG](https://wintercg.org/) — it uses only `ReadableStream`, `TransformStream`, and `fetch` APIs. Deploy to Cloudflare Workers, Deno Deploy, Bun, or Node.js without adapter gymnastics.
+`@stewie-js/server` targets [WinterCG](https://wintercg.org/) — it uses only `ReadableStream`, `TransformStream`, and standard `fetch` APIs with no Node.js dependencies. First-party adapters ship for **Node.js** and **Bun** today. Cloudflare Workers and Deno Deploy adapters are on the roadmap — the standards-first server design means no fundamental rework is needed to add them.
 
 ---
 
@@ -63,6 +63,7 @@ Angular's string templates require an IDE extension to catch scope errors. Stewi
 | [`@stewie-js/adapter-node`](packages/adapter-node) | Node.js HTTP adapter |
 | [`@stewie-js/adapter-bun`](packages/adapter-bun) | Bun HTTP adapter |
 | [`@stewie-js/testing`](packages/testing) | `mount`, DOM queries, signal assertions, SSR helpers |
+| [`@stewie-js/devtools`](packages/devtools) | Browser overlay devtools — renders, stores, routes |
 | [`@stewie-js/compiler`](packages/compiler) | TSX → fine-grained reactive output compiler |
 | [`create-stewie`](packages/create-stewie) | Project scaffolding CLI |
 
@@ -122,7 +123,7 @@ import { store } from '@stewie-js/core'
 
 const state = store({ user: { name: 'Alice', age: 30 }, todos: [] as string[] })
 
-// Components only re-render when the specific property they read changes
+// Only the DOM bindings that read user.name update — nothing else
 state.user.name = 'Bob'
 state.todos.push('Learn Stewie')
 ```

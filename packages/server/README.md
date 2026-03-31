@@ -30,7 +30,7 @@ const page = template
   .replace('</body>', `  ${stateScript}\n</body>`)
 ```
 
-`stateScript` is an inline `<script>` tag that sets `window.__STEWIE_STATE__` — a serialized payload of all registered store values. The client calls `hydrate()` to read this and initialize state without a second network round-trip.
+`stateScript` is an inline `<script>` tag that sets `window.__STEWIE_STATE__` — a serialized payload of all hydration registry key/value pairs collected during the render. The client calls `hydrate()` to read this and initialize state without a second network round-trip.
 
 ## renderToStream
 
@@ -47,17 +47,27 @@ return new Response(stream, {
 
 ## Hydration Registry
 
-Use the hydration registry to collect server-side state and serialize it into `__STEWIE_STATE__`. Components call `useHydrationRegistry()` to register values; the renderer serializes them automatically.
+`renderToString` and `renderToStream` create their own internal hydration registry automatically. Components use `useHydrationRegistry()` from `@stewie-js/core` to register key/value pairs that get serialized into `__STEWIE_STATE__`.
 
 ```ts
-import { createHydrationRegistry, HydrationRegistryContext } from '@stewie-js/server'
-import { provide } from '@stewie-js/core'
+import { useHydrationRegistry } from '@stewie-js/core'
 
-const registry = createHydrationRegistry()
+function MyComponent() {
+  const registry = useHydrationRegistry()
+  if (registry) {
+    registry.set('myKey', someServerData)
+  }
+  // ...
+}
+```
 
-const { html, stateScript } = await renderToString(
-  provide(HydrationRegistryContext, registry, () => jsx(App, {}))
-)
+## CSP Nonce
+
+Both renderers accept a `nonce` option. The nonce is applied to all injected `<script>` tags:
+
+```ts
+const { html, stateScript } = await renderToString(jsx(App, {}), { nonce: requestNonce })
+const stream = renderToStream(jsx(App, {}), { nonce: requestNonce })
 ```
 
 ## API
@@ -66,7 +76,5 @@ const { html, stateScript } = await renderToString(
 |---|---|
 | `renderToString(element, options?)` | Renders to `{ html: string, stateScript: string }` |
 | `renderToStream(element, options?)` | Renders to a streaming `ReadableStream` |
-| `createHydrationRegistry()` | Creates a registry that collects state for `__STEWIE_STATE__` |
-| `HydrationRegistryContext` | Context token — provide the registry to the component tree |
-| `useHydrationRegistry()` | Read the registry from inside a component |
-| `RenderResult` | Type: `{ html: string, stateScript: string }` |
+| `RenderOptions` | Options type: `{ nonce?: string }` |
+| `RenderResult` | Return type of `renderToString`: `{ html: string, stateScript: string }` |

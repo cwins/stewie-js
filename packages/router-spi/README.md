@@ -4,7 +4,9 @@
 >
 >Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
-TypeScript interface definitions for the Stewie router service provider interface. Contains zero runtime code — types only.
+TypeScript interface definitions for the Stewie router service provider interface. Primarily types — the only runtime export is a `version` constant.
+
+Use `@stewie-js/router` for standard app routing. This package is for router implementers and framework integrations that need to be router-agnostic.
 
 Implement these interfaces to plug a custom router into the Stewie ecosystem, or reference them when building libraries that need to be router-agnostic.
 
@@ -24,7 +26,7 @@ import type { StewieRouterSPI, ReactiveLocation, NavigateOptions, RouteMatch } f
 // Implement this to provide a custom router
 class MyRouter implements StewieRouterSPI {
   readonly location: ReactiveLocation  // reactive store — components subscribe to specific properties
-  navigate(to: string | NavigateOptions): void { ... }
+  navigate(to: string | NavigateOptions): Promise<void> { ... }
   back(): void { ... }
   forward(): void { ... }
   match(pattern: string): RouteMatch | null { ... }

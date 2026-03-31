@@ -56,29 +56,55 @@ And warnings for:
 
 ## Programmatic API
 
+`compile()` is the primary public API. It runs the full pipeline in one call.
+
 ```ts
-import { transformFile, analyzeFile, validateFile } from '@stewie-js/compiler'
+import { compile } from '@stewie-js/compiler'
 
-const result = transformFile('src/App.tsx', sourceCode, { jsxToDom: false })
+const result = compile(sourceCode, { filename: 'src/App.tsx' })
 
-if (result.diagnostics.some(d => d.severity === 'error')) {
-  for (const d of result.diagnostics) {
-    console.error(`${d.file}:${d.line} — ${d.message}`)
+if (result.errors.length > 0) {
+  for (const err of result.errors) {
+    console.error(`${err.file}:${err.line}:${err.column} — ${err.message}`)
   }
 } else {
   console.log(result.code)
-  console.log(result.sourceMap)
+  if (result.map) console.log(result.map)
 }
+```
+
+The `CompileResult` shape:
+
+```ts
+interface CompileResult {
+  code: string                   // transformed source (original source if there are errors)
+  map: string | undefined        // source map JSON (if sourcemap option is enabled)
+  diagnostics: CompilerDiagnostic[]  // all diagnostics (errors + warnings)
+  errors: CompilerDiagnostic[]   // hard errors only
+  warnings: CompilerDiagnostic[] // warnings only
+}
+```
+
+### Lower-level building blocks
+
+```ts
+import { parseFile, analyzeFile, validateFile, transformFile } from '@stewie-js/compiler'
+
+const parsed   = parseFile(source, filename)
+const analysis = analyzeFile(parsed)
+const diags    = validateFile(parsed, analysis)
+const code     = transformFile(parsed, analysis, { jsxToDom: true })
 ```
 
 ## API
 
 | Export | Description |
 |---|---|
-| `transformFile(filename, source, options?)` | Full compile pipeline — returns `{ code, sourceMap, diagnostics }` |
-| `parseFile(filename, source)` | Parse TSX to AST |
+| `compile(source, options)` | Full compile pipeline — returns `CompileResult` |
+| `parseFile(source, filename)` | Parse TSX to AST (`ParsedFile`) |
 | `analyzeFile(parsed)` | Identify reactive attributes, `$prop` bindings, module-scope calls |
-| `validateFile(analysis)` | Produce diagnostics for rule violations |
-| `CompileOptions` | Options type for `transformFile` |
-| `CompileResult` | Return type of `transformFile` |
-| `CompilerDiagnostic` | A single diagnostic message with severity, file, and line |
+| `validateFile(parsed, analysis)` | Produce `CompilerDiagnostic[]` for rule violations |
+| `transformFile(parsed, analysis, options?)` | Emit transformed source string |
+| `CompileOptions` | Options type for `compile` |
+| `CompileResult` | Return type of `compile` |
+| `CompilerDiagnostic` | A single diagnostic with `severity`, `file`, `line`, `column`, and `message` |

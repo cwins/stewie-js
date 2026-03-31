@@ -45,11 +45,18 @@ state.todos.push('Buy milk')  // only components reading todos update
 
 ## JSX
 
-Configure your `tsconfig.json` or `vite.config.ts` to use Stewie's JSX runtime:
+Configure your `tsconfig.json` to use Stewie's JSX runtime:
 
 ```json
-{ "jsxImportSource": "@stewie-js/core" }
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@stewie-js/core"
+  }
+}
 ```
+
+If you are using `@stewie-js/vite`, the plugin sets these options automatically — no manual `tsconfig.json` changes are needed.
 
 Attribute expressions that are functions are wrapped in fine-grained effects. Static values are set once with no subscription.
 
@@ -132,4 +139,11 @@ function Page() {
 | `Switch` / `Match` | First-match conditional rendering |
 | `Portal` | Render children into a different DOM node |
 | `ErrorBoundary` | Catch rendering errors and show a fallback |
+| `Suspense` | Async loading boundary — shows fallback while children resolve |
+| `lazy(fn)` | Lazily load a component, integrates with `Suspense` |
+| `resource(fetcher)` | Async data primitive that integrates with `Suspense` |
 | `ClientOnly` | Render children on client only (empty string on server) |
+| `HydrationRegistryContext` | Context token for the hydration registry (SSR workflows) |
+| `useHydrationRegistry()` | Read the hydration registry from inside a component |
+| `captureContext()` | Capture the current context map for later restoration |
+| `runWithContext(ctx, fn)` | Run `fn` inside a previously captured context |

@@ -13,8 +13,10 @@ Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 ## Install
 
 ```bash
-pnpm add @stewie-js/adapter-node @stewie-js/server @stewie-js/core
+pnpm add @stewie-js/adapter-node
 ```
+
+The example below also uses `@stewie-js/server` and `@stewie-js/core`, which are a common pairing but not required by the adapter itself — it bridges any handler that accepts a `Request` and returns a `Response`.
 
 ## Usage
 
@@ -46,5 +48,7 @@ console.log('Listening on http://localhost:3000')
 
 | Export | Description |
 |---|---|
-| `createNodeHandler(app)` | Wraps a `(Request) => Promise<Response>` function into a `http.RequestListener` |
-| `StewieApp` | Type: `(request: Request) => Promise<Response>` |
+| `createNodeHandler(app)` | Wraps a `(Request) => Response \| Promise<Response>` function into a `http.RequestListener` |
+| `StewieApp` | Type: `(request: Request) => Response \| Promise<Response>` |
+
+Response bodies are streamed through to Node rather than buffered first, so streaming SSR responses from `renderToStream` work correctly. Unhandled errors thrown by the app handler are caught, logged to `console.error`, and converted to a `500` response automatically.

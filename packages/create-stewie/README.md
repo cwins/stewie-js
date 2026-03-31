@@ -30,7 +30,7 @@ All modes include:
 - `package.json` with the correct `@stewie-js/*` dependencies
 - `vite.config.ts` with the `@stewie-js/vite` plugin
 - `tsconfig.json` targeting ES2022
-- `src/App.tsx` — root component with a working example
+- `src/app.tsx` — root component with a working example
 - `index.html` — HTML shell
 
 SSR mode also includes:
@@ -38,6 +38,29 @@ SSR mode also includes:
 - `src/client.tsx` — client hydration entry
 - `vite.config.ts` — configured with SSR build environments
 - `start` script for running the production server
+
+## Prerequisites
+
+The generated `vitest.config.ts` sets `environment: 'happy-dom'`. You need to install `happy-dom` separately as a dev dependency in the generated project before running tests:
+
+```bash
+pnpm add -D happy-dom
+```
+
+## Non-interactive CLI flags
+
+All prompts can be answered via flags for scripted or CI use:
+
+```bash
+pnpm create stewie my-app --mode=ssr --runtime=node --router
+pnpm create stewie my-app --mode=static
+```
+
+| Flag | Values | Description |
+|---|---|---|
+| `--mode` | `static`, `ssr` | Project mode |
+| `--runtime` | `node`, `bun` | SSR runtime (only used with `--mode=ssr`) |
+| `--router` | boolean flag | Include `@stewie-js/router` and example routes |
 
 ## Programmatic API
 

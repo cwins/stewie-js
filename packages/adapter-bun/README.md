@@ -11,8 +11,10 @@ Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 ## Install
 
 ```bash
-pnpm add @stewie-js/adapter-bun @stewie-js/server @stewie-js/core
+pnpm add @stewie-js/adapter-bun
 ```
+
+The example above also uses `@stewie-js/server` and `@stewie-js/core`, which are a common pairing but not required by the adapter itself — it works with any handler that accepts a `Request` and returns a `Response`.
 
 ## Usage
 
@@ -24,7 +26,7 @@ import App from './App.js'
 
 const template = Bun.file('dist/client/index.html').text()
 
-const fetch = createBunHandler(async (req) => {
+Bun.serve(createBunHandler(async (req) => {
   const { html, stateScript } = await renderToString(jsx(App, {}))
   const page = (await template)
     .replace('<!--ssr-outlet-->', html)
@@ -32,9 +34,7 @@ const fetch = createBunHandler(async (req) => {
   return new Response(page, {
     headers: { 'content-type': 'text/html; charset=utf-8' },
   })
-})
-
-Bun.serve({ port: 3000, fetch })
+}, { port: 3000 }))
 console.log('Listening on http://localhost:3000')
 ```
 
@@ -42,6 +42,8 @@ console.log('Listening on http://localhost:3000')
 
 | Export | Description |
 |---|---|
-| `createBunHandler(app)` | Wraps a `(Request) => Promise<Response>` function for use with `Bun.serve()` |
-| `StewieApp` | Type: `(request: Request) => Promise<Response>` |
-| `BunServeOptions` | Type: serve options returned by `createBunHandler` |
+| `createBunHandler(app, options?)` | Returns a `BunServeOptions` object (including the `fetch` handler) ready to pass directly to `Bun.serve()` |
+| `StewieApp` | Type: `(request: Request) => Response \| Promise<Response>` |
+| `BunServeOptions` | Type: the serve-options object returned by `createBunHandler` |
+
+Unhandled errors thrown by the app handler are caught, logged to `console.error`, and converted to a `500` response automatically.

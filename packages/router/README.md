@@ -4,7 +4,7 @@
 >
 >Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
 
-Reactive URL-as-store routing for Stewie. The current location is a `store()` — components subscribe only to the specific properties they read, so changing a query parameter only re-renders components that actually read that parameter.
+Reactive URL-as-store routing for Stewie. The current location is a `store()` — components subscribe only to the specific location fields they read, so unrelated URL changes don't trigger unnecessary DOM updates.
 
 Part of the [Stewie](https://github.com/cwins/stewie-js) framework.
 
@@ -72,6 +72,41 @@ function MyComponent() {
 }
 ```
 
+## Route Guards
+
+Use `beforeEnter` to protect routes. Return `true` to allow navigation, or a path string to redirect.
+
+```tsx
+<Route
+  path="/settings"
+  component={Settings}
+  beforeEnter={async (to, from) => {
+    if (!isAuthenticated()) return '/login'
+    return true
+  }}
+/>
+```
+
+## Data Loading
+
+Use `load` to fetch data before a route renders. Read it inside the component with `useRouteData()`.
+
+```tsx
+<Route
+  path="/users/:id"
+  component={UserDetail}
+  load={async () => {
+    const user = await fetchUser(router.location.params.id)
+    return user
+  }}
+/>
+
+function UserDetail() {
+  const user = useRouteData<User>()
+  return <h1>{user.name}</h1>
+}
+```
+
 ## API
 
 | Export | Description |
@@ -83,5 +118,6 @@ function MyComponent() {
 | `useLocation()` | Returns the reactive location store (`pathname`, `params`, `query`, `hash`) |
 | `useParams<T>()` | Returns the current route params typed as `T` |
 | `useQuery<T>()` | Returns the current query parameters typed as `T` |
+| `useRouteData<T>()` | Returns the data returned by the current route's `load` function |
 | `createRouter()` | Create a router instance manually (useful for SSR) |
-| `matchRoute(pattern, pathname)` | Test a pattern against a path, returns params or null |
+| `matchRoute(pattern, pathname)` | Test a pattern against a path, returns `MatchResult` (`{ params, score }`) or `null` |
