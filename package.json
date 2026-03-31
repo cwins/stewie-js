@@ -1,8 +1,8 @@
 {
   "name": "stewie-js",
   "version": "0.0.1",
-  "description": "A TypeScript web rendering framework",
   "private": true,
+  "description": "A TypeScript web rendering framework",
   "type": "module",
   "scripts": {
     "build": "tsc --build",
@@ -12,15 +12,15 @@
     "check:edge": "node scripts/check-edge-packages.mjs",
     "lint": "oxlint packages/*/src examples/*/src --ignore-pattern '**/*.d.ts'",
     "lint:fix": "oxlint --fix packages/*/src examples/*/src --ignore-pattern '**/*.d.ts'",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
     "clean": "find packages -name dist -type d -prune -exec rm -rf {} + 2>/dev/null; find packages/*/src -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' 2>/dev/null | xargs rm -f; true"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "happy-dom": "^20.8.4",
+    "oxfmt": "^0.43.0",
     "oxlint": "^1.56.0",
-    "prettier": "^3.8.1",
     "typescript": "^5.8.0",
     "vitest": "^4.0.0"
   },

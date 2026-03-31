@@ -2,22 +2,22 @@
   "name": "@stewie-js/testing",
   "version": "0.4.0",
   "description": "Test utilities for the Stewie framework — mount, DOM queries, signal and store assertions",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "dom",
+    "mount",
+    "stewie",
+    "testing",
+    "typescript",
+    "vitest"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/testing#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/testing"
   },
-  "keywords": [
-    "stewie",
-    "testing",
-    "vitest",
-    "mount",
-    "dom",
-    "typescript"
-  ],
   "files": [
     "dist",
     "README.md"

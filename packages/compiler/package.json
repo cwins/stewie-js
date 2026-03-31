@@ -2,23 +2,23 @@
   "name": "@stewie-js/compiler",
   "version": "0.4.0",
   "description": "TSX compiler for the Stewie framework — transforms JSX into fine-grained reactive output",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "compiler",
+    "jsx",
+    "reactive",
+    "stewie",
+    "transform",
+    "tsx",
+    "typescript"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/compiler#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/compiler"
   },
-  "keywords": [
-    "stewie",
-    "compiler",
-    "tsx",
-    "jsx",
-    "transform",
-    "reactive",
-    "typescript"
-  ],
   "files": [
     "dist",
     "README.md"

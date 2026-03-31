@@ -2,22 +2,25 @@
   "name": "create-stewie",
   "version": "0.4.0",
   "description": "Project scaffolding CLI for the Stewie framework",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "cli",
+    "create",
+    "scaffold",
+    "starter",
+    "stewie",
+    "typescript"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/create-stewie#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/create-stewie"
   },
-  "keywords": [
-    "stewie",
-    "create",
-    "scaffold",
-    "cli",
-    "starter",
-    "typescript"
-  ],
+  "bin": {
+    "create-stewie": "./dist/index.js"
+  },
   "files": [
     "dist",
     "README.md"
@@ -25,9 +28,6 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "create-stewie": "./dist/index.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

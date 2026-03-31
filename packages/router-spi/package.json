@@ -2,21 +2,21 @@
   "name": "@stewie-js/router-spi",
   "version": "0.4.0",
   "description": "Router interface definitions (types only) for the Stewie framework",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "router",
+    "spi",
+    "stewie",
+    "types",
+    "typescript"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/router-spi#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/router-spi"
   },
-  "keywords": [
-    "stewie",
-    "router",
-    "spi",
-    "types",
-    "typescript"
-  ],
   "files": [
     "dist",
     "README.md"

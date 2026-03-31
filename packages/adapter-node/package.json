@@ -2,22 +2,22 @@
   "name": "@stewie-js/adapter-node",
   "version": "0.4.0",
   "description": "Node.js HTTP adapter for the Stewie framework",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "adapter",
+    "http",
+    "node",
+    "ssr",
+    "stewie",
+    "typescript"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/adapter-node#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/adapter-node"
   },
-  "keywords": [
-    "stewie",
-    "node",
-    "http",
-    "adapter",
-    "ssr",
-    "typescript"
-  ],
   "files": [
     "dist",
     "README.md"

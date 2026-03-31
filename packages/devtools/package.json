@@ -2,21 +2,21 @@
   "name": "@stewie-js/devtools",
   "version": "0.4.0",
   "description": "Browser overlay devtools for the Stewie framework",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "debugging",
+    "developer-tools",
+    "devtools",
+    "stewie",
+    "typescript"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/devtools#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/devtools"
   },
-  "keywords": [
-    "stewie",
-    "devtools",
-    "debugging",
-    "developer-tools",
-    "typescript"
-  ],
   "files": [
     "dist",
     "README.md"

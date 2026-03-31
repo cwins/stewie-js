@@ -1,13 +1,9 @@
 {
   "name": "stewie-js-framework-benchmark",
   "version": "0.1.0",
-  "description": "Stewie implementation for js-framework-benchmark",
   "private": true,
+  "description": "Stewie implementation for js-framework-benchmark",
   "type": "module",
-  "js-framework-benchmark": {
-    "frameworkVersionFromPackage": "@stewie-js/core",
-    "frameworkHomeURL": "https://github.com/stewiejs/stewie"
-  },
   "scripts": {
     "build-prod": "vite build",
     "build": "vite build",
@@ -21,5 +17,9 @@
   },
   "devDependencies": {
     "vite": "^7.0.0"
+  },
+  "js-framework-benchmark": {
+    "frameworkVersionFromPackage": "@stewie-js/core",
+    "frameworkHomeURL": "https://github.com/stewiejs/stewie"
   }
 }

@@ -2,23 +2,23 @@
   "name": "@stewie-js/router",
   "version": "0.4.0",
   "description": "Reactive URL-as-store routing for the Stewie framework",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "reactive",
+    "router",
+    "routing",
+    "signals",
+    "spa",
+    "stewie",
+    "typescript"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/router#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/router"
   },
-  "keywords": [
-    "stewie",
-    "router",
-    "routing",
-    "reactive",
-    "signals",
-    "spa",
-    "typescript"
-  ],
   "files": [
     "dist",
     "README.md"
@@ -38,11 +38,11 @@
     "build": "tsc --build",
     "test": "vitest run"
   },
-  "devDependencies": {
-    "@stewie-js/server": "workspace:*"
-  },
   "dependencies": {
     "@stewie-js/core": "workspace:*",
     "@stewie-js/router-spi": "workspace:*"
+  },
+  "devDependencies": {
+    "@stewie-js/server": "workspace:*"
   }
 }

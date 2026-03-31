@@ -1,8 +1,8 @@
 {
   "name": "ssr-and-routing",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "clean": "rm -rf dist src/.temp-mocks",
     "nuke": "rm -rf dist src/.temp-mocks node_modules",
@@ -19,14 +19,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@stewie-js/adapter-node": "workspace:*",
     "@stewie-js/compiler": "workspace:*",
     "@stewie-js/core": "workspace:*",
-    "@stewie-js/server": "workspace:*",
-    "@stewie-js/adapter-node": "workspace:*",
+    "@stewie-js/devtools": "workspace:*",
     "@stewie-js/router": "workspace:*",
+    "@stewie-js/server": "workspace:*",
     "@stewie-js/testing": "workspace:*",
-    "@stewie-js/vite": "workspace:*",
-    "@stewie-js/devtools": "workspace:*"
+    "@stewie-js/vite": "workspace:*"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.4.0",

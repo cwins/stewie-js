@@ -2,22 +2,22 @@
   "name": "@stewie-js/vite",
   "version": "0.4.0",
   "description": "Vite plugin for the Stewie framework",
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "hmr",
+    "jsx",
+    "stewie",
+    "typescript",
+    "vite",
+    "vite-plugin"
+  ],
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/vite#readme",
+  "license": "MIT",
+  "author": "",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/vite"
   },
-  "keywords": [
-    "stewie",
-    "vite",
-    "vite-plugin",
-    "jsx",
-    "hmr",
-    "typescript"
-  ],
   "files": [
     "dist",
     "README.md"
@@ -40,10 +40,10 @@
   "dependencies": {
     "@stewie-js/compiler": "workspace:*"
   },
-  "peerDependencies": {
-    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
-  },
   "devDependencies": {
     "vite": "^7.0.0"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
   }
 }
