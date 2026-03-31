@@ -322,6 +322,39 @@ describe('popstate guard execution', () => {
 
     await vi.waitFor(() => expect(router.location.pathname).toBe('/login'))
   })
+
+  it('runs the redirect target guards when popstate guard redirects', async () => {
+    // Regression: previously applyLocationAndPush(redirect) bypassed the
+    // redirect target's own guards. The fix re-enters navigate() so the
+    // redirect target's beforeEnter also runs.
+    const listeners: Record<string, EventListener[]> = {}
+    const mockLocation = { pathname: '/home', search: '', hash: '' }
+    const loginGuard = vi.fn(async () => true as const)
+
+    vi.stubGlobal('location', mockLocation)
+    vi.stubGlobal('history', { pushState: vi.fn(), replaceState: vi.fn() })
+    vi.stubGlobal('addEventListener', (type: string, fn: EventListener) => {
+      listeners[type] = listeners[type] ?? []
+      listeners[type].push(fn)
+    })
+    vi.stubGlobal('removeEventListener', (type: string, fn: EventListener) => {
+      listeners[type] = (listeners[type] ?? []).filter((f) => f !== fn)
+    })
+
+    const router = createRouter('/home')
+    router._routes = [
+      { path: '/home', component: null as any },
+      { path: '/login', component: null as any, beforeEnter: loginGuard },
+      { path: '/protected', component: null as any, beforeEnter: async () => '/login' },
+    ]
+
+    mockLocation.pathname = '/protected'
+    listeners['popstate']?.forEach((fn) => fn(new Event('popstate')))
+
+    await vi.waitFor(() => expect(router.location.pathname).toBe('/login'))
+    // The redirect target's own guard must have run
+    expect(loginGuard).toHaveBeenCalled()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -358,5 +391,19 @@ describe('Route data loading (load)', () => {
     await router.navigate('/a')
     expect(duringLoad).toBeUndefined()
     expect(router._routeData()).toBe('done')
+  })
+
+  it('clears _routeData when navigating to a route with no loader', async () => {
+    const router = createRouter('/')
+    router._routes = [
+      { path: '/with-data', component: null as any, load: async () => ({ value: 42 }) },
+      { path: '/no-data', component: null as any },
+    ]
+    await router.navigate('/with-data')
+    expect(router._routeData()).toEqual({ value: 42 })
+
+    await router.navigate('/no-data')
+    // Stale data from the previous route must not bleed through
+    expect(router._routeData()).toBeUndefined()
   })
 })

@@ -82,12 +82,15 @@ export function _warnModuleScope(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Ownership stack — tracks which effects belong to a createRoot() call
+// Ownership stack — tracks which reactive nodes belong to a createRoot() call
 // ---------------------------------------------------------------------------
 
-// Each entry is the list of EffectNodes owned by one createRoot() invocation.
-// Effects register themselves here on creation so the root can dispose them.
-const _ownerStack: EffectNode[][] = []
+interface Disposable { dispose(): void }
+
+// Each entry is the list of owned nodes for one createRoot() invocation.
+// Effects and computed nodes register themselves here on creation so the root
+// can dispose them all when it tears down (e.g. on component / For-item unmount).
+const _ownerStack: Disposable[][] = []
 
 // ---------------------------------------------------------------------------
 // Tracking scope stack (module-level — this is framework infrastructure)
@@ -227,13 +230,21 @@ export class ComputedNode<T> extends ReactiveNode<T> implements Subscriber {
   private _deps = new Set<Subscribable>()
   private _computing = false
   private _initialized = false
+  private _disposed = false
 
   constructor(fn: () => T) {
     super()
     this._fn = fn
+    // Register with the nearest enclosing createRoot() so this computed is
+    // disposed automatically when the owning scope tears down (component
+    // unmount, For-item removal, etc.).
+    if (_ownerStack.length > 0) {
+      _ownerStack[_ownerStack.length - 1].push(this)
+    }
   }
 
   read(): T {
+    if (this._disposed) return this._value
     if (this._dirty) {
       this._recompute()
     }
@@ -282,6 +293,7 @@ export class ComputedNode<T> extends ReactiveNode<T> implements Subscriber {
   }
 
   _invalidate(): void {
+    if (this._disposed) return
     // Eagerly recompute — this allows us to stop propagation if value is unchanged
     // Mark dirty first so _recompute will run
     if (!this._dirty) {
@@ -290,6 +302,16 @@ export class ComputedNode<T> extends ReactiveNode<T> implements Subscriber {
       // This is the key to memoization: don't notify effects if value is same
       this._recompute()
     }
+  }
+
+  dispose(): void {
+    if (this._disposed) return
+    this._disposed = true
+    for (const dep of this._deps) {
+      dep._unsubscribe(this)
+    }
+    this._deps.clear()
+    this._subscribers.clear()
   }
 }
 
@@ -456,14 +478,14 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
   const prev = _allowReactiveCreation
   _allowReactiveCreation = true
 
-  const ownedEffects: EffectNode[] = []
-  _ownerStack.push(ownedEffects)
+  const ownedNodes: Disposable[] = []
+  _ownerStack.push(ownedNodes)
 
   const dispose = (): void => {
-    for (const e of ownedEffects) {
-      e.dispose()
+    for (const n of ownedNodes) {
+      n.dispose()
     }
-    ownedEffects.length = 0
+    ownedNodes.length = 0
   }
 
   try {

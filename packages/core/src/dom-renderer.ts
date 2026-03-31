@@ -2,7 +2,7 @@
 // Takes JSXElement descriptors (or DOM Nodes from the DOM JSX runtime) and
 // renders them into real DOM nodes with fine-grained reactive subscriptions.
 
-import { effect, createRoot, untrack, _setNextEffectMeta, isDev } from './reactive.js'
+import { effect, createRoot, untrack, _setNextEffectMeta, isDev, ComputedNode } from './reactive.js'
 import { Fragment } from './jsx-runtime.js'
 import type { JSXElement, Component } from './jsx-runtime.js'
 import { _pushContext, _popContext } from './context.js'
@@ -300,6 +300,27 @@ function computeLIS(seq: number[]): Set<number> {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// renderWithRoot — render inside a reactive ownership scope so that
+// computed() / effect() calls during rendering are owned by this scope and
+// disposed automatically when the returned Disposer is called.
+// Used by renderFor to give each list item its own lifetime.
+// ---------------------------------------------------------------------------
+
+function renderWithRoot(fn: () => Disposer): Disposer {
+  let rootDispose: Disposer = () => {}
+  let childDisposer: Disposer = () => {}
+  createRoot((dispose) => {
+    rootDispose = dispose
+    childDisposer = fn()
+  })
+  return () => {
+    rootDispose()
+    childDisposer()
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Control flow: For
 // ---------------------------------------------------------------------------
 
@@ -346,8 +367,10 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
             const key = keyFn(each[i], i)
             const startIdx = subCursor.idx
             const itemFrag = document.createDocumentFragment()
-            const disposer = _withCursor(subCursor, () =>
-              renderChildren(renderFn(each[i], i), itemFrag, null),
+            const disposer = renderWithRoot(() =>
+              _withCursor(subCursor, () =>
+                renderChildren(renderFn(each[i], i), itemFrag, null),
+              ),
             )
             const claimedCount = subCursor.idx - startIdx
             const itemNodes = claimed.contentNodes.slice(startIdx, startIdx + claimedCount) as ChildNode[]
@@ -403,7 +426,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
         const key = newKeys[i]
         if (!keyMap.has(key)) {
           const frag = document.createDocumentFragment()
-          const disposer = renderChildren(renderFn(each[i], i), frag, null)
+          const disposer = renderWithRoot(() => renderChildren(renderFn(each[i], i), frag, null))
           const nodes = Array.from(frag.childNodes) as ChildNode[]
           keyMap.set(key, { nodes, disposer })
         }
@@ -477,7 +500,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
         const subCursor = new HydrationCursor(claimed.contentNodes)
         const frag = document.createDocumentFragment()
         childDisposers = _withCursor(subCursor, () =>
-          each.map((item, i) => renderChildren(renderFn(item, i), frag, null)),
+          each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null))),
         )
         if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
       }
@@ -492,7 +515,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
     if (!Array.isArray(each)) return
 
     const frag = document.createDocumentFragment()
-    childDisposers = each.map((item, i) => renderChildren(renderFn(item, i), frag, null))
+    childDisposers = each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null)))
     currentNodes = Array.from(frag.childNodes) as ChildNode[]
     anchor.parentNode?.insertBefore(frag, anchor)
   })
@@ -850,9 +873,13 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
     }
 
     if (typeof value === 'function') {
-      // Reactive prop — re-runs when the signal/computed changes
+      // Reactive prop — memoize via ComputedNode so the DOM-update effect only
+      // re-runs when the derived value actually changes, not on every dependency
+      // invalidation (e.g. clicking one row doesn't repaint all other rows).
       if (isDev) _setNextEffectMeta({ element: domEl, attr: key, type: 'prop' })
-      disposers.push(effect(() => setProperty(domEl, key, (value as () => unknown)())))
+      const memo = new ComputedNode(value as () => unknown)
+      disposers.push(effect(() => setProperty(domEl, key, memo.read())))
+      disposers.push(() => memo.dispose())
     } else {
       setProperty(domEl, key, value)
     }

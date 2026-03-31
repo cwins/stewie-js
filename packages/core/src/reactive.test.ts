@@ -538,6 +538,33 @@ describe('createRoot', () => {
     capturedSig.set(2)
     expect(runCount).toBe(2) // still 2 — effect is disposed
   })
+
+  it('dispose() also disposes computed nodes created inside the root', () => {
+    let capturedDispose: (() => void) = () => {}
+    let capturedSig: ReturnType<typeof signal<number>> = signal(0)
+    let capturedComputed: ReturnType<typeof computed<number>> = computed(() => 0)
+    let effectRuns = 0
+
+    createRoot((dispose) => {
+      capturedDispose = dispose
+      capturedSig = signal(0)
+      capturedComputed = computed(() => capturedSig() * 2)
+      // Access the computed once to initialise it
+      effect(() => { capturedComputed(); effectRuns++ })
+    })
+
+    expect(capturedComputed()).toBe(0)
+    capturedSig.set(5)
+    expect(capturedComputed()).toBe(10)
+    expect(effectRuns).toBe(2)
+
+    capturedDispose()
+
+    // After disposal the computed should no longer update
+    capturedSig.set(99)
+    expect(capturedComputed()).toBe(10) // stale — disposed
+    expect(effectRuns).toBe(2) // effect also disposed
+  })
 })
 
 // ---------------------------------------------------------------------------

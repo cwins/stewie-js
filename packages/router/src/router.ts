@@ -120,9 +120,11 @@ export function createRouter(initialUrl?: string): Router {
       if (result !== true) return result as string
     }
 
-    // Run route-level data loader
+    // Run route-level data loader.
+    // Always reset _routeData on route change: if the incoming route has no
+    // loader the previous route's data should not bleed through.
+    _routeData.set(undefined)
     if (bestRoute.load) {
-      _routeData.set(undefined) // reset while loading
       const data = await bestRoute.load()
       _routeData.set(data)
     }
@@ -289,7 +291,9 @@ export function createRouter(initialUrl?: string): Router {
         ;(async () => {
           const redirect = await runGuardsAndLoad(url)
           if (redirect !== null) {
-            applyLocationAndPush(redirect, true)
+            // Re-enter navigate() so the redirect target's own guards and
+            // loaders run, rather than bypassing them with a bare location push.
+            await router.navigate({ to: redirect, replace: true })
             return
           }
           withViewTransition(() => {

@@ -5,7 +5,7 @@
 // Server flow: renderApp(url) → renderToString(<App initialUrl={url} />) → HTML
 // Client flow: hydrate(<App />, container) reads window.__STEWIE_STATE__
 
-import { store, createContext, inject, signal, createRoot } from '@stewie-js/core'
+import { store, createContext, inject, signal, createRoot, computed } from '@stewie-js/core'
 import { For, Show } from '@stewie-js/core'
 import { useHydrationRegistry } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
@@ -102,7 +102,7 @@ function DashboardView(): JSXElement {
         <h1 class="page-title">Projects</h1>
       </div>
       <div class="grid" data-testid="project-grid">
-        <For each={app.projects}>
+        <For each={app.projects} key={(project) => project.id}>
           {(project: Project) => {
             const count = app.tasks.filter(
               (t) => t.projectId === project.id && !t.isCompleted
@@ -340,21 +340,30 @@ function ProjectDetailView(): JSXElement {
         }
       >
         <div data-testid="task-list">
-          <For each={tasks}>
-            {(task: Task) => (
-              <div
-                class={() =>
-                  `task-row${task.isCompleted ? ' task-row-completed' : ''}${task.id === selectedTaskId() ? ' task-row-selected' : ''}`
-                }
-                data-testid={`task-row-${task.id}`}
-                onClick={() => selectedTaskId.set(task.id)}
-              >
-                <span class="task-title">{task.title}</span>
-                <span class="badge" data-testid={`task-badge-${task.id}`}>
-                  {formatDueDate(task.dueDate)}
-                </span>
-              </div>
-            )}
+          <For each={tasks} key={(task) => task.id}>
+            {(task: Task) => {
+              const isSelected = computed(() => task.id === selectedTaskId());
+              const cssClasses = computed(() => {
+                return [
+                  'task-row',
+                  isSelected() && 'task-row-selected',
+                  task.isCompleted && 'task-row-completed'
+                ].filter(Boolean).join(' ');
+              });
+
+              return (
+                <div
+                  class={cssClasses}
+                  data-testid={`task-row-${task.id}`}
+                  onClick={() => selectedTaskId.set(task.id)}
+                >
+                  <span class="task-title">{task.title}</span>
+                  <span class="badge" data-testid={`task-badge-${task.id}`}>
+                    {formatDueDate(task.dueDate)}
+                  </span>
+                </div>
+              );
+            }}
           </For>
         </div>
       </Show>

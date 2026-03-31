@@ -142,7 +142,8 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return
   }
 
-  // Show
+  // Show — emit trailing anchor to match the string renderer and the DOM renderer's
+  // comment node so that HydrationCursor.collectUntilComment('Show') finds it.
   if (type === (Show as unknown)) {
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when
     if (when) {
@@ -150,18 +151,21 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     } else if (props.fallback !== undefined) {
       await streamNode(props.fallback, opts)
     }
+    opts.flush('<!--Show-->')
     return
   }
 
-  // For
+  // For — same: trailing anchor required for HydrationCursor.
   if (type === (For as unknown)) {
     const each =
       typeof props.each === 'function'
         ? (props.each as () => unknown[])()
         : (props.each as unknown[])
-    if (!Array.isArray(each)) return
-    const renderFn = props.children as (item: unknown, index: number) => JSXElement
-    for (let i = 0; i < each.length; i++) await streamNode(renderFn(each[i], i), opts)
+    if (Array.isArray(each)) {
+      const renderFn = props.children as (item: unknown, index: number) => JSXElement
+      for (let i = 0; i < each.length; i++) await streamNode(renderFn(each[i], i), opts)
+    }
+    opts.flush('<!--For-->')
     return
   }
 

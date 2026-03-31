@@ -1,6 +1,6 @@
 // @stewie-js/devtools — browser overlay devtools panel
 
-export const version = '0.3.0'
+export const version = '0.4.0'
 
 import { injectStyles } from './styles.js'
 import { createPanel, togglePanel, onNavigation, destroyPanel } from './panel.js'

@@ -49,7 +49,7 @@ export const createMockData = async (overwrite: boolean = false) => {
                 const projectId = `p${index + 1}`;
                 
                 for (let i = 0; i <= taskCount; i++) {
-                    const taskId = `t${i + 1}`;
+                    const taskId = `t${tasks.length + 1}`;
 
                     tasks.push({
                         projectId,
