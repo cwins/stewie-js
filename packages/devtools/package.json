@@ -10,8 +10,17 @@
     "url": "git+https://github.com/cwins/stewie-js.git",
     "directory": "packages/devtools"
   },
-  "keywords": ["stewie", "devtools", "debugging", "developer-tools", "typescript"],
-  "files": ["dist", "README.md"],
+  "keywords": [
+    "stewie",
+    "devtools",
+    "debugging",
+    "developer-tools",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

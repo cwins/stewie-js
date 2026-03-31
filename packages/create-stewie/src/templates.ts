@@ -1,12 +1,12 @@
 export interface TemplateContext {
-  projectName: string
-  mode: 'static' | 'ssr'
-  ssrRuntime?: 'node' | 'bun'
-  includeRouter: boolean
+  projectName: string;
+  mode: 'static' | 'ssr';
+  ssrRuntime?: 'node' | 'bun';
+  includeRouter: boolean;
 }
 
 export function generateFiles(ctx: TemplateContext): Array<{ path: string; content: string }> {
-  const files: Array<{ path: string; content: string }> = []
+  const files: Array<{ path: string; content: string }> = [];
 
   // -------------------------------------------------------------------------
   // package.json
@@ -14,18 +14,18 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
 
   const dependencies: Record<string, string> = {
     '@stewie-js/core': '^0.4.0',
-    '@stewie-js/vite': '^0.4.0',
-  }
+    '@stewie-js/vite': '^0.4.0'
+  };
   if (ctx.mode === 'ssr') {
-    dependencies['@stewie-js/server'] = '^0.4.0'
+    dependencies['@stewie-js/server'] = '^0.4.0';
     if (ctx.ssrRuntime === 'bun') {
-      dependencies['@stewie-js/adapter-bun'] = '^0.4.0'
+      dependencies['@stewie-js/adapter-bun'] = '^0.4.0';
     } else {
-      dependencies['@stewie-js/adapter-node'] = '^0.4.0'
+      dependencies['@stewie-js/adapter-node'] = '^0.4.0';
     }
   }
   if (ctx.includeRouter) {
-    dependencies['@stewie-js/router'] = '^0.4.0'
+    dependencies['@stewie-js/router'] = '^0.4.0';
   }
 
   const devDependencies: Record<string, string> = {
@@ -33,35 +33,42 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
     vite: '^7.0.0',
     vitest: '^4.0.0',
     '@stewie-js/testing': '^0.4.0',
-    '@stewie-js/devtools': '^0.4.0',
-  }
+    '@stewie-js/devtools': '^0.4.0'
+  };
   if (ctx.mode === 'ssr' && ctx.ssrRuntime !== 'bun') {
-    devDependencies['tsx'] = '^4.0.0'
+    devDependencies['tsx'] = '^4.0.0';
   }
 
   const scripts: Record<string, string> = {
-    dev: ctx.mode === 'ssr'
-      ? (ctx.ssrRuntime === 'bun' ? 'bun src/server.ts' : 'tsx src/server.ts')
-      : 'vite',
+    dev: ctx.mode === 'ssr' ? (ctx.ssrRuntime === 'bun' ? 'bun src/server.ts' : 'tsx src/server.ts') : 'vite',
     build: ctx.mode === 'ssr' ? 'vite build && vite build --ssr' : 'vite build',
-    test: 'vitest run',
-  }
+    test: 'vitest run'
+  };
   if (ctx.mode === 'ssr') {
-    scripts['start'] = ctx.ssrRuntime === 'bun'
-      ? 'NODE_ENV=production bun dist/server/server.js'
-      : 'NODE_ENV=production node dist/server/server.js'
+    scripts['start'] =
+      ctx.ssrRuntime === 'bun'
+        ? 'NODE_ENV=production bun dist/server/server.js'
+        : 'NODE_ENV=production node dist/server/server.js';
   } else {
-    scripts['preview'] = 'vite preview'
+    scripts['preview'] = 'vite preview';
   }
 
   files.push({
     path: 'package.json',
-    content: JSON.stringify(
-      { name: ctx.projectName, version: '0.1.0', type: 'module', scripts, dependencies, devDependencies },
-      null,
-      2,
-    ) + '\n',
-  })
+    content:
+      JSON.stringify(
+        {
+          name: ctx.projectName,
+          version: '0.1.0',
+          type: 'module',
+          scripts,
+          dependencies,
+          devDependencies
+        },
+        null,
+        2
+      ) + '\n'
+  });
 
   // -------------------------------------------------------------------------
   // vite.config.ts
@@ -98,8 +105,8 @@ export default defineConfig({
     },
   },
 })
-`,
-    })
+`
+    });
   } else {
     files.push({
       path: 'vite.config.ts',
@@ -108,8 +115,8 @@ export default defineConfig({
 export default defineConfig({
   plugins: [stewie()],
 })
-`,
-    })
+`
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -118,25 +125,26 @@ export default defineConfig({
 
   files.push({
     path: 'tsconfig.json',
-    content: JSON.stringify(
-      {
-        compilerOptions: {
-          strict: true,
-          target: 'ES2022',
-          module: 'ESNext',
-          moduleResolution: 'bundler',
-          jsx: 'react-jsx',
-          jsxImportSource: '@stewie-js/core',
-          esModuleInterop: true,
-          skipLibCheck: true,
-          lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+    content:
+      JSON.stringify(
+        {
+          compilerOptions: {
+            strict: true,
+            target: 'ES2022',
+            module: 'ESNext',
+            moduleResolution: 'bundler',
+            jsx: 'react-jsx',
+            jsxImportSource: '@stewie-js/core',
+            esModuleInterop: true,
+            skipLibCheck: true,
+            lib: ['ES2022', 'DOM', 'DOM.Iterable']
+          },
+          include: ['src']
         },
-        include: ['src'],
-      },
-      null,
-      2,
-    ) + '\n',
-  })
+        null,
+        2
+      ) + '\n'
+  });
 
   // -------------------------------------------------------------------------
   // vitest.config.ts
@@ -152,14 +160,14 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
 })
-`,
-  })
+`
+  });
 
   // -------------------------------------------------------------------------
   // index.html
   // -------------------------------------------------------------------------
 
-  const clientEntry = ctx.mode === 'ssr' ? '/src/client.tsx' : '/src/main.tsx'
+  const clientEntry = ctx.mode === 'ssr' ? '/src/client.tsx' : '/src/main.tsx';
   files.push({
     path: 'index.html',
     content: `<!DOCTYPE html>
@@ -174,8 +182,8 @@ export default defineConfig({
     <script type="module" src="${clientEntry}"></script>
   </body>
 </html>
-`,
-  })
+`
+  });
 
   // -------------------------------------------------------------------------
   // Client / SSR entry points
@@ -188,8 +196,8 @@ export default defineConfig({
 import { App } from './app.js'
 
 hydrate(<App />, document.getElementById('app')!)
-`,
-    })
+`
+    });
 
     // server.ts — dev mode uses Vite middleware; prod serves pre-built assets
     if (ctx.ssrRuntime === 'bun') {
@@ -250,8 +258,8 @@ if (isProd) {
     console.log(\`Dev server running at http://localhost:\${PORT}\`)
   })
 }
-`,
-      })
+`
+      });
     } else {
       files.push({
         path: 'src/server.ts',
@@ -308,8 +316,8 @@ if (isProd) {
     console.log(\`Dev server running at http://localhost:\${PORT}\`)
   })
 }
-`,
-      })
+`
+      });
     }
   } else {
     files.push({
@@ -318,8 +326,8 @@ if (isProd) {
 import { App } from './app.js'
 
 mount(<App />, document.getElementById('app')!)
-`,
-    })
+`
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -443,23 +451,24 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: system
 /* Page subtitle */
 .page-title { font-size: 1.75rem; font-weight: 700; margin: 0 0 0.375rem; letter-spacing: -0.02em; }
 .page-subtitle { color: var(--text-muted); margin: 0 0 2rem; }
-`,
-  })
+`
+  });
 
   // -------------------------------------------------------------------------
   // src/app.tsx — main app component
   // -------------------------------------------------------------------------
 
   if (ctx.includeRouter) {
-    const ssrExport = ctx.mode === 'ssr'
-      ? `
+    const ssrExport =
+      ctx.mode === 'ssr'
+        ? `
 import { renderToString } from '@stewie-js/server'
 import type { RenderResult } from '@stewie-js/server'
 
 export async function renderApp(url: string = '/'): Promise<RenderResult> {
   return renderToString(<App initialUrl={url} />)
 }`
-      : ''
+        : '';
 
     files.push({
       path: 'src/app.tsx',
@@ -486,19 +495,20 @@ export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
     </Router>
   )
 }
-${ssrExport}`,
-    })
+${ssrExport}`
+    });
   } else {
     // No-router single-page app: signals + store + Show + For all in one place
-    const ssrExport = ctx.mode === 'ssr'
-      ? `
+    const ssrExport =
+      ctx.mode === 'ssr'
+        ? `
 import { renderToString } from '@stewie-js/server'
 import type { RenderResult } from '@stewie-js/server'
 
 export async function renderApp(_url: string = '/'): Promise<RenderResult> {
   return renderToString(<App />)
 }`
-      : ''
+        : '';
 
     files.push({
       path: 'src/app.tsx',
@@ -641,8 +651,8 @@ export function App(): JSXElement {
     </div>
   )
 }
-${ssrExport}`,
-    })
+${ssrExport}`
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -686,8 +696,8 @@ export function Nav({ title }: { title: string }): JSXElement {
     </header>
   )
 }
-`,
-    })
+`
+    });
 
     // -----------------------------------------------------------------------
     // src/shell.tsx — layout wrapper used by every page
@@ -711,8 +721,8 @@ export function Shell({ children }: { children: JSXElement }): JSXElement {
     </div>
   )
 }
-`,
-    })
+`
+    });
 
     // -----------------------------------------------------------------------
     // src/pages/home.tsx
@@ -793,8 +803,8 @@ export function HomePage(): JSXElement {
     </Shell>
   )
 }
-`,
-    })
+`
+    });
 
     // -----------------------------------------------------------------------
     // src/pages/counter.tsx
@@ -850,8 +860,8 @@ export function CounterPage(): JSXElement {
     </Shell>
   )
 }
-`,
-    })
+`
+    });
 
     // -----------------------------------------------------------------------
     // src/pages/about.tsx
@@ -902,9 +912,9 @@ export function AboutPage(): JSXElement {
     </Shell>
   )
 }
-`,
-    })
+`
+    });
   }
 
-  return files
+  return files;
 }

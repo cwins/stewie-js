@@ -1,7 +1,7 @@
 {
   "name": "@stewie-js/testing",
   "version": "0.4.0",
-  "description": "Test utilities for the Stewie framework \u2014 mount, DOM queries, signal and store assertions",
+  "description": "Test utilities for the Stewie framework — mount, DOM queries, signal and store assertions",
   "author": "",
   "license": "MIT",
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/testing#readme",

@@ -1,11 +1,11 @@
 // @stewie-js/router — reactive URL-as-store routing
-export const version = '0.4.0'
-export { createRouter, useRouter, RouterContext } from './router.js'
-export { Router, Route, Link } from './components.js'
-export { useLocation, useParams, useQuery, useRouteData } from './hooks.js'
-export { matchRoute, sortRoutes } from './matcher.js'
-export { createLocationStore, parseUrl, parseQuery } from './location.js'
-export type { Router as RouterType, RouteGuard } from './router.js'
-export type { RouterProps, RouteProps, LinkProps } from './components.js'
-export type { RouterStore } from './location.js'
-export type { MatchResult } from './matcher.js'
+export const version = '0.4.0';
+export { createRouter, useRouter, RouterContext } from './router.js';
+export { Router, Route, Link } from './components.js';
+export { useLocation, useParams, useQuery, useRouteData } from './hooks.js';
+export { matchRoute, sortRoutes } from './matcher.js';
+export { createLocationStore, parseUrl, parseQuery } from './location.js';
+export type { Router as RouterType, RouteGuard } from './router.js';
+export type { RouterProps, RouteProps, LinkProps } from './components.js';
+export type { RouterStore } from './location.js';
+export type { MatchResult } from './matcher.js';

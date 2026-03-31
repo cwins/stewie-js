@@ -2,39 +2,30 @@
 // Takes JSXElement descriptors (or DOM Nodes from the DOM JSX runtime) and
 // renders them into real DOM nodes with fine-grained reactive subscriptions.
 
-import { effect, createRoot, untrack, _setNextEffectMeta, isDev, ComputedNode } from './reactive.js'
-import { Fragment } from './jsx-runtime.js'
-import type { JSXElement, Component } from './jsx-runtime.js'
-import { _pushContext, _popContext } from './context.js'
-import type { ContextProvider } from './context.js'
-import { HydrationCursor } from './hydration-cursor.js'
-import { _LazyBoundary } from './lazy.js'
-import type { _LazyBoundaryProps } from './lazy.js'
+import { effect, createRoot, untrack, _setNextEffectMeta, isDev, ComputedNode } from './reactive.js';
+import { Fragment } from './jsx-runtime.js';
+import type { JSXElement, Component } from './jsx-runtime.js';
+import { _pushContext, _popContext } from './context.js';
+import type { ContextProvider } from './context.js';
+import { HydrationCursor } from './hydration-cursor.js';
+import { _LazyBoundary } from './lazy.js';
+import type { _LazyBoundaryProps } from './lazy.js';
 
-type ElementType = JSXElement['type']
-import {
-  Show,
-  For,
-  Switch,
-  Match,
-  Portal,
-  ErrorBoundary,
-  Suspense,
-  ClientOnly,
-} from './components.js'
+type ElementType = JSXElement['type'];
+import { Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly } from './components.js';
 
-export type Disposer = () => void
+export type Disposer = () => void;
 
 // ---------------------------------------------------------------------------
 // Render scope — used by the DOM JSX runtime to collect effect disposers
 // ---------------------------------------------------------------------------
 
-let _renderScope: Disposer[] | null = null
+let _renderScope: Disposer[] | null = null;
 
 export function _setRenderScope(scope: Disposer[] | null): Disposer[] | null {
-  const prev = _renderScope
-  _renderScope = scope
-  return prev
+  const prev = _renderScope;
+  _renderScope = scope;
+  return prev;
 }
 
 // ---------------------------------------------------------------------------
@@ -42,7 +33,7 @@ export function _setRenderScope(scope: Disposer[] | null): Disposer[] | null {
 // Non-null only during a hydrate() pass; null during normal mount().
 // ---------------------------------------------------------------------------
 
-let _hydrationCursor: HydrationCursor | null = null
+let _hydrationCursor: HydrationCursor | null = null;
 
 /**
  * Run `fn` with `_hydrationCursor` set to `cursor`, then restore the previous
@@ -50,12 +41,12 @@ let _hydrationCursor: HydrationCursor | null = null
  * a cursor through nested rendering calls.
  */
 function _withCursor<T>(cursor: HydrationCursor | null, fn: () => T): T {
-  const prev = _hydrationCursor
-  _hydrationCursor = cursor
+  const prev = _hydrationCursor;
+  _hydrationCursor = cursor;
   try {
-    return fn()
+    return fn();
   } finally {
-    _hydrationCursor = prev
+    _hydrationCursor = prev;
   }
 }
 
@@ -65,28 +56,28 @@ function _withCursor<T>(cursor: HydrationCursor | null, fn: () => T): T {
 
 function setProperty(el: Element, key: string, value: unknown): void {
   if (value === null || value === undefined || value === false) {
-    el.removeAttribute(key)
+    el.removeAttribute(key);
   } else if (key === 'class') {
-    el.setAttribute('class', String(value))
+    el.setAttribute('class', String(value));
   } else if (key === 'style' && typeof value === 'object') {
-    Object.assign((el as HTMLElement).style, value as Record<string, string>)
+    Object.assign((el as HTMLElement).style, value as Record<string, string>);
   } else if (key in el && key !== 'list' && key !== 'type' && key !== 'form') {
     // Use DOM property for value, checked, disabled, etc.
-    ;(el as unknown as Record<string, unknown>)[key] = value
+    (el as unknown as Record<string, unknown>)[key] = value;
   } else {
-    el.setAttribute(key, value === true ? '' : String(value))
+    el.setAttribute(key, value === true ? '' : String(value));
   }
 }
 
 function isEventHandler(key: string): boolean {
-  return key.length > 2 && key.startsWith('on') && key[2] === key[2].toUpperCase()
+  return key.length > 2 && key.startsWith('on') && key[2] === key[2].toUpperCase();
 }
 
 function insertBefore(parent: Node, child: Node, before: Node | null): void {
   if (before !== null) {
-    parent.insertBefore(child, before)
+    parent.insertBefore(child, before);
   } else {
-    parent.appendChild(child)
+    parent.appendChild(child);
   }
 }
 
@@ -95,87 +86,83 @@ function insertBefore(parent: Node, child: Node, before: Node | null): void {
 // ---------------------------------------------------------------------------
 
 function renderChildren(children: unknown, parent: Node, before: Node | null): Disposer {
-  if (children === null || children === undefined || children === false) return () => {}
+  if (children === null || children === undefined || children === false) return () => {};
 
   if (Array.isArray(children)) {
-    const disposers = children.map((child) => renderChildren(child, parent, before))
-    return () => disposers.forEach((d) => d())
+    const disposers = children.map((child) => renderChildren(child, parent, before));
+    return () => disposers.forEach((d) => d());
   }
 
   // Real DOM Node — from the DOM JSX runtime
   if (children instanceof Node) {
-    insertBefore(parent, children, before)
-    return () => (children as Node).parentNode?.removeChild(children as Node)
+    insertBefore(parent, children, before);
+    return () => (children as Node).parentNode?.removeChild(children as Node);
   }
 
   // Function child — reactive, re-renders when called value changes
   if (typeof children === 'function') {
     // During hydration, claim the existing content nodes up to the <!---->  anchor.
-    const claimed = _hydrationCursor?.collectUntilComment('')
-    const anchor = claimed?.anchor ?? document.createComment('')
-    if (!claimed) insertBefore(parent, anchor, before)
+    const claimed = _hydrationCursor?.collectUntilComment('');
+    const anchor = claimed?.anchor ?? document.createComment('');
+    if (!claimed) insertBefore(parent, anchor, before);
 
-    let childDisposer: Disposer = () => {}
+    let childDisposer: Disposer = () => {};
     // Pre-populate with claimed nodes so the cleanup path always has the right set.
-    let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
-    let firstRun = !!claimed
+    let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
+    let firstRun = !!claimed;
 
-    if (isDev) _setNextEffectMeta({ type: 'children' })
+    if (isDev) _setNextEffectMeta({ type: 'children' });
     const disposeEffect = effect(() => {
       if (firstRun) {
-        firstRun = false
+        firstRun = false;
         // Subscribe to signals (children() call) AND wire reactive effects onto the
         // existing SSR nodes via a sub-cursor. No DOM insertions happen here.
-        const value = (children as () => unknown)()
-        const subCursor = new HydrationCursor(currentNodes)
-        const frag = document.createDocumentFragment()
-        childDisposer = _withCursor(subCursor, () => renderChildren(value, frag, null))
+        const value = (children as () => unknown)();
+        const subCursor = new HydrationCursor(currentNodes);
+        const frag = document.createDocumentFragment();
+        childDisposer = _withCursor(subCursor, () => renderChildren(value, frag, null));
         // Any overflow (mismatch fallback): insert before anchor.
-        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
-        return
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
+        return;
       }
 
-      const value = (children as () => unknown)()
-      childDisposer()
-      childDisposer = () => {}
-      currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-      currentNodes = []
-      const frag = document.createDocumentFragment()
-      childDisposer = renderChildren(value, frag, null)
-      currentNodes = Array.from(frag.childNodes) as ChildNode[]
-      anchor.parentNode?.insertBefore(frag, anchor)
-    })
+      const value = (children as () => unknown)();
+      childDisposer();
+      childDisposer = () => {};
+      currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+      currentNodes = [];
+      const frag = document.createDocumentFragment();
+      childDisposer = renderChildren(value, frag, null);
+      currentNodes = Array.from(frag.childNodes) as ChildNode[];
+      anchor.parentNode?.insertBefore(frag, anchor);
+    });
 
     return () => {
-      disposeEffect()
-      childDisposer()
-      currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-      anchor.parentNode?.removeChild(anchor)
-    }
+      disposeEffect();
+      childDisposer();
+      currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+      anchor.parentNode?.removeChild(anchor);
+    };
   }
 
-  if (
-    typeof children === 'string' ||
-    typeof children === 'number' ||
-    typeof children === 'boolean'
-  ) {
+  if (typeof children === 'string' || typeof children === 'number' || typeof children === 'boolean') {
     // During hydration, claim the existing text node so we reuse it.
-    const existing = _hydrationCursor?.claimText()
+    const existing = _hydrationCursor?.claimText();
     if (existing) {
-      existing.data = String(children)
-      return () => existing.parentNode?.removeChild(existing)
+      existing.data = String(children);
+      return () => existing.parentNode?.removeChild(existing);
     }
-    const text = document.createTextNode(String(children))
-    insertBefore(parent, text, before)
-    return () => text.parentNode?.removeChild(text)
+    const text = document.createTextNode(String(children));
+    insertBefore(parent, text, before);
+    return () => text.parentNode?.removeChild(text);
   }
 
   // JSXElement descriptor
   if (typeof children === 'object' && children !== null && 'type' in children) {
-    return renderElement(children as JSXElement, parent, before)
+    return renderElement(children as JSXElement, parent, before);
   }
 
-  return () => {}
+  return () => {};
 }
 
 // ---------------------------------------------------------------------------
@@ -184,74 +171,71 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
 
 function renderShow(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
   // During hydration, claim nodes up to the <!--Show--> anchor.
-  const claimed = _hydrationCursor?.collectUntilComment('Show')
-  const anchor = claimed?.anchor ?? document.createComment('Show')
-  if (!claimed) insertBefore(parent, anchor, before)
+  const claimed = _hydrationCursor?.collectUntilComment('Show');
+  const anchor = claimed?.anchor ?? document.createComment('Show');
+  if (!claimed) insertBefore(parent, anchor, before);
 
-  let childDisposer: Disposer = () => {}
-  let currentNodes: ChildNode[] = []
-  let showing: boolean | null = null
-  let firstRun = false
+  let childDisposer: Disposer = () => {};
+  let currentNodes: ChildNode[] = [];
+  let showing: boolean | null = null;
+  let firstRun = false;
 
   if (claimed) {
     // Pre-populate to match the SSR state so the normal "no-op if unchanged" guard
     // exits early after the first subscription is established.
-    const whenVal =
-      typeof props.when === 'function'
-        ? untrack(() => (props.when as () => unknown)())
-        : props.when
-    showing = Boolean(whenVal)
-    currentNodes = claimed.contentNodes.slice()
-    firstRun = true
+    const whenVal = typeof props.when === 'function' ? untrack(() => (props.when as () => unknown)()) : props.when;
+    showing = Boolean(whenVal);
+    currentNodes = claimed.contentNodes.slice();
+    firstRun = true;
   }
 
-  if (isDev) _setNextEffectMeta({ type: 'show' })
+  if (isDev) _setNextEffectMeta({ type: 'show' });
   const disposeEffect = effect(() => {
-    const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when
-    const shouldShow = Boolean(when)
+    const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when;
+    const shouldShow = Boolean(when);
 
     if (firstRun) {
-      firstRun = false
+      firstRun = false;
       // Wire reactive effects onto existing SSR nodes via a sub-cursor.
       // The nodes are already correctly positioned in the DOM — no insertions.
       if (shouldShow) {
-        const subCursor = new HydrationCursor(claimed!.contentNodes)
-        const frag = document.createDocumentFragment()
-        childDisposer = _withCursor(subCursor, () => renderChildren(props.children, frag, null))
-        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+        const subCursor = new HydrationCursor(claimed!.contentNodes);
+        const frag = document.createDocumentFragment();
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.children, frag, null));
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       } else if (!shouldShow && props.fallback !== undefined) {
-        const subCursor = new HydrationCursor(claimed!.contentNodes)
-        const frag = document.createDocumentFragment()
-        childDisposer = _withCursor(subCursor, () => renderChildren(props.fallback, frag, null))
-        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+        const subCursor = new HydrationCursor(claimed!.contentNodes);
+        const frag = document.createDocumentFragment();
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.fallback, frag, null));
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       }
-      return
+      return;
     }
 
-    if (shouldShow === showing) return
-    showing = shouldShow
+    if (shouldShow === showing) return;
+    showing = shouldShow;
 
-    childDisposer()
-    childDisposer = () => {}
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    currentNodes = []
+    childDisposer();
+    childDisposer = () => {};
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    currentNodes = [];
 
-    const frag = document.createDocumentFragment()
+    const frag = document.createDocumentFragment();
     if (shouldShow) {
-      childDisposer = renderChildren(props.children, frag, null)
+      childDisposer = renderChildren(props.children, frag, null);
     } else if (props.fallback !== undefined) {
-      childDisposer = renderChildren(props.fallback, frag, null)
+      childDisposer = renderChildren(props.fallback, frag, null);
     }
-    currentNodes = Array.from(frag.childNodes) as ChildNode[]
-    anchor.parentNode?.insertBefore(frag, anchor)
-  })
+    currentNodes = Array.from(frag.childNodes) as ChildNode[];
+    anchor.parentNode?.insertBefore(frag, anchor);
+  });
 
   return () => {
-    disposeEffect()
-    childDisposer()
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    anchor.parentNode?.removeChild(anchor)
-  }
+    disposeEffect();
+    childDisposer();
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    anchor.parentNode?.removeChild(anchor);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -265,38 +249,38 @@ function renderShow(props: Record<string, unknown>, parent: Node, before: Node |
 // ---------------------------------------------------------------------------
 
 function computeLIS(seq: number[]): Set<number> {
-  const n = seq.length
+  const n = seq.length;
   // tails[k] = index into seq of the smallest tail for an IS of length k+1
-  const tails: number[] = []
+  const tails: number[] = [];
   // parent[i] = predecessor index in seq for the IS ending at i (-1 = none)
-  const parent: number[] = Array.from({ length: n }, () => -1)
+  const parent: number[] = Array.from({ length: n }, () => -1);
 
   for (let i = 0; i < n; i++) {
-    const v = seq[i]
-    if (v === -1) continue // new item — skip
+    const v = seq[i];
+    if (v === -1) continue; // new item — skip
 
     // Binary search: leftmost position where seq[tails[pos]] >= v
-    let lo = 0
-    let hi = tails.length
+    let lo = 0;
+    let hi = tails.length;
     while (lo < hi) {
-      const mid = (lo + hi) >>> 1
-      if (seq[tails[mid]] < v) lo = mid + 1
-      else hi = mid
+      const mid = (lo + hi) >>> 1;
+      if (seq[tails[mid]] < v) lo = mid + 1;
+      else hi = mid;
     }
-    parent[i] = lo > 0 ? tails[lo - 1] : -1
-    if (lo === tails.length) tails.push(i)
-    else tails[lo] = i
+    parent[i] = lo > 0 ? tails[lo - 1] : -1;
+    if (lo === tails.length) tails.push(i);
+    else tails[lo] = i;
   }
 
   // Backtrack from the last tail to collect the actual LIS indices
-  const result = new Set<number>()
-  if (tails.length === 0) return result
-  let cur = tails[tails.length - 1]
+  const result = new Set<number>();
+  if (tails.length === 0) return result;
+  let cur = tails[tails.length - 1];
   while (cur !== -1) {
-    result.add(cur)
-    cur = parent[cur]
+    result.add(cur);
+    cur = parent[cur];
   }
-  return result
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,16 +292,16 @@ function computeLIS(seq: number[]): Set<number> {
 // ---------------------------------------------------------------------------
 
 function renderWithRoot(fn: () => Disposer): Disposer {
-  let rootDispose: Disposer = () => {}
-  let childDisposer: Disposer = () => {}
+  let rootDispose: Disposer = () => {};
+  let childDisposer: Disposer = () => {};
   createRoot((dispose) => {
-    rootDispose = dispose
-    childDisposer = fn()
-  })
+    rootDispose = dispose;
+    childDisposer = fn();
+  });
   return () => {
-    rootDispose()
-    childDisposer()
-  }
+    rootDispose();
+    childDisposer();
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -327,14 +311,12 @@ function renderWithRoot(fn: () => Disposer): Disposer {
 function renderFor(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
   // During hydration, claim nodes up to the <!--For--> anchor.
   // This must happen before the keyed/unkeyed split since both paths share the anchor.
-  const claimed = _hydrationCursor?.collectUntilComment('For')
-  const anchor = claimed?.anchor ?? document.createComment('For')
-  if (!claimed) insertBefore(parent, anchor, before)
+  const claimed = _hydrationCursor?.collectUntilComment('For');
+  const anchor = claimed?.anchor ?? document.createComment('For');
+  if (!claimed) insertBefore(parent, anchor, before);
 
-  const renderFn = props.children as (item: unknown, index: number) => JSXElement
-  const keyFn = typeof props.key === 'function'
-    ? props.key as (item: unknown, index: number) => unknown
-    : null
+  const renderFn = props.children as (item: unknown, index: number) => JSXElement;
+  const keyFn = typeof props.key === 'function' ? (props.key as (item: unknown, index: number) => unknown) : null;
 
   if (keyFn) {
     // Keyed mode: diff by key so stable items reuse their DOM nodes and effects.
@@ -343,92 +325,90 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
     // number of DOM moves required. Items in the LIS are already in correct
     // relative order and never move; only the O(k) non-LIS items are repositioned.
     // This reduces a 2-element swap from ~998 DOM moves to 2.
-    interface KeyedEntry { nodes: ChildNode[]; disposer: Disposer }
-    const keyMap = new Map<unknown, KeyedEntry>()
+    interface KeyedEntry {
+      nodes: ChildNode[];
+      disposer: Disposer;
+    }
+    const keyMap = new Map<unknown, KeyedEntry>();
     // Keys in their current DOM order — maintained across renders to avoid
     // re-reading the DOM on every reconciliation.
-    let prevKeys: unknown[] = []
-    let firstRun = !!claimed
+    let prevKeys: unknown[] = [];
+    let firstRun = !!claimed;
 
-    if (isDev) _setNextEffectMeta({ type: 'for' })
+    if (isDev) _setNextEffectMeta({ type: 'for' });
     const disposeEffect = effect(() => {
-      const each =
-        typeof props.each === 'function'
-          ? (props.each as () => unknown[])()
-          : (props.each as unknown[])
+      const each = typeof props.each === 'function' ? (props.each as () => unknown[])() : (props.each as unknown[]);
 
       if (firstRun) {
-        firstRun = false
+        firstRun = false;
         if (claimed && Array.isArray(each)) {
           // Shared sub-cursor walks through contentNodes sequentially.
           // Each item claims as many nodes as it needs; idx advances accordingly.
-          const subCursor = new HydrationCursor(claimed.contentNodes)
+          const subCursor = new HydrationCursor(claimed.contentNodes);
           for (let i = 0; i < each.length; i++) {
-            const key = keyFn(each[i], i)
-            const startIdx = subCursor.idx
-            const itemFrag = document.createDocumentFragment()
+            const key = keyFn(each[i], i);
+            const startIdx = subCursor.idx;
+            const itemFrag = document.createDocumentFragment();
             const disposer = renderWithRoot(() =>
-              _withCursor(subCursor, () =>
-                renderChildren(renderFn(each[i], i), itemFrag, null),
-              ),
-            )
-            const claimedCount = subCursor.idx - startIdx
-            const itemNodes = claimed.contentNodes.slice(startIdx, startIdx + claimedCount) as ChildNode[]
+              _withCursor(subCursor, () => renderChildren(renderFn(each[i], i), itemFrag, null))
+            );
+            const claimedCount = subCursor.idx - startIdx;
+            const itemNodes = claimed.contentNodes.slice(startIdx, startIdx + claimedCount) as ChildNode[];
             // Handle mismatch overflow (nodes that weren't claimed from the cursor).
             if (itemFrag.childNodes.length > 0) {
-              const overflowNodes = Array.from(itemFrag.childNodes) as ChildNode[]
-              anchor.parentNode?.insertBefore(itemFrag, anchor)
-              keyMap.set(key, { nodes: [...itemNodes, ...overflowNodes], disposer })
+              const overflowNodes = Array.from(itemFrag.childNodes) as ChildNode[];
+              anchor.parentNode?.insertBefore(itemFrag, anchor);
+              keyMap.set(key, { nodes: [...itemNodes, ...overflowNodes], disposer });
             } else {
-              keyMap.set(key, { nodes: itemNodes, disposer })
+              keyMap.set(key, { nodes: itemNodes, disposer });
             }
           }
-          prevKeys = each.map((item, i) => keyFn(item, i))
+          prevKeys = each.map((item, i) => keyFn(item, i));
         }
-        return
+        return;
       }
 
       if (!Array.isArray(each)) {
         keyMap.forEach(({ nodes, disposer }) => {
-          disposer()
-          nodes.forEach((n) => n.parentNode?.removeChild(n))
-        })
-        keyMap.clear()
-        prevKeys = []
-        return
+          disposer();
+          nodes.forEach((n) => n.parentNode?.removeChild(n));
+        });
+        keyMap.clear();
+        prevKeys = [];
+        return;
       }
 
-      const newKeys = each.map((item, i) => keyFn(item, i))
-      const newKeySet = new Set(newKeys)
+      const newKeys = each.map((item, i) => keyFn(item, i));
+      const newKeySet = new Set(newKeys);
 
       // 1. Remove entries whose keys are no longer in the list.
       //    Build currentKeys = prevKeys minus removed keys (preserves DOM order).
-      let currentKeys: unknown[]
+      let currentKeys: unknown[];
       if (prevKeys.length === 0) {
-        currentKeys = []
+        currentKeys = [];
       } else {
-        currentKeys = []
+        currentKeys = [];
         for (let i = 0; i < prevKeys.length; i++) {
-          const k = prevKeys[i]
+          const k = prevKeys[i];
           if (newKeySet.has(k)) {
-            currentKeys.push(k)
+            currentKeys.push(k);
           } else {
-            const entry = keyMap.get(k)!
-            entry.disposer()
-            entry.nodes.forEach((n) => n.parentNode?.removeChild(n))
-            keyMap.delete(k)
+            const entry = keyMap.get(k)!;
+            entry.disposer();
+            entry.nodes.forEach((n) => n.parentNode?.removeChild(n));
+            keyMap.delete(k);
           }
         }
       }
 
       // 2. Render new items not yet in the key map (detached; placed in step 4).
       for (let i = 0; i < each.length; i++) {
-        const key = newKeys[i]
+        const key = newKeys[i];
         if (!keyMap.has(key)) {
-          const frag = document.createDocumentFragment()
-          const disposer = renderWithRoot(() => renderChildren(renderFn(each[i], i), frag, null))
-          const nodes = Array.from(frag.childNodes) as ChildNode[]
-          keyMap.set(key, { nodes, disposer })
+          const frag = document.createDocumentFragment();
+          const disposer = renderWithRoot(() => renderChildren(renderFn(each[i], i), frag, null));
+          const nodes = Array.from(frag.childNodes) as ChildNode[];
+          keyMap.set(key, { nodes, disposer });
         }
       }
 
@@ -436,96 +416,93 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
       //    relative order via LIS on their old DOM indices.
       //    New items (not in currentKeys) get oldIdx = -1 and are excluded from
       //    the LIS — they always need to be inserted.
-      const keyToOldIdx = new Map<unknown, number>()
-      for (let i = 0; i < currentKeys.length; i++) keyToOldIdx.set(currentKeys[i], i)
+      const keyToOldIdx = new Map<unknown, number>();
+      for (let i = 0; i < currentKeys.length; i++) keyToOldIdx.set(currentKeys[i], i);
 
-      const oldIdxSeq: number[] = Array.from({ length: newKeys.length })
+      const oldIdxSeq: number[] = Array.from({ length: newKeys.length });
       for (let i = 0; i < newKeys.length; i++) {
-        oldIdxSeq[i] = keyToOldIdx.get(newKeys[i]) ?? -1
+        oldIdxSeq[i] = keyToOldIdx.get(newKeys[i]) ?? -1;
       }
 
-      const stable = computeLIS(oldIdxSeq)
+      const stable = computeLIS(oldIdxSeq);
 
       // 4. Backward pass: move non-stable items, advance insertRef past stable items.
       //    Stable items are already in correct relative order — touching them would
       //    be wasted DOM work (and would cause cascading moves for swap operations).
-      let insertRef: Node = anchor
+      let insertRef: Node = anchor;
       for (let i = newKeys.length - 1; i >= 0; i--) {
-        const entry = keyMap.get(newKeys[i])!
-        if (entry.nodes.length === 0) continue
+        const entry = keyMap.get(newKeys[i])!;
+        if (entry.nodes.length === 0) continue;
         if (stable.has(i)) {
           // Already in place relative to its neighbours — just advance the cursor.
-          insertRef = entry.nodes[0]
+          insertRef = entry.nodes[0];
         } else {
           // Move (or insert) before insertRef.
-          const frag = document.createDocumentFragment()
-          for (const node of entry.nodes) frag.appendChild(node)
-          anchor.parentNode?.insertBefore(frag, insertRef)
-          insertRef = entry.nodes[0]
+          const frag = document.createDocumentFragment();
+          for (const node of entry.nodes) frag.appendChild(node);
+          anchor.parentNode?.insertBefore(frag, insertRef);
+          insertRef = entry.nodes[0];
         }
       }
 
       // 5. Record the new DOM order for the next reconciliation.
-      prevKeys = newKeys.slice()
-    })
+      prevKeys = newKeys.slice();
+    });
 
     return () => {
-      disposeEffect()
+      disposeEffect();
       keyMap.forEach(({ nodes, disposer }) => {
-        disposer()
-        nodes.forEach((n) => n.parentNode?.removeChild(n))
-      })
-      keyMap.clear()
-      anchor.parentNode?.removeChild(anchor)
-    }
+        disposer();
+        nodes.forEach((n) => n.parentNode?.removeChild(n));
+      });
+      keyMap.clear();
+      anchor.parentNode?.removeChild(anchor);
+    };
   }
 
   // Unkeyed mode (no key prop): teardown and rebuild the whole list on each change.
   // Simple and correct for static or small lists. Use key={fn} for large or
   // interactive lists where DOM identity preservation matters.
-  let childDisposers: Disposer[] = []
-  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
-  let firstRun = !!claimed
+  let childDisposers: Disposer[] = [];
+  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
+  let firstRun = !!claimed;
 
-  if (isDev) _setNextEffectMeta({ type: 'for' })
+  if (isDev) _setNextEffectMeta({ type: 'for' });
   const disposeEffect = effect(() => {
-    const each =
-      typeof props.each === 'function'
-        ? (props.each as () => unknown[])()
-        : (props.each as unknown[])
+    const each = typeof props.each === 'function' ? (props.each as () => unknown[])() : (props.each as unknown[]);
 
     if (firstRun) {
-      firstRun = false
+      firstRun = false;
       if (claimed && Array.isArray(each)) {
-        const subCursor = new HydrationCursor(claimed.contentNodes)
-        const frag = document.createDocumentFragment()
+        const subCursor = new HydrationCursor(claimed.contentNodes);
+        const frag = document.createDocumentFragment();
         childDisposers = _withCursor(subCursor, () =>
-          each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null))),
-        )
-        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+          each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null)))
+        );
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       }
-      return
+      return;
     }
 
-    childDisposers.forEach((d) => d())
-    childDisposers = []
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    currentNodes = []
+    childDisposers.forEach((d) => d());
+    childDisposers = [];
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    currentNodes = [];
 
-    if (!Array.isArray(each)) return
+    if (!Array.isArray(each)) return;
 
-    const frag = document.createDocumentFragment()
-    childDisposers = each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null)))
-    currentNodes = Array.from(frag.childNodes) as ChildNode[]
-    anchor.parentNode?.insertBefore(frag, anchor)
-  })
+    const frag = document.createDocumentFragment();
+    childDisposers = each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null)));
+    currentNodes = Array.from(frag.childNodes) as ChildNode[];
+    anchor.parentNode?.insertBefore(frag, anchor);
+  });
 
   return () => {
-    disposeEffect()
-    childDisposers.forEach((d) => d())
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    anchor.parentNode?.removeChild(anchor)
-  }
+    disposeEffect();
+    childDisposers.forEach((d) => d());
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    anchor.parentNode?.removeChild(anchor);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -534,93 +511,87 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
 
 function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
   // During hydration, claim nodes up to the <!--Switch--> anchor.
-  const claimed = _hydrationCursor?.collectUntilComment('Switch')
-  const anchor = claimed?.anchor ?? document.createComment('Switch')
-  if (!claimed) insertBefore(parent, anchor, before)
+  const claimed = _hydrationCursor?.collectUntilComment('Switch');
+  const anchor = claimed?.anchor ?? document.createComment('Switch');
+  if (!claimed) insertBefore(parent, anchor, before);
 
-  let childDisposer: Disposer = () => {}
-  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
-  let firstRun = !!claimed
+  let childDisposer: Disposer = () => {};
+  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
+  let firstRun = !!claimed;
 
-  if (isDev) _setNextEffectMeta({ type: 'switch' })
+  if (isDev) _setNextEffectMeta({ type: 'switch' });
   const disposeEffect = effect(() => {
-    const children = Array.isArray(props.children) ? props.children : [props.children]
+    const children = Array.isArray(props.children) ? props.children : [props.children];
 
     if (firstRun) {
-      firstRun = false
+      firstRun = false;
       // Find the active branch and wire reactive effects onto existing SSR nodes.
-      let matched = false
+      let matched = false;
       for (const child of children as JSXElement[]) {
-        if (!child || child.type !== (Match as unknown)) continue
-        const matchProps = child.props as { when: unknown; children: unknown }
-        const when =
-          typeof matchProps.when === 'function'
-            ? (matchProps.when as () => unknown)()
-            : matchProps.when
+        if (!child || child.type !== (Match as unknown)) continue;
+        const matchProps = child.props as { when: unknown; children: unknown };
+        const when = typeof matchProps.when === 'function' ? (matchProps.when as () => unknown)() : matchProps.when;
         if (when) {
-          matched = true
+          matched = true;
           const content =
             typeof matchProps.children === 'function'
               ? (matchProps.children as (v: unknown) => JSXElement)(when)
-              : matchProps.children
-          const subCursor = new HydrationCursor(claimed!.contentNodes)
-          const frag = document.createDocumentFragment()
-          childDisposer = _withCursor(subCursor, () => renderChildren(content, frag, null))
-          if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
-          break
+              : matchProps.children;
+          const subCursor = new HydrationCursor(claimed!.contentNodes);
+          const frag = document.createDocumentFragment();
+          childDisposer = _withCursor(subCursor, () => renderChildren(content, frag, null));
+          if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
+          break;
         }
       }
       if (!matched && props.fallback !== undefined) {
-        const subCursor = new HydrationCursor(claimed!.contentNodes)
-        const frag = document.createDocumentFragment()
-        childDisposer = _withCursor(subCursor, () => renderChildren(props.fallback, frag, null))
-        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+        const subCursor = new HydrationCursor(claimed!.contentNodes);
+        const frag = document.createDocumentFragment();
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.fallback, frag, null));
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       }
-      return
+      return;
     }
 
-    childDisposer()
-    childDisposer = () => {}
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    currentNodes = []
+    childDisposer();
+    childDisposer = () => {};
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    currentNodes = [];
 
-    let matched = false
+    let matched = false;
 
     for (const child of children as JSXElement[]) {
-      if (!child || child.type !== (Match as unknown)) continue
-      const matchProps = child.props as { when: unknown; children: unknown }
-      const when =
-        typeof matchProps.when === 'function'
-          ? (matchProps.when as () => unknown)()
-          : matchProps.when
+      if (!child || child.type !== (Match as unknown)) continue;
+      const matchProps = child.props as { when: unknown; children: unknown };
+      const when = typeof matchProps.when === 'function' ? (matchProps.when as () => unknown)() : matchProps.when;
       if (when) {
-        matched = true
-        const frag = document.createDocumentFragment()
+        matched = true;
+        const frag = document.createDocumentFragment();
         const content =
           typeof matchProps.children === 'function'
             ? (matchProps.children as (v: unknown) => JSXElement)(when)
-            : matchProps.children
-        childDisposer = renderChildren(content, frag, null)
-        currentNodes = Array.from(frag.childNodes) as ChildNode[]
-        anchor.parentNode?.insertBefore(frag, anchor)
-        break
+            : matchProps.children;
+        childDisposer = renderChildren(content, frag, null);
+        currentNodes = Array.from(frag.childNodes) as ChildNode[];
+        anchor.parentNode?.insertBefore(frag, anchor);
+        break;
       }
     }
 
     if (!matched && props.fallback !== undefined) {
-      const frag = document.createDocumentFragment()
-      childDisposer = renderChildren(props.fallback, frag, null)
-      currentNodes = Array.from(frag.childNodes) as ChildNode[]
-      anchor.parentNode?.insertBefore(frag, anchor)
+      const frag = document.createDocumentFragment();
+      childDisposer = renderChildren(props.fallback, frag, null);
+      currentNodes = Array.from(frag.childNodes) as ChildNode[];
+      anchor.parentNode?.insertBefore(frag, anchor);
     }
-  })
+  });
 
   return () => {
-    disposeEffect()
-    childDisposer()
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    anchor.parentNode?.removeChild(anchor)
-  }
+    disposeEffect();
+    childDisposer();
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    anchor.parentNode?.removeChild(anchor);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -635,60 +606,60 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
  * The "seen" Set prevents infinite loops if the same Promise is thrown again.
  */
 function renderSuspense(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
-  const anchor = document.createComment('Suspense')
-  insertBefore(parent, anchor, before)
+  const anchor = document.createComment('Suspense');
+  insertBefore(parent, anchor, before);
 
-  let activeNodes: ChildNode[] = []
-  let activeDisposer: Disposer = () => {}
-  const seenPromises = new Set<Promise<unknown>>()
-  let retryCount = 0
-  const MAX_RETRIES = 10
+  let activeNodes: ChildNode[] = [];
+  let activeDisposer: Disposer = () => {};
+  const seenPromises = new Set<Promise<unknown>>();
+  let retryCount = 0;
+  const MAX_RETRIES = 10;
 
   function clearActive(): void {
-    activeDisposer()
-    activeDisposer = () => {}
-    activeNodes.forEach((n) => n.parentNode?.removeChild(n))
-    activeNodes = []
+    activeDisposer();
+    activeDisposer = () => {};
+    activeNodes.forEach((n) => n.parentNode?.removeChild(n));
+    activeNodes = [];
   }
 
   function tryRenderContent(): void {
     try {
-      const frag = document.createDocumentFragment()
-      activeDisposer = renderChildren(props.children, frag, null)
-      activeNodes = Array.from(frag.childNodes) as ChildNode[]
-      anchor.parentNode?.insertBefore(frag, anchor)
+      const frag = document.createDocumentFragment();
+      activeDisposer = renderChildren(props.children, frag, null);
+      activeNodes = Array.from(frag.childNodes) as ChildNode[];
+      anchor.parentNode?.insertBefore(frag, anchor);
     } catch (thrown) {
       if (thrown instanceof Promise && !seenPromises.has(thrown) && retryCount < MAX_RETRIES) {
-        seenPromises.add(thrown)
-        retryCount++
+        seenPromises.add(thrown);
+        retryCount++;
         // Show fallback while the Promise is pending.
-        const frag = document.createDocumentFragment()
-        activeDisposer = renderChildren(props.fallback, frag, null)
-        activeNodes = Array.from(frag.childNodes) as ChildNode[]
-        anchor.parentNode?.insertBefore(frag, anchor)
+        const frag = document.createDocumentFragment();
+        activeDisposer = renderChildren(props.fallback, frag, null);
+        activeNodes = Array.from(frag.childNodes) as ChildNode[];
+        anchor.parentNode?.insertBefore(frag, anchor);
 
         thrown.then(
           () => {
-            clearActive()
-            tryRenderContent()
+            clearActive();
+            tryRenderContent();
           },
           // On rejection leave fallback visible; let ErrorBoundary above handle errors.
-          () => {},
-        )
+          () => {}
+        );
       } else {
         // Re-throw non-Promise throws, repeated Promises, or retry-limit exceeded.
-        anchor.parentNode?.removeChild(anchor)
-        throw thrown
+        anchor.parentNode?.removeChild(anchor);
+        throw thrown;
       }
     }
   }
 
-  tryRenderContent()
+  tryRenderContent();
 
   return () => {
-    clearActive()
-    anchor.parentNode?.removeChild(anchor)
-  }
+    clearActive();
+    anchor.parentNode?.removeChild(anchor);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -700,51 +671,51 @@ function renderLazy(props: _LazyBoundaryProps, parent: Node, before: Node | null
   // The named marker distinguishes this boundary from the generic <!---->
   // used for function children, preventing cursor ambiguity when a lazy
   // component is nested inside a reactive parent (e.g. Router matchedContent).
-  const claimed = _hydrationCursor?.collectUntilComment('Lazy')
-  const anchor = claimed?.anchor ?? document.createComment('Lazy')
-  if (!claimed) insertBefore(parent, anchor, before)
+  const claimed = _hydrationCursor?.collectUntilComment('Lazy');
+  const anchor = claimed?.anchor ?? document.createComment('Lazy');
+  if (!claimed) insertBefore(parent, anchor, before);
 
-  let childDisposer: Disposer = () => {}
-  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : []
-  let firstRun = !!claimed
+  let childDisposer: Disposer = () => {};
+  let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
+  let firstRun = !!claimed;
 
-  if (isDev) _setNextEffectMeta({ type: 'children' })
+  if (isDev) _setNextEffectMeta({ type: 'children' });
   const disposeEffect = effect(() => {
-    const isLoaded = props.loaded()
+    const isLoaded = props.loaded();
 
     if (firstRun) {
-      firstRun = false
+      firstRun = false;
       if (isLoaded) {
         // Wire reactive effects onto existing SSR nodes — no DOM insertions.
-        const subCursor = new HydrationCursor(claimed!.contentNodes)
-        const frag = document.createDocumentFragment()
-        childDisposer = _withCursor(subCursor, () => renderChildren(props.render(), frag, null))
-        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor)
+        const subCursor = new HydrationCursor(claimed!.contentNodes);
+        const frag = document.createDocumentFragment();
+        childDisposer = _withCursor(subCursor, () => renderChildren(props.render(), frag, null));
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       }
       // !isLoaded: placeholder — nothing to render, anchor marks empty region.
-      return
+      return;
     }
 
     // After firstRun: loaded changed (false → true). Re-render.
-    childDisposer()
-    childDisposer = () => {}
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    currentNodes = []
+    childDisposer();
+    childDisposer = () => {};
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    currentNodes = [];
 
     if (isLoaded) {
-      const frag = document.createDocumentFragment()
-      childDisposer = renderChildren(props.render(), frag, null)
-      currentNodes = Array.from(frag.childNodes) as ChildNode[]
-      anchor.parentNode?.insertBefore(frag, anchor)
+      const frag = document.createDocumentFragment();
+      childDisposer = renderChildren(props.render(), frag, null);
+      currentNodes = Array.from(frag.childNodes) as ChildNode[];
+      anchor.parentNode?.insertBefore(frag, anchor);
     }
-  })
+  });
 
   return () => {
-    disposeEffect()
-    childDisposer()
-    currentNodes.forEach((n) => n.parentNode?.removeChild(n))
-    anchor.parentNode?.removeChild(anchor)
-  }
+    disposeEffect();
+    childDisposer();
+    currentNodes.forEach((n) => n.parentNode?.removeChild(n));
+    anchor.parentNode?.removeChild(anchor);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -752,71 +723,73 @@ function renderLazy(props: _LazyBoundaryProps, parent: Node, before: Node | null
 // ---------------------------------------------------------------------------
 
 function renderElement(el: JSXElement, parent: Node, before: Node | null): Disposer {
-  const { type, props } = el
+  const { type, props } = el;
 
   if (type === Fragment) {
-    return renderChildren(props.children, parent, before)
+    return renderChildren(props.children, parent, before);
   }
 
-  if (type === (_LazyBoundary as unknown)) return renderLazy(props as unknown as _LazyBoundaryProps, parent, before)
-  if (type === (Show as unknown)) return renderShow(props, parent, before)
-  if (type === (For as unknown)) return renderFor(props, parent, before)
-  if (type === (Switch as unknown)) return renderSwitch(props, parent, before)
+  if (type === (_LazyBoundary as unknown)) return renderLazy(props as unknown as _LazyBoundaryProps, parent, before);
+  if (type === (Show as unknown)) return renderShow(props, parent, before);
+  if (type === (For as unknown)) return renderFor(props, parent, before);
+  if (type === (Switch as unknown)) return renderSwitch(props, parent, before);
 
   if (type === (Match as unknown)) {
     // Standalone Match (outside Switch) — treat like Show
-    const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when
+    const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when;
     if (when) {
       const content =
-        typeof props.children === 'function'
-          ? (props.children as (v: unknown) => JSXElement)(when)
-          : props.children
-      return renderChildren(content, parent, before)
+        typeof props.children === 'function' ? (props.children as (v: unknown) => JSXElement)(when) : props.children;
+      return renderChildren(content, parent, before);
     }
-    return () => {}
+    return () => {};
   }
 
   if (type === (ClientOnly as unknown)) {
     // Always renders on client
-    return renderChildren(props.children, parent, before)
+    return renderChildren(props.children, parent, before);
   }
 
   if (type === (Suspense as unknown)) {
-    return renderSuspense(props, parent, before)
+    return renderSuspense(props, parent, before);
   }
 
   if (type === (Portal as unknown)) {
-    let target: Element
+    let target: Element;
     if (typeof props.target === 'string') {
-      target = document.querySelector(props.target as string) ?? document.body
+      target = document.querySelector(props.target as string) ?? document.body;
     } else if (props.target instanceof Element) {
-      target = props.target
+      target = props.target;
     } else {
-      target = document.body
+      target = document.body;
     }
-    return renderChildren(props.children, target, null)
+    return renderChildren(props.children, target, null);
   }
 
   if (type === (ErrorBoundary as unknown)) {
     try {
-      return renderChildren(props.children, parent, before)
+      return renderChildren(props.children, parent, before);
     } catch (err) {
       if (typeof props.fallback === 'function') {
-        return renderChildren((props.fallback as (err: unknown) => JSXElement)(err), parent, before)
+        return renderChildren((props.fallback as (err: unknown) => JSXElement)(err), parent, before);
       }
-      return renderChildren(props.fallback, parent, before)
+      return renderChildren(props.fallback, parent, before);
     }
   }
 
   // Context.Provider — push value onto provider stack for the lifetime of these children
-  if (type != null && (typeof type === 'function' || typeof type === 'object') && (type as unknown as ContextProvider<unknown>)._isProvider) {
-    const provider = type as unknown as ContextProvider<unknown>
-    _pushContext(provider._context, props.value)
-    const childDisposer = renderChildren(props.children, parent, before)
+  if (
+    type != null &&
+    (typeof type === 'function' || typeof type === 'object') &&
+    (type as unknown as ContextProvider<unknown>)._isProvider
+  ) {
+    const provider = type as unknown as ContextProvider<unknown>;
+    _pushContext(provider._context, props.value);
+    const childDisposer = renderChildren(props.children, parent, before);
     return () => {
-      childDisposer()
-      _popContext(provider._context)
-    }
+      childDisposer();
+      _popContext(provider._context);
+    };
   }
 
   // Component function — wrap in createRoot so signal() is allowed inside,
@@ -830,80 +803,80 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
   // dispose any reactive effects created before the throw to prevent leaks, then
   // re-throw so the nearest Suspense or ErrorBoundary can catch it.
   if (typeof type === 'function') {
-    let rootDispose: Disposer = () => {}
-    let result: unknown
+    let rootDispose: Disposer = () => {};
+    let result: unknown;
     untrack(() => {
       createRoot((dispose) => {
-        rootDispose = dispose
+        rootDispose = dispose;
         try {
-          result = (type as Component)(props)
+          result = (type as Component)(props);
         } catch (err) {
-          dispose() // clean up effects created before the throw
-          throw err
+          dispose(); // clean up effects created before the throw
+          throw err;
         }
-      })
-    })
-    const childDisposer = renderChildren(result, parent, before)
+      });
+    });
+    const childDisposer = renderChildren(result, parent, before);
     return () => {
-      rootDispose()
-      childDisposer()
-    }
+      rootDispose();
+      childDisposer();
+    };
   }
 
   // Native DOM element — during hydration, try to claim the existing SSR node.
-  const existingEl = _hydrationCursor?.claimElement(type as string)
-  const domEl = existingEl ?? document.createElement(type as string)
-  const disposers: Disposer[] = []
+  const existingEl = _hydrationCursor?.claimElement(type as string);
+  const domEl = existingEl ?? document.createElement(type as string);
+  const disposers: Disposer[] = [];
 
   for (const [key, value] of Object.entries(props)) {
-    if (key === 'children') continue
+    if (key === 'children') continue;
 
     if (key === 'ref') {
       if (typeof value === 'function') {
-        ;(value as (el: Element) => void)(domEl)
+        (value as (el: Element) => void)(domEl);
       }
-      continue
+      continue;
     }
 
     if (isEventHandler(key) && typeof value === 'function') {
-      const eventName = key.slice(2).toLowerCase()
-      domEl.addEventListener(eventName, value as EventListener)
-      disposers.push(() => domEl.removeEventListener(eventName, value as EventListener))
-      continue
+      const eventName = key.slice(2).toLowerCase();
+      domEl.addEventListener(eventName, value as EventListener);
+      disposers.push(() => domEl.removeEventListener(eventName, value as EventListener));
+      continue;
     }
 
     if (typeof value === 'function') {
       // Reactive prop — memoize via ComputedNode so the DOM-update effect only
       // re-runs when the derived value actually changes, not on every dependency
       // invalidation (e.g. clicking one row doesn't repaint all other rows).
-      if (isDev) _setNextEffectMeta({ element: domEl, attr: key, type: 'prop' })
-      const memo = new ComputedNode(value as () => unknown)
-      disposers.push(effect(() => setProperty(domEl, key, memo.read())))
-      disposers.push(() => memo.dispose())
+      if (isDev) _setNextEffectMeta({ element: domEl, attr: key, type: 'prop' });
+      const memo = new ComputedNode(value as () => unknown);
+      disposers.push(effect(() => setProperty(domEl, key, memo.read())));
+      disposers.push(() => memo.dispose());
     } else {
-      setProperty(domEl, key, value)
+      setProperty(domEl, key, value);
     }
   }
 
   if (props.children !== undefined) {
     if (existingEl) {
       // Render children with a fresh cursor scoped to this element's existing children.
-      const childCursor = new HydrationCursor(existingEl.childNodes)
-      disposers.push(_withCursor(childCursor, () => renderChildren(props.children, domEl, null)))
+      const childCursor = new HydrationCursor(existingEl.childNodes);
+      disposers.push(_withCursor(childCursor, () => renderChildren(props.children, domEl, null)));
     } else {
-      disposers.push(renderChildren(props.children, domEl, null))
+      disposers.push(renderChildren(props.children, domEl, null));
     }
   }
 
   // Only insert the element if it was freshly created; claimed elements are already in the DOM.
   if (!existingEl) {
-    insertBefore(parent, domEl, before)
+    insertBefore(parent, domEl, before);
   }
 
   return () => {
-    disposers.forEach((d) => d())
-    domEl.parentNode?.removeChild(domEl)
-  }
+    disposers.forEach((d) => d());
+    domEl.parentNode?.removeChild(domEl);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -917,15 +890,15 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
  * so mount() can clean everything up.
  */
 export function _createNode(type: ElementType, props: Record<string, unknown>): Node {
-  const frag = document.createDocumentFragment()
-  const disposer = renderElement({ type, props, key: null }, frag, null)
+  const frag = document.createDocumentFragment();
+  const disposer = renderElement({ type, props, key: null }, frag, null);
   if (_renderScope) {
-    _renderScope.push(disposer)
+    _renderScope.push(disposer);
   }
   if (frag.childNodes.length === 1) {
-    return frag.firstChild!
+    return frag.firstChild!;
   }
-  return frag
+  return frag;
 }
 
 // ---------------------------------------------------------------------------
@@ -941,48 +914,45 @@ export function _createNode(type: ElementType, props: Record<string, unknown>): 
  *
  * Returns a dispose function that unmounts and cleans up all reactive effects.
  */
-export function mount(
-  root: JSXElement | Node | (() => JSXElement | Node | null) | null,
-  container: Element,
-): Disposer {
+export function mount(root: JSXElement | Node | (() => JSXElement | Node | null) | null, container: Element): Disposer {
   // Clear the container
-  while (container.firstChild) container.removeChild(container.firstChild)
+  while (container.firstChild) container.removeChild(container.firstChild);
 
   // Activate render scope so the DOM JSX runtime can register disposers
-  const scopeDisposers: Disposer[] = []
-  const prevScope = _setRenderScope(scopeDisposers)
+  const scopeDisposers: Disposer[] = [];
+  const prevScope = _setRenderScope(scopeDisposers);
 
-  let value: unknown
-  let rootDispose: Disposer = () => {}
+  let value: unknown;
+  let rootDispose: Disposer = () => {};
   try {
     value =
       typeof root === 'function'
         ? createRoot((dispose) => {
-            rootDispose = dispose
-            return (root as () => unknown)()
+            rootDispose = dispose;
+            return (root as () => unknown)();
           })
-        : root
+        : root;
   } finally {
-    _setRenderScope(prevScope)
+    _setRenderScope(prevScope);
   }
 
-  if (value === null || value === undefined) return () => {}
+  if (value === null || value === undefined) return () => {};
 
   // DOM runtime mode: root returned a real Node
   if (value instanceof Node) {
-    container.appendChild(value)
+    container.appendChild(value);
     return () => {
-      rootDispose()
-      scopeDisposers.forEach((d) => d())
-    }
+      rootDispose();
+      scopeDisposers.forEach((d) => d());
+    };
   }
 
   // Descriptor mode: render the JSXElement tree
-  const disposer = renderChildren(value as JSXElement, container, null)
+  const disposer = renderChildren(value as JSXElement, container, null);
   return () => {
-    rootDispose()
-    disposer()
-  }
+    rootDispose();
+    disposer();
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1002,42 +972,40 @@ export function mount(
 export function _hydrateInto(
   root: JSXElement | Node | (() => JSXElement | Node | null) | null,
   container: Element,
-  cursor: HydrationCursor,
+  cursor: HydrationCursor
 ): Disposer {
-  const scopeDisposers: Disposer[] = []
-  const prevScope = _setRenderScope(scopeDisposers)
+  const scopeDisposers: Disposer[] = [];
+  const prevScope = _setRenderScope(scopeDisposers);
 
-  let value: unknown
-  let rootDispose: Disposer = () => {}
+  let value: unknown;
+  let rootDispose: Disposer = () => {};
   try {
     value =
       typeof root === 'function'
         ? createRoot((dispose) => {
-            rootDispose = dispose
-            return (root as () => unknown)()
+            rootDispose = dispose;
+            return (root as () => unknown)();
           })
-        : root
+        : root;
   } finally {
-    _setRenderScope(prevScope)
+    _setRenderScope(prevScope);
   }
 
-  if (value === null || value === undefined) return () => {}
+  if (value === null || value === undefined) return () => {};
 
   // DOM runtime mode: root returned a real Node — no cursor support for this path
   if (value instanceof Node) {
-    container.appendChild(value)
+    container.appendChild(value);
     return () => {
-      rootDispose()
-      scopeDisposers.forEach((d) => d())
-    }
+      rootDispose();
+      scopeDisposers.forEach((d) => d());
+    };
   }
 
   // Descriptor mode: render with the hydration cursor active
-  const disposer = _withCursor(cursor, () =>
-    renderChildren(value as JSXElement, container, null),
-  )
+  const disposer = _withCursor(cursor, () => renderChildren(value as JSXElement, container, null));
   return () => {
-    rootDispose()
-    disposer()
-  }
+    rootDispose();
+    disposer();
+  };
 }

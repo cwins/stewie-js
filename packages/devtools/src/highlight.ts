@@ -1,23 +1,23 @@
 // highlight.ts — flash overlay for DOM elements that just re-rendered
 
-let highlightEnabled = true
+let highlightEnabled = true;
 
 export function setHighlightEnabled(v: boolean): void {
-  highlightEnabled = v
+  highlightEnabled = v;
 }
 
 export function isHighlightEnabled(): boolean {
-  return highlightEnabled
+  return highlightEnabled;
 }
 
 export function flashElement(el: Element): void {
-  if (!highlightEnabled) return
-  if (!document.body.contains(el)) return
+  if (!highlightEnabled) return;
+  if (!document.body.contains(el)) return;
 
-  const rect = el.getBoundingClientRect()
-  if (rect.width === 0 && rect.height === 0) return
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return;
 
-  const flash = document.createElement('div')
+  const flash = document.createElement('div');
   flash.style.cssText = [
     'position:fixed',
     `left:${rect.left}px`,
@@ -30,8 +30,8 @@ export function flashElement(el: Element): void {
     'pointer-events:none',
     'z-index:999999',
     'border-radius:3px',
-    'animation:__sdt-flash 1000ms ease-in forwards',
-  ].join(';')
-  document.body.appendChild(flash)
-  flash.addEventListener('animationend', () => flash.remove())
+    'animation:__sdt-flash 1000ms ease-in forwards'
+  ].join(';');
+  document.body.appendChild(flash);
+  flash.addEventListener('animationend', () => flash.remove());
 }

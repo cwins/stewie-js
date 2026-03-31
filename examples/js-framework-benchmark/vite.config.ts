@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   // Relative base so dist/ can be served from any path in the benchmark runner
@@ -10,11 +10,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: undefined
-      },
-    },
+      }
+    }
   },
   esbuild: {
     jsx: 'automatic',
-    jsxImportSource: '@stewie-js/core',
-  },
-})
+    jsxImportSource: '@stewie-js/core'
+  }
+});

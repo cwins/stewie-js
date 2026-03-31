@@ -2,29 +2,29 @@
 // Reads __STEWIE_STATE__ serialized by the server, provides it via context,
 // then mounts the app so components can access their initial server state.
 
-import { provide } from './context.js'
-import { _hydrateInto } from './dom-renderer.js'
-import { HydrationRegistryContext } from './hydration.js'
-import type { HydrationRegistry } from './hydration.js'
-import type { JSXElement } from './jsx-runtime.js'
-import type { Disposer } from './dom-renderer.js'
-import { HydrationCursor } from './hydration-cursor.js'
+import { provide } from './context.js';
+import { _hydrateInto } from './dom-renderer.js';
+import { HydrationRegistryContext } from './hydration.js';
+import type { HydrationRegistry } from './hydration.js';
+import type { JSXElement } from './jsx-runtime.js';
+import type { Disposer } from './dom-renderer.js';
+import { HydrationCursor } from './hydration-cursor.js';
 
 declare global {
   interface Window {
-    __STEWIE_STATE__?: Record<string, unknown>
+    __STEWIE_STATE__?: Record<string, unknown>;
   }
 }
 
 function createClientRegistry(state: Record<string, unknown>): HydrationRegistry {
-  const data = { ...state }
+  const data = { ...state };
   return {
     get: (key) => data[key],
     set: (key, value) => {
-      data[key] = value
+      data[key] = value;
     },
-    serialize: () => JSON.stringify(data),
-  }
+    serialize: () => JSON.stringify(data)
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -37,13 +37,15 @@ function createClientRegistry(state: Record<string, unknown>): HydrationRegistry
  * insignificant formatting differences don't trigger false positives.
  */
 function normaliseHtml(html: string): string {
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    // Strip empty value="" attributes — server emits these as HTML attributes but
-    // the DOM renderer uses el.value (property) which doesn't appear in innerHTML.
-    .replace(/\s+value=""/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return (
+    html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      // Strip empty value="" attributes — server emits these as HTML attributes but
+      // the DOM renderer uses el.value (property) which doesn't appear in innerHTML.
+      .replace(/\s+value=""/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /**
@@ -55,34 +57,38 @@ function normaliseHtml(html: string): string {
  * in production builds.
  */
 function warnOnMismatch(serverHtml: string, clientHtml: string, container: Element): void {
-  const normServer = normaliseHtml(serverHtml)
-  const normClient = normaliseHtml(clientHtml)
+  const normServer = normaliseHtml(serverHtml);
+  const normClient = normaliseHtml(clientHtml);
 
-  if (normServer === normClient) return
+  if (normServer === normClient) return;
 
   // Build a compact diff: find the first character position that diverges
-  const maxLen = Math.max(normServer.length, normClient.length)
-  let firstDiff = maxLen
+  const maxLen = Math.max(normServer.length, normClient.length);
+  let firstDiff = maxLen;
   for (let i = 0; i < maxLen; i++) {
     if (normServer[i] !== normClient[i]) {
-      firstDiff = i
-      break
+      firstDiff = i;
+      break;
     }
   }
 
-  const CONTEXT = 60
-  const start = Math.max(0, firstDiff - CONTEXT)
-  const serverSnippet = normServer.slice(start, firstDiff + CONTEXT)
-  const clientSnippet = normClient.slice(start, firstDiff + CONTEXT)
+  const CONTEXT = 60;
+  const start = Math.max(0, firstDiff - CONTEXT);
+  const serverSnippet = normServer.slice(start, firstDiff + CONTEXT);
+  const clientSnippet = normClient.slice(start, firstDiff + CONTEXT);
 
   console.warn(
     '[stewie] Hydration mismatch detected in',
     container,
-    '\n\nServer rendered:\n  …' + serverSnippet + '…' +
-    '\n\nClient rendered:\n  …' + clientSnippet + '…' +
-    '\n\nThis can cause flickering or lost state. Check that your component ' +
-    'renders the same output on server and client.',
-  )
+    '\n\nServer rendered:\n  …' +
+      serverSnippet +
+      '…' +
+      '\n\nClient rendered:\n  …' +
+      clientSnippet +
+      '…' +
+      '\n\nThis can cause flickering or lost state. Check that your component ' +
+      'renders the same output on server and client.'
+  );
 }
 
 /**
@@ -99,29 +105,29 @@ function warnOnMismatch(serverHtml: string, clientHtml: string, container: Eleme
  */
 export function hydrate(
   root: JSXElement | Node | (() => JSXElement | Node | null) | null,
-  container: Element,
+  container: Element
 ): Disposer {
-  const initialState = typeof window !== 'undefined' ? (window.__STEWIE_STATE__ ?? {}) : {}
+  const initialState = typeof window !== 'undefined' ? (window.__STEWIE_STATE__ ?? {}) : {};
 
   // Capture server HTML before we overwrite it (dev only)
-  const isDev = typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : true
-  const serverHtml = isDev ? container.innerHTML : ''
+  const isDev = typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : true;
+  const serverHtml = isDev ? container.innerHTML : '';
 
-  const registry = createClientRegistry(initialState as Record<string, unknown>)
+  const registry = createClientRegistry(initialState as Record<string, unknown>);
 
-  const cursor = new HydrationCursor(container.childNodes)
+  const cursor = new HydrationCursor(container.childNodes);
 
-  let disposer!: Disposer
+  let disposer!: Disposer;
   provide(HydrationRegistryContext, registry, () => {
-    disposer = _hydrateInto(root, container, cursor)
-  })
+    disposer = _hydrateInto(root, container, cursor);
+  });
 
   // After mount, compare client output against server HTML.
   // Skip the check when the container was empty — that means this is a
   // fresh client-side mount, not a hydration of server-rendered content.
   if (isDev && serverHtml.trim() !== '') {
-    warnOnMismatch(serverHtml, container.innerHTML, container)
+    warnOnMismatch(serverHtml, container.innerHTML, container);
   }
 
-  return disposer
+  return disposer;
 }

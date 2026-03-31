@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { signal, computed, effect, batch, untrack, createRoot, createScope, withRenderIsolation } from './reactive.js'
+import { describe, it, expect, vi } from 'vitest';
+import { signal, computed, effect, batch, untrack, createRoot, createScope, withRenderIsolation } from './reactive.js';
 
 // ---------------------------------------------------------------------------
 // signal
@@ -7,92 +7,92 @@ import { signal, computed, effect, batch, untrack, createRoot, createScope, with
 
 describe('signal', () => {
   it('read returns initial value', () => {
-    const s = signal(42)
-    expect(s()).toBe(42)
-  })
+    const s = signal(42);
+    expect(s()).toBe(42);
+  });
 
   it('set updates the value', () => {
-    const s = signal(1)
-    s.set(2)
-    expect(s()).toBe(2)
-  })
+    const s = signal(1);
+    s.set(2);
+    expect(s()).toBe(2);
+  });
 
   it('update applies functional update', () => {
-    const s = signal(10)
-    s.update((v) => v + 5)
-    expect(s()).toBe(15)
-  })
+    const s = signal(10);
+    s.update((v) => v + 5);
+    expect(s()).toBe(15);
+  });
 
   it('update receives the current value', () => {
-    const s = signal('hello')
-    s.update((v) => v + ' world')
-    expect(s()).toBe('hello world')
-  })
+    const s = signal('hello');
+    s.update((v) => v + ' world');
+    expect(s()).toBe('hello world');
+  });
 
   it('notifies a single subscriber on set', () => {
-    const s = signal(0)
-    let observed = -1
+    const s = signal(0);
+    let observed = -1;
     effect(() => {
-      observed = s()
-    })
-    expect(observed).toBe(0)
-    s.set(99)
-    expect(observed).toBe(99)
-  })
+      observed = s();
+    });
+    expect(observed).toBe(0);
+    s.set(99);
+    expect(observed).toBe(99);
+  });
 
   it('notifies multiple subscribers', () => {
-    const s = signal('a')
-    const calls: string[] = []
+    const s = signal('a');
+    const calls: string[] = [];
     effect(() => {
-      calls.push('e1:' + s())
-    })
+      calls.push('e1:' + s());
+    });
     effect(() => {
-      calls.push('e2:' + s())
-    })
-    s.set('b')
-    expect(calls).toEqual(['e1:a', 'e2:a', 'e1:b', 'e2:b'])
-  })
+      calls.push('e2:' + s());
+    });
+    s.set('b');
+    expect(calls).toEqual(['e1:a', 'e2:a', 'e1:b', 'e2:b']);
+  });
 
   it('does not notify when value is set to the same value', () => {
-    const s = signal(5)
-    let count = 0
+    const s = signal(5);
+    let count = 0;
     effect(() => {
-      s()
-      count++
-    })
-    expect(count).toBe(1)
-    s.set(5)
-    expect(count).toBe(1) // no re-run
-  })
+      s();
+      count++;
+    });
+    expect(count).toBe(1);
+    s.set(5);
+    expect(count).toBe(1); // no re-run
+  });
 
   it('peek() returns current value without subscribing', () => {
-    const s = signal(10)
-    let effectRuns = 0
+    const s = signal(10);
+    let effectRuns = 0;
     effect(() => {
-      s.peek() // read without subscribing
-      effectRuns++
-    })
-    expect(effectRuns).toBe(1) // runs once on init
-    s.set(20)
-    expect(effectRuns).toBe(1) // does NOT re-run — no subscription
-    expect(s.peek()).toBe(20) // still reads the new value
-  })
+      s.peek(); // read without subscribing
+      effectRuns++;
+    });
+    expect(effectRuns).toBe(1); // runs once on init
+    s.set(20);
+    expect(effectRuns).toBe(1); // does NOT re-run — no subscription
+    expect(s.peek()).toBe(20); // still reads the new value
+  });
 
   it('peek() works inside an effect without creating a dependency', () => {
-    const a = signal(1)
-    const b = signal(100)
-    const observed: number[] = []
+    const a = signal(1);
+    const b = signal(100);
+    const observed: number[] = [];
     effect(() => {
       // a() creates subscription; b.peek() does not
-      observed.push(a() + b.peek())
-    })
-    expect(observed).toEqual([101])
-    b.set(200) // should NOT trigger the effect
-    expect(observed).toEqual([101])
-    a.set(2) // SHOULD trigger the effect
-    expect(observed).toEqual([101, 202]) // uses updated b value via peek
-  })
-})
+      observed.push(a() + b.peek());
+    });
+    expect(observed).toEqual([101]);
+    b.set(200); // should NOT trigger the effect
+    expect(observed).toEqual([101]);
+    a.set(2); // SHOULD trigger the effect
+    expect(observed).toEqual([101, 202]); // uses updated b value via peek
+  });
+});
 
 // ---------------------------------------------------------------------------
 // computed
@@ -100,89 +100,89 @@ describe('signal', () => {
 
 describe('computed', () => {
   it('returns computed value', () => {
-    const s = signal(3)
-    const c = computed(() => s() * 2)
-    expect(c()).toBe(6)
-  })
+    const s = signal(3);
+    const c = computed(() => s() * 2);
+    expect(c()).toBe(6);
+  });
 
   it('is lazy — fn not called until read', () => {
-    const fn = vi.fn(() => 42)
-    const c = computed(fn)
-    expect(fn).not.toHaveBeenCalled()
-    c()
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
+    const fn = vi.fn(() => 42);
+    const c = computed(fn);
+    expect(fn).not.toHaveBeenCalled();
+    c();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 
   it('is memoized — fn not called again if deps unchanged', () => {
-    const s = signal(1)
-    const fn = vi.fn(() => s() * 2)
-    const c = computed(fn)
-    c()
-    c()
-    c()
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
+    const s = signal(1);
+    const fn = vi.fn(() => s() * 2);
+    const c = computed(fn);
+    c();
+    c();
+    c();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 
   it('re-evaluates when dependency changes', () => {
-    const s = signal(4)
-    const c = computed(() => s() * 2)
-    expect(c()).toBe(8)
-    s.set(5)
-    expect(c()).toBe(10)
-  })
+    const s = signal(4);
+    const c = computed(() => s() * 2);
+    expect(c()).toBe(8);
+    s.set(5);
+    expect(c()).toBe(10);
+  });
 
   it('does NOT re-notify downstream if value unchanged (memoized)', () => {
-    const s = signal(true)
+    const s = signal(true);
     // computed always returns same string regardless of s
     const alwaysFoo = computed(() => {
-      s()
-      return 'foo'
-    })
+      s();
+      return 'foo';
+    });
 
-    let runCount = 0
+    let runCount = 0;
     effect(() => {
-      alwaysFoo()
-      runCount++
-    })
-    expect(runCount).toBe(1)
-    s.set(false) // alwaysFoo still returns 'foo' → no downstream notification
-    expect(runCount).toBe(1)
-  })
+      alwaysFoo();
+      runCount++;
+    });
+    expect(runCount).toBe(1);
+    s.set(false); // alwaysFoo still returns 'foo' → no downstream notification
+    expect(runCount).toBe(1);
+  });
 
   it('auto-tracks multiple dependencies', () => {
-    const a = signal(1)
-    const b = signal(2)
-    const sum = computed(() => a() + b())
-    expect(sum()).toBe(3)
-    a.set(10)
-    expect(sum()).toBe(12)
-    b.set(20)
-    expect(sum()).toBe(30)
-  })
+    const a = signal(1);
+    const b = signal(2);
+    const sum = computed(() => a() + b());
+    expect(sum()).toBe(3);
+    a.set(10);
+    expect(sum()).toBe(12);
+    b.set(20);
+    expect(sum()).toBe(30);
+  });
 
   it('chained computed: A → B → C', () => {
-    const a = signal(1)
-    const b = computed(() => a() * 2)
-    const c = computed(() => b() + 1)
-    expect(c()).toBe(3)
-    a.set(5)
-    expect(b()).toBe(10)
-    expect(c()).toBe(11)
-  })
+    const a = signal(1);
+    const b = computed(() => a() * 2);
+    const c = computed(() => b() + 1);
+    expect(c()).toBe(3);
+    a.set(5);
+    expect(b()).toBe(10);
+    expect(c()).toBe(11);
+  });
 
   it('chained computed propagates to effect', () => {
-    const a = signal(1)
-    const b = computed(() => a() * 2)
-    const c = computed(() => b() + 10)
-    let observed = -1
+    const a = signal(1);
+    const b = computed(() => a() * 2);
+    const c = computed(() => b() + 10);
+    let observed = -1;
     effect(() => {
-      observed = c()
-    })
-    expect(observed).toBe(12)
-    a.set(3)
-    expect(observed).toBe(16)
-  })
-})
+      observed = c();
+    });
+    expect(observed).toBe(12);
+    a.set(3);
+    expect(observed).toBe(16);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // effect
@@ -190,97 +190,97 @@ describe('computed', () => {
 
 describe('effect', () => {
   it('runs immediately on creation', () => {
-    let ran = false
+    let ran = false;
     effect(() => {
-      ran = true
-    })
-    expect(ran).toBe(true)
-  })
+      ran = true;
+    });
+    expect(ran).toBe(true);
+  });
 
   it('re-runs when dependency changes', () => {
-    const s = signal(0)
-    const values: number[] = []
+    const s = signal(0);
+    const values: number[] = [];
     effect(() => {
-      values.push(s())
-    })
-    s.set(1)
-    s.set(2)
-    expect(values).toEqual([0, 1, 2])
-  })
+      values.push(s());
+    });
+    s.set(1);
+    s.set(2);
+    expect(values).toEqual([0, 1, 2]);
+  });
 
   it('cleanup function called before re-run', () => {
-    const s = signal(0)
-    const log: string[] = []
+    const s = signal(0);
+    const log: string[] = [];
     // Capture the value at effect run time in a local variable
     // to verify cleanup runs before the next run starts
     effect(() => {
-      const current = s()
-      log.push(`run:${current}`)
+      const current = s();
+      log.push(`run:${current}`);
       return () => {
-        log.push(`cleanup:${current}`)
-      }
-    })
-    s.set(1)
-    s.set(2)
-    expect(log).toEqual(['run:0', 'cleanup:0', 'run:1', 'cleanup:1', 'run:2'])
-  })
+        log.push(`cleanup:${current}`);
+      };
+    });
+    s.set(1);
+    s.set(2);
+    expect(log).toEqual(['run:0', 'cleanup:0', 'run:1', 'cleanup:1', 'run:2']);
+  });
 
   it('cleanup function called on dispose', () => {
-    const s = signal(0)
-    const log: string[] = []
+    const s = signal(0);
+    const log: string[] = [];
     const dispose = effect(() => {
-      s() // track
+      s(); // track
       return () => {
-        log.push('cleanup')
-      }
-    })
-    expect(log).toEqual([])
-    dispose()
-    expect(log).toEqual(['cleanup'])
-  })
+        log.push('cleanup');
+      };
+    });
+    expect(log).toEqual([]);
+    dispose();
+    expect(log).toEqual(['cleanup']);
+  });
 
   it('dispose prevents re-runs', () => {
-    const s = signal(0)
-    let count = 0
+    const s = signal(0);
+    let count = 0;
     const dispose = effect(() => {
-      s()
-      count++
-    })
-    expect(count).toBe(1)
-    dispose()
-    s.set(1)
-    expect(count).toBe(1) // no re-run after dispose
-  })
+      s();
+      count++;
+    });
+    expect(count).toBe(1);
+    dispose();
+    s.set(1);
+    expect(count).toBe(1); // no re-run after dispose
+  });
 
   it('nested effects track independently', () => {
-    const outer = signal('outer')
-    const inner = signal('inner')
-    const log: string[] = []
+    const outer = signal('outer');
+    const inner = signal('inner');
+    const log: string[] = [];
 
     effect(() => {
-      log.push(`outer-effect:${outer()}`)
+      log.push(`outer-effect:${outer()}`);
       effect(() => {
-        log.push(`inner-effect:${inner()}`)
-      })
-    })
+        log.push(`inner-effect:${inner()}`);
+      });
+    });
 
-    expect(log).toEqual(['outer-effect:outer', 'inner-effect:inner'])
-    inner.set('inner2')
-    expect(log).toContain('inner-effect:inner2')
-  })
+    expect(log).toEqual(['outer-effect:outer', 'inner-effect:inner']);
+    inner.set('inner2');
+    expect(log).toContain('inner-effect:inner2');
+  });
 
   it('effect does not re-run when cleanup mutates untracked signal', () => {
-    const s = signal(0)
-    let count = 0
+    const s = signal(0);
+    let count = 0;
     effect(() => {
-      count++
-      s() // track
-    })
-    expect(count).toBe(1)
-    s.set(1)
-    expect(count).toBe(2)
-  })
-})
+      count++;
+      s(); // track
+    });
+    expect(count).toBe(1);
+    s.set(1);
+    expect(count).toBe(2);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // batch
@@ -288,85 +288,85 @@ describe('effect', () => {
 
 describe('batch', () => {
   it('groups multiple signal.set() calls — subscriber notified only once', () => {
-    const a = signal(0)
-    const b = signal(0)
-    let count = 0
+    const a = signal(0);
+    const b = signal(0);
+    let count = 0;
 
     effect(() => {
-      a()
-      b()
-      count++
-    })
+      a();
+      b();
+      count++;
+    });
 
-    expect(count).toBe(1)
+    expect(count).toBe(1);
 
     batch(() => {
-      a.set(1)
-      b.set(2)
-    })
+      a.set(1);
+      b.set(2);
+    });
 
     // Should have been called exactly once after the batch (total = 2)
-    expect(count).toBe(2)
-  })
+    expect(count).toBe(2);
+  });
 
   it('batch defers notifications until fn completes', () => {
-    const s = signal(0)
-    const observed: number[] = []
+    const s = signal(0);
+    const observed: number[] = [];
 
     effect(() => {
-      observed.push(s())
-    })
+      observed.push(s());
+    });
 
     batch(() => {
-      s.set(1)
-      expect(observed).toEqual([0]) // not yet notified
-      s.set(2)
-      expect(observed).toEqual([0]) // still not notified
-    })
+      s.set(1);
+      expect(observed).toEqual([0]); // not yet notified
+      s.set(2);
+      expect(observed).toEqual([0]); // still not notified
+    });
 
-    expect(observed).toEqual([0, 2]) // notified once after batch with final value
-  })
+    expect(observed).toEqual([0, 2]); // notified once after batch with final value
+  });
 
   it('nested batch: notifies only after outermost batch', () => {
-    const s = signal(0)
-    let count = 0
+    const s = signal(0);
+    let count = 0;
 
     effect(() => {
-      s()
-      count++
-    })
-    expect(count).toBe(1)
+      s();
+      count++;
+    });
+    expect(count).toBe(1);
 
     batch(() => {
       batch(() => {
-        s.set(1)
-        expect(count).toBe(1) // still inside batch
-      })
-      expect(count).toBe(1) // still inside outer batch
-      s.set(2)
-    })
+        s.set(1);
+        expect(count).toBe(1); // still inside batch
+      });
+      expect(count).toBe(1); // still inside outer batch
+      s.set(2);
+    });
 
-    expect(count).toBe(2) // exactly one notification after all batches complete
-  })
+    expect(count).toBe(2); // exactly one notification after all batches complete
+  });
 
   it('batch works with computed', () => {
-    const a = signal(1)
-    const b = signal(2)
-    const sum = computed(() => a() + b())
-    const results: number[] = []
+    const a = signal(1);
+    const b = signal(2);
+    const sum = computed(() => a() + b());
+    const results: number[] = [];
 
     effect(() => {
-      results.push(sum())
-    })
+      results.push(sum());
+    });
 
     batch(() => {
-      a.set(10)
-      b.set(20)
-    })
+      a.set(10);
+      b.set(20);
+    });
 
-    expect(results).toEqual([3, 30])
-  })
-})
+    expect(results).toEqual([3, 30]);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // createScope
@@ -374,20 +374,20 @@ describe('batch', () => {
 
 describe('createScope', () => {
   it('returns dependencies accessed during fn', () => {
-    const s = signal(1)
-    let deps!: Set<unknown>
+    const s = signal(1);
+    let deps!: Set<unknown>;
 
     computed(() => {
       const scope = createScope(() => {
-        s() // access signal inside scope
-      })
-      deps = scope.dependencies
-      return 0
-    })()
+        s(); // access signal inside scope
+      });
+      deps = scope.dependencies;
+      return 0;
+    })();
 
-    expect(deps.size).toBe(1)
-  })
-})
+    expect(deps.size).toBe(1);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // untrack
@@ -395,30 +395,30 @@ describe('createScope', () => {
 
 describe('untrack', () => {
   it('reads a signal without subscribing the current effect', () => {
-    const s = signal(1)
-    const other = signal(10)
-    let runCount = 0
+    const s = signal(1);
+    const other = signal(10);
+    let runCount = 0;
 
     const dispose = effect(() => {
-      other() // subscribe to other
-      untrack(() => s()) // read s without subscribing
-      runCount++
-    })
+      other(); // subscribe to other
+      untrack(() => s()); // read s without subscribing
+      runCount++;
+    });
 
-    expect(runCount).toBe(1)
-    s.set(99) // should NOT re-run effect
-    expect(runCount).toBe(1)
-    other.set(20) // SHOULD re-run effect
-    expect(runCount).toBe(2)
-    dispose()
-  })
+    expect(runCount).toBe(1);
+    s.set(99); // should NOT re-run effect
+    expect(runCount).toBe(1);
+    other.set(20); // SHOULD re-run effect
+    expect(runCount).toBe(2);
+    dispose();
+  });
 
   it('returns the value from the untracked function', () => {
-    const s = signal(42)
-    const val = untrack(() => s())
-    expect(val).toBe(42)
-  })
-})
+    const s = signal(42);
+    const val = untrack(() => s());
+    expect(val).toBe(42);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // signal.update — no unwanted subscription
@@ -426,27 +426,27 @@ describe('untrack', () => {
 
 describe('signal.update tracking', () => {
   it('calling update inside an effect does not subscribe the effect to itself', () => {
-    const s = signal(0)
-    const trigger = signal(false)
-    let runCount = 0
+    const s = signal(0);
+    const trigger = signal(false);
+    let runCount = 0;
 
     const dispose = effect(() => {
-      trigger() // subscribe to trigger
+      trigger(); // subscribe to trigger
       if (trigger()) {
-        s.update((n) => n + 1) // update should NOT subscribe effect to s
+        s.update((n) => n + 1); // update should NOT subscribe effect to s
       }
-      runCount++
-    })
+      runCount++;
+    });
 
-    expect(runCount).toBe(1)
-    trigger.set(true) // triggers effect, which calls s.update
-    expect(runCount).toBe(2)
-    expect(s()).toBe(1)
+    expect(runCount).toBe(1);
+    trigger.set(true); // triggers effect, which calls s.update
+    expect(runCount).toBe(2);
+    expect(s()).toBe(1);
     // s changed but effect should NOT re-run (not subscribed to s)
-    expect(runCount).toBe(2)
-    dispose()
-  })
-})
+    expect(runCount).toBe(2);
+    dispose();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // createRoot
@@ -454,118 +454,126 @@ describe('signal.update tracking', () => {
 
 describe('createRoot', () => {
   it('allows signal creation without module-scope warning', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    let sig: ReturnType<typeof signal<number>> | undefined
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let sig: ReturnType<typeof signal<number>> | undefined;
     createRoot(() => {
-      sig = signal(5)
-    })
-    expect(sig!()).toBe(5)
-    expect(warnSpy).not.toHaveBeenCalled()
-    warnSpy.mockRestore()
-  })
+      sig = signal(5);
+    });
+    expect(sig!()).toBe(5);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 
   it('returns the value from fn', () => {
     const result = createRoot(() => {
-      const s = signal(99)
-      return s()
-    })
-    expect(result).toBe(99)
-  })
+      const s = signal(99);
+      return s();
+    });
+    expect(result).toBe(99);
+  });
 
   it('restores previous _allowReactiveCreation state after fn', () => {
     // After createRoot finishes, creating signals outside should warn again
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    createRoot(() => signal(1))
-    signal(2) // should warn (module scope)
-    expect(warnSpy).toHaveBeenCalled()
-    warnSpy.mockRestore()
-  })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    createRoot(() => signal(1));
+    signal(2); // should warn (module scope)
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 
   it('passes a dispose function to fn', () => {
-    let capturedDispose: (() => void) | null = null
+    let capturedDispose: (() => void) | null = null;
     createRoot((dispose) => {
-      capturedDispose = dispose
-    })
-    expect(typeof capturedDispose).toBe('function')
-  })
+      capturedDispose = dispose;
+    });
+    expect(typeof capturedDispose).toBe('function');
+  });
 
   it('dispose() stops effects created inside the root', () => {
-    let runCount = 0
-    let capturedDispose: (() => void) = () => {}
+    let runCount = 0;
+    let capturedDispose: () => void = () => {};
 
     createRoot((dispose) => {
-      capturedDispose = dispose
-      const s = signal(0)
-      effect(() => { runCount = s() + 1 })
+      capturedDispose = dispose;
+      const s = signal(0);
+      effect(() => {
+        runCount = s() + 1;
+      });
       // effect runs once immediately: runCount = 1
-      s.set(1) // runCount = 2
-      expect(runCount).toBe(2)
-    })
+      s.set(1); // runCount = 2
+      expect(runCount).toBe(2);
+    });
 
     // Dispose the root — all owned effects should be stopped
-    capturedDispose()
+    capturedDispose();
 
     // Now advance the signal — effect must NOT re-run
     createRoot(() => {
       // We need a signal from outside to advance it — but we already have it captured
       // above. This test verifies the effect is gone.
-    })
+    });
     // The effect subscribed to the signal node, which is now unsubscribed after dispose
     // Since we can't easily advance the same signal here, verify the effect node count
     // indirectly: calling dispose again must not throw
-    expect(() => capturedDispose()).not.toThrow()
-  })
+    expect(() => capturedDispose()).not.toThrow();
+  });
 
   it('dispose() stops effects and they do not re-run on signal change', () => {
-    let runCount = 0
-    let capturedDispose: (() => void) = () => {}
-    let capturedSig: ReturnType<typeof signal<number>> = signal(0)
+    let runCount = 0;
+    let capturedDispose: () => void = () => {};
+    let capturedSig: ReturnType<typeof signal<number>> = signal(0);
 
     createRoot((dispose) => {
-      capturedDispose = dispose
-      capturedSig = signal(0)
-      effect(() => { runCount++ ; capturedSig() })
-    })
+      capturedDispose = dispose;
+      capturedSig = signal(0);
+      effect(() => {
+        runCount++;
+        capturedSig();
+      });
+    });
     // effect ran once on init
-    expect(runCount).toBe(1)
-    capturedSig.set(1)
-    expect(runCount).toBe(2)
+    expect(runCount).toBe(1);
+    capturedSig.set(1);
+    expect(runCount).toBe(2);
 
     // Dispose the root
-    capturedDispose()
+    capturedDispose();
 
     // Signal changes must no longer trigger the effect
-    capturedSig.set(2)
-    expect(runCount).toBe(2) // still 2 — effect is disposed
-  })
+    capturedSig.set(2);
+    expect(runCount).toBe(2); // still 2 — effect is disposed
+  });
 
   it('dispose() also disposes computed nodes created inside the root', () => {
-    let capturedDispose: (() => void) = () => {}
-    let capturedSig: ReturnType<typeof signal<number>> = signal(0)
-    let capturedComputed: ReturnType<typeof computed<number>> = computed(() => 0)
-    let effectRuns = 0
+    let capturedDispose: () => void = () => {};
+    let capturedSig: ReturnType<typeof signal<number>> = signal(0);
+    let capturedComputed: ReturnType<typeof computed<number>> = computed(() => 0);
+    let effectRuns = 0;
 
     createRoot((dispose) => {
-      capturedDispose = dispose
-      capturedSig = signal(0)
-      capturedComputed = computed(() => capturedSig() * 2)
+      capturedDispose = dispose;
+      capturedSig = signal(0);
+      capturedComputed = computed(() => capturedSig() * 2);
       // Access the computed once to initialise it
-      effect(() => { capturedComputed(); effectRuns++ })
-    })
+      effect(() => {
+        capturedComputed();
+        effectRuns++;
+      });
+    });
 
-    expect(capturedComputed()).toBe(0)
-    capturedSig.set(5)
-    expect(capturedComputed()).toBe(10)
-    expect(effectRuns).toBe(2)
+    expect(capturedComputed()).toBe(0);
+    capturedSig.set(5);
+    expect(capturedComputed()).toBe(10);
+    expect(effectRuns).toBe(2);
 
-    capturedDispose()
+    capturedDispose();
 
     // After disposal the computed should no longer update
-    capturedSig.set(99)
-    expect(capturedComputed()).toBe(10) // stale — disposed
-    expect(effectRuns).toBe(2) // effect also disposed
-  })
-})
+    capturedSig.set(99);
+    expect(capturedComputed()).toBe(10); // stale — disposed
+    expect(effectRuns).toBe(2); // effect also disposed
+  });
+});
 
 // ---------------------------------------------------------------------------
 // withRenderIsolation
@@ -573,46 +581,54 @@ describe('createRoot', () => {
 
 describe('withRenderIsolation', () => {
   it('allows signal creation inside the block', () => {
-    let s!: ReturnType<typeof signal<number>>
+    let s!: ReturnType<typeof signal<number>>;
     withRenderIsolation(() => {
-      s = signal(42) // no warning
-    })
-    expect(s()).toBe(42)
-  })
+      s = signal(42); // no warning
+    });
+    expect(s()).toBe(42);
+  });
 
   it('restores _allowReactiveCreation after block', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    withRenderIsolation(() => { /* no-op */ })
-    signal(1) // should warn (back to module scope)
-    expect(warnSpy).toHaveBeenCalled()
-    warnSpy.mockRestore()
-  })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    withRenderIsolation(() => {
+      /* no-op */
+    });
+    signal(1); // should warn (back to module scope)
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 
   it('restores even when fn throws', () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    try { withRenderIsolation(() => { throw new Error('oops') }) } catch { /* expected */ }
-    signal(1)
-    expect(warnSpy).toHaveBeenCalled()
-    warnSpy.mockRestore()
-  })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      withRenderIsolation(() => {
+        throw new Error('oops');
+      });
+    } catch {
+      /* expected */
+    }
+    signal(1);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 
   it('isolates nested renders — inner does not affect outer scope stack', () => {
-    let innerScopeSize = -1
+    let innerScopeSize = -1;
     createRoot(() => {
-      const s = signal(0)
+      const s = signal(0);
       // Simulate: an outer scope is active during rendering
       createScope(() => {
-        s() // register s in the outer scope
+        s(); // register s in the outer scope
         // Now simulate a nested renderToString being called
         withRenderIsolation(() => {
-          innerScopeSize = 0 // isolation clears the scope stack
+          innerScopeSize = 0; // isolation clears the scope stack
           // After isolation, signal creation is allowed
-          const s2 = signal(10)
-          expect(s2()).toBe(10)
-        })
-      })
-    })
+          const s2 = signal(10);
+          expect(s2()).toBe(10);
+        });
+      });
+    });
     // Inner render should have seen an empty scope stack (isolation cleared it)
-    expect(innerScopeSize).toBe(0)
-  })
-})
+    expect(innerScopeSize).toBe(0);
+  });
+});

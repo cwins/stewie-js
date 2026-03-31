@@ -1,8 +1,8 @@
 // lazy.ts — lazily-loaded component factory
 
-import { signal } from './reactive.js'
-import { jsx } from './jsx-runtime.js'
-import type { JSXElement, Component } from './jsx-runtime.js'
+import { signal } from './reactive.js';
+import { jsx } from './jsx-runtime.js';
+import type { JSXElement, Component } from './jsx-runtime.js';
 
 /**
  * Sentinel type for the LazyBoundary descriptor.
@@ -10,14 +10,14 @@ import type { JSXElement, Component } from './jsx-runtime.js'
  * and emit a named <!--Lazy--> anchor (distinct from the <!---->  function-child
  * anchors) so the hydration cursor can tell them apart.
  */
-export const _LazyBoundary: unique symbol = Symbol('LazyBoundary')
+export const _LazyBoundary: unique symbol = Symbol('LazyBoundary');
 
 /** Internal props shape stored on a _LazyBoundary descriptor. */
 export interface _LazyBoundaryProps {
   /** Reactive accessor — returns true once the module has loaded. */
-  loaded: () => boolean
+  loaded: () => boolean;
   /** Renders the loaded component with the captured props. */
-  render: () => JSXElement | null
+  render: () => JSXElement | null;
 }
 
 /**
@@ -40,37 +40,33 @@ export interface _LazyBoundaryProps {
  * <Route path="/page" component={MyPage} />
  * ```
  */
-export function lazy<T extends Component>(
-  factory: () => Promise<T | { default: T }>,
-): T {
+export function lazy<T extends Component>(factory: () => Promise<T | { default: T }>): T {
   // Shared across all instances of this lazy component (one per lazy() call).
-  let loadedComponent: T | null = null
-  let loadPromise: Promise<void> | null = null
+  let loadedComponent: T | null = null;
+  let loadPromise: Promise<void> | null = null;
 
   function startLoad(): Promise<void> {
     if (!loadPromise) {
       loadPromise = factory().then((mod) => {
         loadedComponent =
-          mod !== null && typeof mod === 'object' && 'default' in mod
-            ? (mod as { default: T }).default
-            : (mod as T)
-      })
+          mod !== null && typeof mod === 'object' && 'default' in mod ? (mod as { default: T }).default : (mod as T);
+      });
     }
-    return loadPromise
+    return loadPromise;
   }
 
   function LazyComponent(props: Record<string, unknown>) {
     // Per-instance signal — starts true if already loaded (e.g. second
     // navigation to the same route). Signal creation is allowed here because
     // the dom-renderer calls component functions inside createRoot().
-    const loaded = signal(loadedComponent !== null)
+    const loaded = signal(loadedComponent !== null);
 
     if (!loadedComponent) {
       startLoad().then(() => {
         // Safe to call even if the component has been unmounted — the effect
         // was disposed so there are no subscribers, making this a no-op.
-        loaded.set(true)
-      })
+        loaded.set(true);
+      });
     }
 
     // Return a _LazyBoundary descriptor instead of a function thunk.
@@ -85,15 +81,15 @@ export function lazy<T extends Component>(
     // instead, which is uniquely named and correctly scoped.
     const lazyProps: _LazyBoundaryProps = {
       loaded: () => loaded(),
-      render: () => (loadedComponent ? jsx(loadedComponent as unknown as Component, props) : null),
-    }
+      render: () => (loadedComponent ? jsx(loadedComponent as unknown as Component, props) : null)
+    };
 
     return {
       type: _LazyBoundary as unknown,
       props: lazyProps as unknown as Record<string, unknown>,
-      key: null,
-    } as JSXElement
+      key: null
+    } as JSXElement;
   }
 
-  return LazyComponent as unknown as T
+  return LazyComponent as unknown as T;
 }

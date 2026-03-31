@@ -1,43 +1,43 @@
 // components.ts — route components
 
-import { jsx, inject, effect, signal, createRoot } from '@stewie-js/core'
-import type { JSXElement, Component } from '@stewie-js/core'
-import { createRouter, RouterContext } from './router.js'
-import type { Router, RouteGuard } from './router.js'
-import { matchRoute } from './matcher.js'
+import { jsx, inject, effect, signal, createRoot } from '@stewie-js/core';
+import type { JSXElement, Component } from '@stewie-js/core';
+import { createRouter, RouterContext } from './router.js';
+import type { Router, RouteGuard } from './router.js';
+import { matchRoute } from './matcher.js';
 
 export interface RouterProps {
   /** Starting URL — defaults to window.location on browser, '/' on server. */
-  initialUrl?: string
+  initialUrl?: string;
   /**
    * Rendered while the initial route's guard or data loader is resolving.
    * Defaults to null (nothing shown) if omitted.
    */
-  fallback?: JSXElement
+  fallback?: JSXElement;
   /** <Route> elements that define the route table. */
-  children: JSXElement | JSXElement[]
+  children: JSXElement | JSXElement[];
 }
 
 export interface RouteProps {
-  path: string
-  component: Component
+  path: string;
+  component: Component;
   /**
    * Guard called before this route is activated. Return `true` to allow
    * navigation, or a redirect URL string to redirect instead.
    */
-  beforeEnter?: RouteGuard
+  beforeEnter?: RouteGuard;
   /**
    * Async data loader. Called before the route component renders; result is
    * available via `useRouteData()` in the component tree.
    */
-  load?: () => Promise<unknown>
+  load?: () => Promise<unknown>;
 }
 
 export interface LinkProps {
-  to: string
-  replace?: boolean
-  children: JSXElement | JSXElement[] | string
-  class?: string
+  to: string;
+  replace?: boolean;
+  children: JSXElement | JSXElement[] | string;
+  class?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,10 +45,10 @@ export interface LinkProps {
 // ---------------------------------------------------------------------------
 
 interface RouteConfig {
-  path: string
-  component: Component
-  beforeEnter?: RouteGuard
-  load?: () => Promise<unknown>
+  path: string;
+  component: Component;
+  beforeEnter?: RouteGuard;
+  load?: () => Promise<unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,8 +57,8 @@ interface RouteConfig {
 
 /** Extract RouteConfig objects from the children of a Router. */
 function extractRoutes(children: JSXElement | JSXElement[] | undefined): RouteConfig[] {
-  if (!children) return []
-  const arr = Array.isArray(children) ? children : [children]
+  if (!children) return [];
+  const arr = Array.isArray(children) ? children : [children];
   return arr
     .filter((c): c is JSXElement => c !== null && c !== undefined && typeof c === 'object' && 'type' in c)
     .filter((c) => c.type === (Route as unknown))
@@ -66,23 +66,23 @@ function extractRoutes(children: JSXElement | JSXElement[] | undefined): RouteCo
       path: c.props.path as string,
       component: c.props.component as Component,
       beforeEnter: c.props.beforeEnter as RouteGuard | undefined,
-      load: c.props.load as (() => Promise<unknown>) | undefined,
-    }))
+      load: c.props.load as (() => Promise<unknown>) | undefined
+    }));
 }
 
 /** Find the best-matching route for a given pathname. */
 function findBestMatch(
   routes: RouteConfig[],
-  pathname: string,
+  pathname: string
 ): { component: Component; params: Record<string, string> } | null {
-  let best: { component: Component; params: Record<string, string>; score: number } | null = null
+  let best: { component: Component; params: Record<string, string>; score: number } | null = null;
   for (const route of routes) {
-    const result = matchRoute(route.path, pathname)
+    const result = matchRoute(route.path, pathname);
     if (result && (!best || result.score > best.score)) {
-      best = { component: route.component, params: result.params, score: result.score }
+      best = { component: route.component, params: result.params, score: result.score };
     }
   }
-  return best
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,46 +112,46 @@ export function Router(props: RouterProps): JSXElement {
     props.initialUrl ??
     (typeof globalThis.location !== 'undefined'
       ? globalThis.location.pathname + globalThis.location.search + globalThis.location.hash
-      : '/')
+      : '/');
 
-  const router = createRouter(initialUrl)
-  const routes = extractRoutes(props.children)
+  const router = createRouter(initialUrl);
+  const routes = extractRoutes(props.children);
 
   // Register routes so navigate() can resolve params
-  router._routes = routes
+  router._routes = routes;
 
   // Wire router teardown into component lifecycle. This effect has no reactive
   // dependencies so it runs once; its cleanup fires when the Router component
   // is unmounted (the dom-renderer disposes createRoot effects on unmount).
-  effect(() => () => router._dispose())
+  effect(() => () => router._dispose());
 
   // Determine whether the initial URL's matching route needs async resolution
   // (a beforeEnter guard or a load function). If so, hold off rendering the
   // matched content until those promises settle so the guard can redirect and
   // the loader can populate _routeData before anything is shown.
-  const initialPathname = initialUrl.split('?')[0].split('#')[0]
+  const initialPathname = initialUrl.split('?')[0].split('#')[0];
   const initialRouteNeedsAsync = routes.some((r) => {
-    const result = matchRoute(r.path, initialPathname)
-    return result !== null && (r.beforeEnter !== undefined || r.load !== undefined)
-  })
+    const result = matchRoute(r.path, initialPathname);
+    return result !== null && (r.beforeEnter !== undefined || r.load !== undefined);
+  });
 
-  let _ready!: ReturnType<typeof signal<boolean>>
+  let _ready!: ReturnType<typeof signal<boolean>>;
   createRoot(() => {
-    _ready = signal(!initialRouteNeedsAsync)
-  })
+    _ready = signal(!initialRouteNeedsAsync);
+  });
 
   if (initialRouteNeedsAsync) {
     // Fire-and-forget: run the guard / loader for the initial URL in the
     // background. When they resolve, flip _ready which triggers matchedContent
     // to re-evaluate and render the (possibly redirected) route.
-    ;(async () => {
-      const redirect = await router._runGuardsAndLoad(initialUrl)
+    (async () => {
+      const redirect = await router._runGuardsAndLoad(initialUrl);
       if (redirect !== null) {
         // Guard issued a redirect — navigate() runs the redirect's own guards too.
-        await router.navigate(redirect)
+        await router.navigate(redirect);
       }
-      _ready.set(true)
-    })()
+      _ready.set(true);
+    })();
   }
 
   // matchedContent is a reactive function — the DOM renderer wraps it in effect()
@@ -159,20 +159,20 @@ export function Router(props: RouterProps): JSXElement {
   // The SSR renderer calls it once synchronously.
   const matchedContent = (): JSXElement | null => {
     // Show fallback (or nothing) while the initial guard/loader is pending.
-    if (!_ready()) return props.fallback ?? null
-    const match = findBestMatch(routes, router.location.pathname)
-    if (!match) return null
+    if (!_ready()) return props.fallback ?? null;
+    const match = findBestMatch(routes, router.location.pathname);
+    if (!match) return null;
     // Keep params in sync with the current match
     if (JSON.stringify(router.location.params) !== JSON.stringify(match.params)) {
-      router.location.params = match.params
+      router.location.params = match.params;
     }
-    return jsx(match.component, { params: router.location.params })
-  }
+    return jsx(match.component, { params: router.location.params });
+  };
 
   return jsx(RouterContext.Provider as unknown as Component, {
     value: router,
-    children: matchedContent,
-  })
+    children: matchedContent
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -187,7 +187,7 @@ export function Router(props: RouterProps): JSXElement {
 export function Route(_props: RouteProps): JSXElement {
   // Route is only a configuration marker. Its JSXElement descriptor is read by
   // Router.extractRoutes() and never rendered directly.
-  return jsx('template', {})
+  return jsx('template', {});
 }
 
 // ---------------------------------------------------------------------------
@@ -204,30 +204,27 @@ export function Route(_props: RouteProps): JSXElement {
  */
 export function Link(props: LinkProps): JSXElement {
   // Capture router synchronously during component render (inject works here).
-  let router: Router | null = null
+  let router: Router | null = null;
   try {
-    router = inject(RouterContext)
+    router = inject(RouterContext);
   } catch {
     // No RouterContext — fall through, renders as plain anchor
   }
 
   const handleClick = router
     ? (e: Event) => {
-        if (
-          e instanceof MouseEvent &&
-          (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.button !== 0)
-        ) {
-          return // Let browser handle modifier+click
+        if (e instanceof MouseEvent && (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.button !== 0)) {
+          return; // Let browser handle modifier+click
         }
-        e.preventDefault()
-        router!.navigate({ to: props.to, replace: props.replace })
+        e.preventDefault();
+        router!.navigate({ to: props.to, replace: props.replace });
       }
-    : undefined
+    : undefined;
 
   return jsx('a', {
     href: props.to,
     class: props.class,
     children: props.children,
-    ...(handleClick ? { onClick: handleClick } : {}),
-  })
+    ...(handleClick ? { onClick: handleClick } : {})
+  });
 }

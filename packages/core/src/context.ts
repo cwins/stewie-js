@@ -1,6 +1,6 @@
 // context.ts — context system for @stewie-js/core
 
-import type { JSXElement } from './jsx-runtime.js'
+import type { JSXElement } from './jsx-runtime.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,28 +13,28 @@ import type { JSXElement } from './jsx-runtime.js'
  * entire subtree, safely crossing async boundaries in the SSR renderer.
  */
 export type ContextProvider<T> = ((props: { value: T; children?: unknown }) => JSXElement | null) & {
-  readonly _isProvider: true
-  readonly _context: Context<T>
-}
+  readonly _isProvider: true;
+  readonly _context: Context<T>;
+};
 
 export interface Context<T> {
-  readonly id: symbol
-  readonly defaultValue: T | undefined
+  readonly id: symbol;
+  readonly defaultValue: T | undefined;
   /** JSX-compatible provider: <ctx.Provider value={v}>{children}</ctx.Provider> */
-  readonly Provider: ContextProvider<T>
+  readonly Provider: ContextProvider<T>;
 }
 
 /**
  * A snapshot of the currently-active context values, keyed by context id.
  * Used by the SSR renderer to thread context across async render boundaries.
  */
-export type ContextSnapshot = ReadonlyMap<symbol, unknown>
+export type ContextSnapshot = ReadonlyMap<symbol, unknown>;
 
 // ---------------------------------------------------------------------------
 // Module-level provider stack: symbol -> stack of values
 // ---------------------------------------------------------------------------
 
-export const _providerStack: Map<symbol, unknown[]> = new Map()
+export const _providerStack: Map<symbol, unknown[]> = new Map();
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -42,7 +42,7 @@ export const _providerStack: Map<symbol, unknown[]> = new Map()
 
 export function createContext<T>(defaultValue?: T): Context<T> {
   // Forward reference so the Provider closure can reference ctx
-  let ctx!: Context<T>
+  let ctx!: Context<T>;
 
   // The Provider is callable so it satisfies JSX.Element type constraints.
   // Both renderers detect _isProvider BEFORE calling it as a function, so
@@ -50,42 +50,42 @@ export function createContext<T>(defaultValue?: T): Context<T> {
   const provider = function (props: { value: T; children?: unknown }): JSXElement | null {
     // Synchronous fallback: wrap children in a provide() scope.
     // Works only when the renderer processes children synchronously.
-    return provide(ctx, props.value, () => props.children) as JSXElement | null
-  } as ContextProvider<T>
-  ;(provider as { _isProvider: boolean })._isProvider = true
-  ;(provider as { _context: Context<T> })._context = null! // patched below
+    return provide(ctx, props.value, () => props.children) as JSXElement | null;
+  } as ContextProvider<T>;
+  (provider as { _isProvider: boolean })._isProvider = true;
+  (provider as { _context: Context<T> })._context = null!; // patched below
 
-  ctx = { id: Symbol(), defaultValue, Provider: provider }
-  ;(provider as { _context: Context<T> })._context = ctx
-  return ctx
+  ctx = { id: Symbol(), defaultValue, Provider: provider };
+  (provider as { _context: Context<T> })._context = ctx;
+  return ctx;
 }
 
 export function provide<T, R>(context: Context<T>, value: T, fn: () => R): R {
-  const { id } = context
-  let stack = _providerStack.get(id) as T[] | undefined
+  const { id } = context;
+  let stack = _providerStack.get(id) as T[] | undefined;
   if (!stack) {
-    stack = []
-    _providerStack.set(id, stack)
+    stack = [];
+    _providerStack.set(id, stack);
   }
-  stack.push(value)
+  stack.push(value);
   try {
-    return fn()
+    return fn();
   } finally {
-    stack.pop()
+    stack.pop();
     if (stack.length === 0) {
-      _providerStack.delete(id)
+      _providerStack.delete(id);
     }
   }
 }
 
 export function inject<T>(context: Context<T>): T {
-  const { id, defaultValue } = context
-  const stack = _providerStack.get(id) as T[] | undefined
+  const { id, defaultValue } = context;
+  const stack = _providerStack.get(id) as T[] | undefined;
   if (stack && stack.length > 0) {
-    return stack[stack.length - 1]
+    return stack[stack.length - 1];
   }
   if (defaultValue !== undefined) {
-    return defaultValue
+    return defaultValue;
   }
   // Check if context was created with an explicit undefined default or no default at all.
   // If defaultValue is undefined but was explicitly provided, we'd need extra tracking.
@@ -93,7 +93,7 @@ export function inject<T>(context: Context<T>): T {
   // as "no default" since createContext() with no arg sets it to undefined.
   // To distinguish, we check if the context object has a default set at construction.
   // Since we store undefined for "no default", we throw here.
-  throw new Error('[stewie] inject() called with no matching provider and no default value')
+  throw new Error('[stewie] inject() called with no matching provider and no default value');
 }
 
 // ---------------------------------------------------------------------------
@@ -105,11 +105,11 @@ export function inject<T>(context: Context<T>): T {
  * Returns a snapshot that can be restored with runWithContext().
  */
 export function captureContext(): ContextSnapshot {
-  const snap = new Map<symbol, unknown>()
+  const snap = new Map<symbol, unknown>();
   for (const [key, stack] of _providerStack) {
-    if (stack.length > 0) snap.set(key, stack[stack.length - 1])
+    if (stack.length > 0) snap.set(key, stack[stack.length - 1]);
   }
-  return snap
+  return snap;
 }
 
 /**
@@ -119,23 +119,23 @@ export function captureContext(): ContextSnapshot {
  * restored afterwards.
  */
 export function runWithContext<R>(snapshot: ContextSnapshot, fn: () => R): R {
-  const pushed: symbol[] = []
+  const pushed: symbol[] = [];
   for (const [id, value] of snapshot) {
-    let stack = _providerStack.get(id)
+    let stack = _providerStack.get(id);
     if (!stack) {
-      stack = []
-      _providerStack.set(id, stack)
+      stack = [];
+      _providerStack.set(id, stack);
     }
-    stack.push(value)
-    pushed.push(id)
+    stack.push(value);
+    pushed.push(id);
   }
   try {
-    return fn()
+    return fn();
   } finally {
     for (const id of pushed) {
-      const stack = _providerStack.get(id)!
-      stack.pop()
-      if (stack.length === 0) _providerStack.delete(id)
+      const stack = _providerStack.get(id)!;
+      stack.pop();
+      if (stack.length === 0) _providerStack.delete(id);
     }
   }
 }
@@ -146,21 +146,21 @@ export function runWithContext<R>(snapshot: ContextSnapshot, fn: () => R): R {
 
 /** Push a context value onto the stack. Must be paired with _popContext. */
 export function _pushContext<T>(context: Context<T>, value: T): void {
-  const { id } = context
-  let stack = _providerStack.get(id) as T[] | undefined
+  const { id } = context;
+  let stack = _providerStack.get(id) as T[] | undefined;
   if (!stack) {
-    stack = []
-    _providerStack.set(id, stack as unknown[])
+    stack = [];
+    _providerStack.set(id, stack as unknown[]);
   }
-  stack.push(value)
+  stack.push(value);
 }
 
 /** Pop the most recently pushed value for this context. */
 export function _popContext<T>(context: Context<T>): void {
-  const { id } = context
-  const stack = _providerStack.get(id) as T[] | undefined
+  const { id } = context;
+  const stack = _providerStack.get(id) as T[] | undefined;
   if (stack) {
-    stack.pop()
-    if (stack.length === 0) _providerStack.delete(id)
+    stack.pop();
+    if (stack.length === 0) _providerStack.delete(id);
   }
 }

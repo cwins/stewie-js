@@ -1,5 +1,5 @@
-import { BuildEnvironmentOptions, defineConfig } from 'vite'
-import { stewie } from '@stewie-js/vite'
+import { BuildEnvironmentOptions, defineConfig } from 'vite';
+import { stewie } from '@stewie-js/vite';
 
 const ssrBuild: BuildEnvironmentOptions = {
   manifest: true,
@@ -18,7 +18,7 @@ const ssrBuild: BuildEnvironmentOptions = {
       format: 'esm'
     }
   }
-}
+};
 
 const clientBuild: BuildEnvironmentOptions = {
   manifest: true,
@@ -36,11 +36,11 @@ const clientBuild: BuildEnvironmentOptions = {
       assetFileNames: 'static/assets/[name].[ext]'
     }
   }
-}
+};
 
 export default defineConfig((configEnv) => {
   return {
     plugins: [stewie()],
     build: configEnv.isSsrBuild ? ssrBuild : clientBuild
-  }
-})
+  };
+});

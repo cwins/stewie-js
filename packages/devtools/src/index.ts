@@ -1,44 +1,44 @@
 // @stewie-js/devtools — browser overlay devtools panel
 
-export const version = '0.4.0'
+export const version = '0.4.0';
 
-import { injectStyles } from './styles.js'
-import { createPanel, togglePanel, onNavigation, destroyPanel } from './panel.js'
-import { installHooks, uninstallHooks } from './hooks.js'
+import { injectStyles } from './styles.js';
+import { createPanel, togglePanel, onNavigation, destroyPanel } from './panel.js';
+import { installHooks, uninstallHooks } from './hooks.js';
 
-let initialized = false
-let rootEl: HTMLElement | null = null
-let keyHandler: ((e: KeyboardEvent) => void) | null = null
-let popstateHandler: (() => void) | null = null
-let navigateSuccessHandler: (() => void) | null = null
+let initialized = false;
+let rootEl: HTMLElement | null = null;
+let keyHandler: ((e: KeyboardEvent) => void) | null = null;
+let popstateHandler: (() => void) | null = null;
+let navigateSuccessHandler: (() => void) | null = null;
 
 // Patched history methods — kept so we can restore them on destroyDevtools
-let _origPushState: typeof history.pushState | null = null
-let _origReplaceState: typeof history.replaceState | null = null
+let _origPushState: typeof history.pushState | null = null;
+let _origReplaceState: typeof history.replaceState | null = null;
 
 function hasNavigationApi(): boolean {
-  return typeof (globalThis as Record<string, unknown>)['navigation'] !== 'undefined'
+  return typeof (globalThis as Record<string, unknown>)['navigation'] !== 'undefined';
 }
 
 export function initDevtools(): void {
-  if (initialized) return
-  initialized = true
+  if (initialized) return;
+  initialized = true;
 
-  injectStyles()
+  injectStyles();
 
-  rootEl = createPanel()
-  document.body.appendChild(rootEl)
+  rootEl = createPanel();
+  document.body.appendChild(rootEl);
 
-  installHooks()
+  installHooks();
 
   // Alt+D to toggle panel
   keyHandler = (e: KeyboardEvent) => {
     if (e.altKey && e.key === 'd') {
-      e.preventDefault()
-      togglePanel()
+      e.preventDefault();
+      togglePanel();
     }
-  }
-  document.addEventListener('keydown', keyHandler)
+  };
+  document.addEventListener('keydown', keyHandler);
 
   // Track navigation — strategy depends on what the browser supports:
   //   Navigation API (Chrome 102+): listen to 'navigatesuccess' which fires
@@ -47,59 +47,63 @@ export function initDevtools(): void {
   //     router calls after every programmatic navigation.
   //   Both paths: also keep popstate for browser back/forward.
   if (hasNavigationApi()) {
-    navigateSuccessHandler = () => onNavigation()
-    ;(globalThis as unknown as Record<string, EventTarget>)['navigation']
-      .addEventListener('navigatesuccess', navigateSuccessHandler)
+    navigateSuccessHandler = () => onNavigation();
+    (globalThis as unknown as Record<string, EventTarget>)['navigation'].addEventListener(
+      'navigatesuccess',
+      navigateSuccessHandler
+    );
   } else {
     // Patch pushState
-    _origPushState = history.pushState.bind(history)
+    _origPushState = history.pushState.bind(history);
     history.pushState = (...args: Parameters<typeof history.pushState>) => {
-      _origPushState!(...args)
-      onNavigation()
-    }
+      _origPushState!(...args);
+      onNavigation();
+    };
     // Patch replaceState
-    _origReplaceState = history.replaceState.bind(history)
+    _origReplaceState = history.replaceState.bind(history);
     history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
-      _origReplaceState!(...args)
-      onNavigation()
-    }
+      _origReplaceState!(...args);
+      onNavigation();
+    };
   }
 
   // Always keep popstate for browser back/forward
-  popstateHandler = () => onNavigation()
-  window.addEventListener('popstate', popstateHandler)
+  popstateHandler = () => onNavigation();
+  window.addEventListener('popstate', popstateHandler);
 }
 
 export function destroyDevtools(): void {
-  if (!initialized) return
-  initialized = false
+  if (!initialized) return;
+  initialized = false;
 
-  uninstallHooks()
+  uninstallHooks();
 
   if (rootEl) {
-    document.body.removeChild(rootEl)
-    rootEl = null
+    document.body.removeChild(rootEl);
+    rootEl = null;
   }
   if (keyHandler) {
-    document.removeEventListener('keydown', keyHandler)
-    keyHandler = null
+    document.removeEventListener('keydown', keyHandler);
+    keyHandler = null;
   }
   if (navigateSuccessHandler) {
-    ;(globalThis as unknown as Record<string, EventTarget>)['navigation']
-      .removeEventListener('navigatesuccess', navigateSuccessHandler)
-    navigateSuccessHandler = null
+    (globalThis as unknown as Record<string, EventTarget>)['navigation'].removeEventListener(
+      'navigatesuccess',
+      navigateSuccessHandler
+    );
+    navigateSuccessHandler = null;
   }
   if (_origPushState) {
-    history.pushState = _origPushState
-    _origPushState = null
+    history.pushState = _origPushState;
+    _origPushState = null;
   }
   if (_origReplaceState) {
-    history.replaceState = _origReplaceState
-    _origReplaceState = null
+    history.replaceState = _origReplaceState;
+    _origReplaceState = null;
   }
   if (popstateHandler) {
-    window.removeEventListener('popstate', popstateHandler)
-    popstateHandler = null
+    window.removeEventListener('popstate', popstateHandler);
+    popstateHandler = null;
   }
-  destroyPanel()
+  destroyPanel();
 }

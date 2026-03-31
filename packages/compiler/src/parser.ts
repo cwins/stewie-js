@@ -1,11 +1,11 @@
 // parser.ts — parse TSX source using TypeScript compiler API
 
-import ts from 'typescript'
+import ts from 'typescript';
 
 export interface ParsedFile {
-  sourceFile: ts.SourceFile
-  source: string
-  filename: string
+  sourceFile: ts.SourceFile;
+  source: string;
+  filename: string;
 }
 
 export function parseFile(source: string, filename: string): ParsedFile {
@@ -14,8 +14,8 @@ export function parseFile(source: string, filename: string): ParsedFile {
     source,
     ts.ScriptTarget.ES2022,
     /* setParentNodes */ true,
-    ts.ScriptKind.TSX,
-  )
+    ts.ScriptKind.TSX
+  );
 
-  return { sourceFile, source, filename }
+  return { sourceFile, source, filename };
 }

@@ -1,7 +1,7 @@
 {
   "name": "@stewie-js/compiler",
   "version": "0.4.0",
-  "description": "TSX compiler for the Stewie framework \u2014 transforms JSX into fine-grained reactive output",
+  "description": "TSX compiler for the Stewie framework — transforms JSX into fine-grained reactive output",
   "author": "",
   "license": "MIT",
   "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/compiler#readme",

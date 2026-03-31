@@ -9,13 +9,10 @@
  * in Cloudflare Workers, Deno Deploy, and similar edge runtimes, not just Node.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, extname } from 'node:path'
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, extname } from 'node:path';
 
-const EDGE_PACKAGES = [
-  'packages/server/src',
-  'packages/router/src',
-]
+const EDGE_PACKAGES = ['packages/server/src', 'packages/router/src'];
 
 // Node-specific modules that have no WinterCG equivalent. These must not appear
 // in edge-sensitive source files. Test files are excluded from this check.
@@ -38,46 +35,49 @@ const FORBIDDEN = [
   { pattern: /from ['"]net['"]/, label: "'net'" },
   { pattern: /from ['"]tls['"]/, label: "'tls'" },
   // require() calls
-  { pattern: /require\(['"](?:node:)?(?:fs|http|https|net|tls|dgram|child_process|worker_threads)['"]\)/, label: 'require(node-api)' },
-]
+  {
+    pattern: /require\(['"](?:node:)?(?:fs|http|https|net|tls|dgram|child_process|worker_threads)['"]\)/,
+    label: 'require(node-api)'
+  }
+];
 
 function scanDir(dir) {
-  let violations = []
+  let violations = [];
   for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
+    const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
-      violations = violations.concat(scanDir(full))
-      continue
+      violations = violations.concat(scanDir(full));
+      continue;
     }
-    const ext = extname(entry)
-    if (ext !== '.ts' && ext !== '.tsx') continue
-    if (entry.endsWith('.test.ts') || entry.endsWith('.test.tsx')) continue
+    const ext = extname(entry);
+    if (ext !== '.ts' && ext !== '.tsx') continue;
+    if (entry.endsWith('.test.ts') || entry.endsWith('.test.tsx')) continue;
 
-    const lines = readFileSync(full, 'utf8').split('\n')
+    const lines = readFileSync(full, 'utf8').split('\n');
     for (let i = 0; i < lines.length; i++) {
       for (const { pattern, label } of FORBIDDEN) {
         if (pattern.test(lines[i])) {
-          violations.push({ file: full, line: i + 1, text: lines[i].trim(), label })
+          violations.push({ file: full, line: i + 1, text: lines[i].trim(), label });
         }
       }
     }
   }
-  return violations
+  return violations;
 }
 
-let violations = []
+let violations = [];
 for (const pkg of EDGE_PACKAGES) {
-  violations = violations.concat(scanDir(pkg))
+  violations = violations.concat(scanDir(pkg));
 }
 
 if (violations.length > 0) {
   for (const v of violations) {
-    console.error(`[edge-check] ${v.file}:${v.line} — ${v.label}`)
-    console.error(`             ${v.text}`)
+    console.error(`[edge-check] ${v.file}:${v.line} — ${v.label}`);
+    console.error(`             ${v.text}`);
   }
-  console.error(`\n[edge-check] FAIL: ${violations.length} Node-only import(s) in edge-sensitive packages.`)
-  console.error('[edge-check] Use Web Platform equivalents (fetch, Request, Response, ReadableStream, URL, etc.)')
-  process.exit(1)
+  console.error(`\n[edge-check] FAIL: ${violations.length} Node-only import(s) in edge-sensitive packages.`);
+  console.error('[edge-check] Use Web Platform equivalents (fetch, Request, Response, ReadableStream, URL, etc.)');
+  process.exit(1);
 }
 
-console.log(`[edge-check] OK — no Node-only imports in edge-sensitive packages.`)
+console.log(`[edge-check] OK — no Node-only imports in edge-sensitive packages.`);

@@ -19,7 +19,7 @@
  * virtual DOM for static and lightly-dynamic subtrees.
  */
 
-import ts from 'typescript'
+import ts from 'typescript';
 
 // ---------------------------------------------------------------------------
 // Reactive expression detection
@@ -35,14 +35,8 @@ import ts from 'typescript'
  * Method calls and calls with arguments are excluded.
  */
 function containsNoArgCall(node: ts.Node): boolean {
-  if (
-    ts.isCallExpression(node) &&
-    ts.isIdentifier(node.expression) &&
-    node.arguments.length === 0
-  ) return true
-  return (
-    ts.forEachChild(node, (c): true | undefined => (containsNoArgCall(c) ? true : undefined)) === true
-  )
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length === 0) return true;
+  return ts.forEachChild(node, (c): true | undefined => (containsNoArgCall(c) ? true : undefined)) === true;
 }
 
 /**
@@ -52,14 +46,8 @@ function containsNoArgCall(node: ts.Node): boolean {
  * a plain text node.
  */
 function containsJsx(node: ts.Node): boolean {
-  if (
-    ts.isJsxElement(node) ||
-    ts.isJsxSelfClosingElement(node) ||
-    ts.isJsxFragment(node)
-  ) return true
-  return (
-    ts.forEachChild(node, (c): true | undefined => (containsJsx(c) ? true : undefined)) === true
-  )
+  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) return true;
+  return ts.forEachChild(node, (c): true | undefined => (containsJsx(c) ? true : undefined)) === true;
 }
 
 /**
@@ -72,10 +60,10 @@ function containsJsx(node: ts.Node): boolean {
  * - Expressions that contain zero-arg calls: `count() + 1`, `items().length`
  */
 function isReactive(expr: ts.Expression): boolean {
-  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return true
-  if (ts.isCallExpression(expr) && expr.arguments.length === 0) return true
-  if (containsNoArgCall(expr)) return true
-  return false
+  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) return true;
+  if (ts.isCallExpression(expr) && expr.arguments.length === 0) return true;
+  if (containsNoArgCall(expr)) return true;
+  return false;
 }
 
 /**
@@ -85,11 +73,11 @@ function isReactive(expr: ts.Expression): boolean {
  * reads) are returned as-is and evaluated inline inside the effect body.
  */
 function asGetter(expr: ts.Expression, sourceFile: ts.SourceFile): string {
-  const text = expr.getText(sourceFile)
+  const text = expr.getText(sourceFile);
   if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
-    return `(${text})()`
+    return `(${text})()`;
   }
-  return text // zero-arg call or complex expression — evaluated inline
+  return text; // zero-arg call or complex expression — evaluated inline
 }
 
 // ---------------------------------------------------------------------------
@@ -108,24 +96,24 @@ const PROP_MAP: Record<string, string> = {
   maxlength: 'maxLength',
   maxLength: 'maxLength',
   colspan: 'colSpan',
-  rowspan: 'rowSpan',
-}
+  rowspan: 'rowSpan'
+};
 
 function toDomProp(attrName: string): { prop: string; useSetAttribute: boolean } {
-  if (PROP_MAP[attrName]) return { prop: PROP_MAP[attrName], useSetAttribute: false }
+  if (PROP_MAP[attrName]) return { prop: PROP_MAP[attrName], useSetAttribute: false };
   // aria-*, data-*, custom attributes → setAttribute
   if (attrName.startsWith('aria-') || attrName.startsWith('data-') || attrName.includes('-')) {
-    return { prop: attrName, useSetAttribute: true }
+    return { prop: attrName, useSetAttribute: true };
   }
-  return { prop: attrName, useSetAttribute: false }
+  return { prop: attrName, useSetAttribute: false };
 }
 
 function isEventHandler(attrName: string): boolean {
-  return attrName.length > 2 && /^on[A-Z]/.test(attrName)
+  return attrName.length > 2 && /^on[A-Z]/.test(attrName);
 }
 
 function eventName(attrName: string): string {
-  return attrName.slice(2).toLowerCase()
+  return attrName.slice(2).toLowerCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -142,43 +130,43 @@ function eventName(attrName: string): string {
  */
 export function canTransformJsx(
   node: ts.JsxChild | ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
-  sourceFile: ts.SourceFile,
+  sourceFile: ts.SourceFile
 ): boolean {
-  if (ts.isJsxText(node)) return true
+  if (ts.isJsxText(node)) return true;
   if (ts.isJsxExpression(node)) {
     // Safe only if the expression doesn't contain JSX — expressions like
     // items.map(item => <li>{item}</li>) return an array of nodes, which
     // cannot be emitted as a plain text node.
-    if (node.expression && containsJsx(node.expression)) return false
-    return true
+    if (node.expression && containsJsx(node.expression)) return false;
+    return true;
   }
 
   if (ts.isJsxFragment(node)) {
     // Fragments at the top level — only transform if all children are native
-    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile))
+    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile));
   }
 
-  const opening = ts.isJsxElement(node) ? node.openingElement : node // self-closing
-  if (!ts.isJsxOpeningElement(opening) && !ts.isJsxSelfClosingElement(opening)) return false
+  const opening = ts.isJsxElement(node) ? node.openingElement : node; // self-closing
+  if (!ts.isJsxOpeningElement(opening) && !ts.isJsxSelfClosingElement(opening)) return false;
 
-  const tagName = opening.tagName.getText(sourceFile)
-  if (!/^[a-z]/.test(tagName)) return false // Component — cannot transform
+  const tagName = opening.tagName.getText(sourceFile);
+  if (!/^[a-z]/.test(tagName)) return false; // Component — cannot transform
 
   // Check for spread attributes or $prop attributes (handled by the $prop transformer)
   for (const attr of opening.attributes.properties) {
-    if (ts.isJsxSpreadAttribute(attr)) return false
+    if (ts.isJsxSpreadAttribute(attr)) return false;
     if (ts.isJsxAttribute(attr)) {
-      const name = ts.isIdentifier(attr.name) ? attr.name.text : attr.name.getText(sourceFile)
-      if (name.startsWith('$')) return false
+      const name = ts.isIdentifier(attr.name) ? attr.name.text : attr.name.getText(sourceFile);
+      if (name.startsWith('$')) return false;
     }
   }
 
   // Recurse into children
   if (ts.isJsxElement(node)) {
-    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile))
+    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile));
   }
 
-  return true
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,14 +174,14 @@ export function canTransformJsx(
 // ---------------------------------------------------------------------------
 
 interface Counter {
-  n: number
+  n: number;
 }
 
 interface EmitResult {
   /** Lines of setup code (variable declarations, effect() calls, appendChild calls). */
-  lines: string[]
+  lines: string[];
   /** The variable name that holds the root DOM element/node. */
-  varName: string
+  varName: string;
 }
 
 /**
@@ -204,207 +192,197 @@ interface EmitResult {
 export function emitJsxToDom(
   node: ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
   sourceFile: ts.SourceFile,
-  counter: Counter,
+  counter: Counter
 ): EmitResult {
   if (ts.isJsxFragment(node)) {
-    return emitFragment(Array.from(node.children), sourceFile, counter)
+    return emitFragment(Array.from(node.children), sourceFile, counter);
   }
-  return emitElement(node, sourceFile, counter)
+  return emitElement(node, sourceFile, counter);
 }
 
-function emitFragment(
-  children: ts.JsxChild[],
-  sourceFile: ts.SourceFile,
-  counter: Counter,
-): EmitResult {
-  const fragVar = `__frag${counter.n++}`
-  const lines: string[] = [`const ${fragVar} = document.createDocumentFragment()`]
+function emitFragment(children: ts.JsxChild[], sourceFile: ts.SourceFile, counter: Counter): EmitResult {
+  const fragVar = `__frag${counter.n++}`;
+  const lines: string[] = [`const ${fragVar} = document.createDocumentFragment()`];
 
   for (const child of children) {
-    const childResult = emitChild(child, sourceFile, counter)
+    const childResult = emitChild(child, sourceFile, counter);
     if (childResult) {
-      lines.push(...childResult.lines)
-      lines.push(`${fragVar}.appendChild(${childResult.varName})`)
+      lines.push(...childResult.lines);
+      lines.push(`${fragVar}.appendChild(${childResult.varName})`);
     }
   }
-  return { lines, varName: fragVar }
+  return { lines, varName: fragVar };
 }
 
 function emitElement(
   node: ts.JsxElement | ts.JsxSelfClosingElement,
   sourceFile: ts.SourceFile,
-  counter: Counter,
+  counter: Counter
 ): EmitResult {
-  const opening = ts.isJsxElement(node) ? node.openingElement : node
-  const tagName = opening.tagName.getText(sourceFile)
-  const elVar = `__el${counter.n++}`
-  const lines: string[] = []
+  const opening = ts.isJsxElement(node) ? node.openingElement : node;
+  const tagName = opening.tagName.getText(sourceFile);
+  const elVar = `__el${counter.n++}`;
+  const lines: string[] = [];
   // ref callbacks are deferred until after all attributes and children are set
-  const refLines: string[] = []
+  const refLines: string[] = [];
 
-  lines.push(`const ${elVar} = document.createElement(${JSON.stringify(tagName)})`)
+  lines.push(`const ${elVar} = document.createElement(${JSON.stringify(tagName)})`);
 
   // Emit attributes
   for (const attr of opening.attributes.properties) {
-    if (!ts.isJsxAttribute(attr)) continue
+    if (!ts.isJsxAttribute(attr)) continue;
 
-    const attrName = ts.isIdentifier(attr.name) ? attr.name.text : attr.name.getText(sourceFile)
+    const attrName = ts.isIdentifier(attr.name) ? attr.name.text : attr.name.getText(sourceFile);
 
     // key — framework hint, no DOM output
-    if (attrName === 'key') continue
+    if (attrName === 'key') continue;
 
     // ref — callback ref: ref={el => ...}  or  ref={myRef}
     // Deferred to after element setup so all attributes are set first.
     // Stored and emitted at the end of this function.
     if (attrName === 'ref') {
       if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-        const exprText = attr.initializer.expression.getText(sourceFile)
+        const exprText = attr.initializer.expression.getText(sourceFile);
         // ref callback / ref object — emit after attributes
         refLines.push(
           ts.isArrowFunction(attr.initializer.expression) || ts.isFunctionExpression(attr.initializer.expression)
             ? `(${exprText})(${elVar})`
-            : `(typeof ${exprText} === 'function' ? ${exprText}(${elVar}) : (${exprText}.current = ${elVar}))`,
-        )
+            : `(typeof ${exprText} === 'function' ? ${exprText}(${elVar}) : (${exprText}.current = ${elVar}))`
+        );
       }
-      continue
+      continue;
     }
 
     if (!attr.initializer) {
       // Boolean attribute (e.g. `disabled`)
-      lines.push(`${elVar}.setAttribute(${JSON.stringify(attrName)}, "")`)
-      continue
+      lines.push(`${elVar}.setAttribute(${JSON.stringify(attrName)}, "")`);
+      continue;
     }
 
     if (ts.isStringLiteral(attr.initializer)) {
       // Static string value
-      const { prop, useSetAttribute } = toDomProp(attrName)
+      const { prop, useSetAttribute } = toDomProp(attrName);
       if (useSetAttribute) {
-        lines.push(`${elVar}.setAttribute(${JSON.stringify(attrName)}, ${JSON.stringify(attr.initializer.text)})`)
+        lines.push(`${elVar}.setAttribute(${JSON.stringify(attrName)}, ${JSON.stringify(attr.initializer.text)})`);
       } else {
-        lines.push(`${elVar}.${prop} = ${JSON.stringify(attr.initializer.text)}`)
+        lines.push(`${elVar}.${prop} = ${JSON.stringify(attr.initializer.text)}`);
       }
-      continue
+      continue;
     }
 
     if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-      const expr = attr.initializer.expression
+      const expr = attr.initializer.expression;
 
       // Event handler
       if (isEventHandler(attrName)) {
-        const evtName = eventName(attrName)
-        const exprText = expr.getText(sourceFile)
-        lines.push(`${elVar}.addEventListener(${JSON.stringify(evtName)}, ${exprText})`)
-        continue
+        const evtName = eventName(attrName);
+        const exprText = expr.getText(sourceFile);
+        lines.push(`${elVar}.addEventListener(${JSON.stringify(evtName)}, ${exprText})`);
+        continue;
       }
 
       // style — object or reactive object
       if (attrName === 'style') {
         if (isReactive(expr)) {
-          const getter = asGetter(expr, sourceFile)
-          lines.push(`effect(() => { Object.assign(${elVar}.style, ${getter}) })`)
+          const getter = asGetter(expr, sourceFile);
+          lines.push(`effect(() => { Object.assign(${elVar}.style, ${getter}) })`);
         } else {
-          const exprText = expr.getText(sourceFile)
-          lines.push(`Object.assign(${elVar}.style, ${exprText})`)
+          const exprText = expr.getText(sourceFile);
+          lines.push(`Object.assign(${elVar}.style, ${exprText})`);
         }
-        continue
+        continue;
       }
 
-      const { prop, useSetAttribute } = toDomProp(attrName)
+      const { prop, useSetAttribute } = toDomProp(attrName);
 
       if (isReactive(expr)) {
-        const getter = asGetter(expr, sourceFile)
+        const getter = asGetter(expr, sourceFile);
         if (useSetAttribute) {
-          lines.push(
-            `effect(() => { ${elVar}.setAttribute(${JSON.stringify(attrName)}, String(${getter})) })`,
-          )
+          lines.push(`effect(() => { ${elVar}.setAttribute(${JSON.stringify(attrName)}, String(${getter})) })`);
         } else {
-          lines.push(`effect(() => { ${elVar}.${prop} = ${getter} })`)
+          lines.push(`effect(() => { ${elVar}.${prop} = ${getter} })`);
         }
       } else {
         // Static expression
-        const exprText = expr.getText(sourceFile)
+        const exprText = expr.getText(sourceFile);
         if (useSetAttribute) {
-          lines.push(`${elVar}.setAttribute(${JSON.stringify(attrName)}, String(${exprText}))`)
+          lines.push(`${elVar}.setAttribute(${JSON.stringify(attrName)}, String(${exprText}))`);
         } else {
-          lines.push(`${elVar}.${prop} = ${exprText}`)
+          lines.push(`${elVar}.${prop} = ${exprText}`);
         }
       }
     }
   }
 
   // Emit children
-  const children = ts.isJsxElement(node) ? Array.from(node.children) : []
+  const children = ts.isJsxElement(node) ? Array.from(node.children) : [];
   for (const child of children) {
-    const childResult = emitChild(child, sourceFile, counter)
+    const childResult = emitChild(child, sourceFile, counter);
     if (childResult) {
-      lines.push(...childResult.lines)
-      lines.push(`${elVar}.appendChild(${childResult.varName})`)
+      lines.push(...childResult.lines);
+      lines.push(`${elVar}.appendChild(${childResult.varName})`);
     }
   }
 
   // Emit ref callbacks after element is fully set up
   if (refLines.length > 0) {
-    lines.push(...refLines)
+    lines.push(...refLines);
   }
 
-  return { lines, varName: elVar }
+  return { lines, varName: elVar };
 }
 
-function emitChild(
-  child: ts.JsxChild,
-  sourceFile: ts.SourceFile,
-  counter: Counter,
-): EmitResult | null {
+function emitChild(child: ts.JsxChild, sourceFile: ts.SourceFile, counter: Counter): EmitResult | null {
   // Text node
   if (ts.isJsxText(child)) {
-    const text = child.text
+    const text = child.text;
     // Trim whitespace-only text between elements
-    const trimmed = text.trim()
-    if (!trimmed) return null
-    const tVar = `__t${counter.n++}`
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    const tVar = `__t${counter.n++}`;
     return {
       lines: [`const ${tVar} = document.createTextNode(${JSON.stringify(trimmed)})`],
-      varName: tVar,
-    }
+      varName: tVar
+    };
   }
 
   // Expression child: {expr}
   if (ts.isJsxExpression(child)) {
-    if (!child.expression) return null
+    if (!child.expression) return null;
 
-    const expr = child.expression
+    const expr = child.expression;
 
     if (isReactive(expr)) {
-      const tVar = `__t${counter.n++}`
-      const getter = asGetter(expr, sourceFile)
+      const tVar = `__t${counter.n++}`;
+      const getter = asGetter(expr, sourceFile);
       return {
         lines: [
           `const ${tVar} = document.createTextNode('')`,
-          `effect(() => { ${tVar}.nodeValue = String(${getter}) })`,
+          `effect(() => { ${tVar}.nodeValue = String(${getter}) })`
         ],
-        varName: tVar,
-      }
+        varName: tVar
+      };
     }
 
     // Static expression — create text node once
-    const tVar = `__t${counter.n++}`
-    const exprText = expr.getText(sourceFile)
+    const tVar = `__t${counter.n++}`;
+    const exprText = expr.getText(sourceFile);
     return {
       lines: [`const ${tVar} = document.createTextNode(String(${exprText}))`],
-      varName: tVar,
-    }
+      varName: tVar
+    };
   }
 
   // Nested JSX element (only native elements reach here — ensured by canTransformJsx)
   if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
-    return emitElement(child, sourceFile, counter)
+    return emitElement(child, sourceFile, counter);
   }
 
   if (ts.isJsxFragment(child)) {
-    return emitFragment(Array.from(child.children), sourceFile, counter)
+    return emitFragment(Array.from(child.children), sourceFile, counter);
   }
 
-  return null
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -413,11 +391,11 @@ function emitChild(
 
 export interface JsxReplacement {
   /** Character offset start in the original source. */
-  start: number
+  start: number;
   /** Character offset end (exclusive). */
-  end: number
+  end: number;
   /** Replacement IIFE code. */
-  replacement: string
+  replacement: string;
 }
 
 /**
@@ -426,8 +404,8 @@ export interface JsxReplacement {
  * reverse source order (so applying them doesn't shift earlier offsets).
  */
 export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[] {
-  const replacements: JsxReplacement[] = []
-  const counter: Counter = { n: 0 }
+  const replacements: JsxReplacement[] = [];
+  const counter: Counter = { n: 0 };
 
   /**
    * @param insideReactiveFn - true when we are inside an arrow/function
@@ -448,37 +426,32 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
     // Skipped patterns:
     //   <div>{<span/>}</div>           grandparent is JSX (insideJsx)
     //   <For>{item => <div/>}</For>    inside a render-prop (insideReactiveFn)
-    if (
-      ts.isJsxElement(node) ||
-      ts.isJsxSelfClosingElement(node) ||
-      ts.isJsxFragment(node)
-    ) {
-      const parent = node.parent
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) {
+      const parent = node.parent;
       const insideJsx =
         ts.isJsxElement(parent) ||
         ts.isJsxFragment(parent) ||
         // JsxExpression ({...}) whose grandparent is JSX
-        (ts.isJsxExpression(parent) &&
-          (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)))
+        (ts.isJsxExpression(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)));
 
       if (!insideJsx && !insideReactiveFn && canTransformJsx(node, sourceFile)) {
         const result = emitJsxToDom(
           node as ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
           sourceFile,
-          counter,
-        )
+          counter
+        );
 
-        const setupCode = result.lines.join('\n    ')
-        const iife = `(() => {\n    ${setupCode}\n    return ${result.varName}\n  })()`
+        const setupCode = result.lines.join('\n    ');
+        const iife = `(() => {\n    ${setupCode}\n    return ${result.varName}\n  })()`;
 
         replacements.push({
           start: node.getStart(sourceFile),
           end: node.getEnd(),
-          replacement: iife,
-        })
+          replacement: iife
+        });
 
         // Don't recurse into children — we've already emitted them inline
-        return
+        return;
       }
     }
 
@@ -486,22 +459,19 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
     // (i.e. a render-prop: <For>{item => <div/>}</For>), mark insideReactiveFn
     // so any JSX inside it is left untransformed and handled by the JSX runtime.
     if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
-      const parent = node.parent
-      if (
-        ts.isJsxExpression(parent) &&
-        (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent))
-      ) {
-        ts.forEachChild(node, (child) => visit(child, true))
-        return
+      const parent = node.parent;
+      if (ts.isJsxExpression(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent))) {
+        ts.forEachChild(node, (child) => visit(child, true));
+        return;
       }
     }
 
-    ts.forEachChild(node, (child) => visit(child, insideReactiveFn))
+    ts.forEachChild(node, (child) => visit(child, insideReactiveFn));
   }
 
-  visit(sourceFile)
+  visit(sourceFile);
 
   // Sort in reverse order so replacements don't shift each other's offsets
-  replacements.sort((a, b) => b.start - a.start)
-  return replacements
+  replacements.sort((a, b) => b.start - a.start);
+  return replacements;
 }

@@ -12,11 +12,11 @@
 
 export class HydrationCursor {
   /** Index into _nodes — how many nodes have been consumed so far. */
-  idx = 0
-  private _nodes: ChildNode[]
+  idx = 0;
+  private _nodes: ChildNode[];
 
   constructor(nodes: ArrayLike<ChildNode>) {
-    this._nodes = Array.from(nodes)
+    this._nodes = Array.from(nodes);
   }
 
   // ---------------------------------------------------------------------------
@@ -26,11 +26,11 @@ export class HydrationCursor {
   /** Skip past whitespace-only text nodes (browser inserts them around elements). */
   private _skipWs(): void {
     while (this.idx < this._nodes.length) {
-      const n = this._nodes[this.idx]
+      const n = this._nodes[this.idx];
       if (n.nodeType === 3 /* TEXT_NODE */ && (n as Text).data.trim() === '') {
-        this.idx++
+        this.idx++;
       } else {
-        break
+        break;
       }
     }
   }
@@ -44,17 +44,13 @@ export class HydrationCursor {
    * Advances the cursor. Returns `null` on a tag mismatch (hydration fallback).
    */
   claimElement(tag: string): Element | null {
-    this._skipWs()
-    const n = this._nodes[this.idx]
-    if (
-      n &&
-      n.nodeType === 1 /* ELEMENT_NODE */ &&
-      (n as Element).tagName.toLowerCase() === tag.toLowerCase()
-    ) {
-      this.idx++
-      return n as Element
+    this._skipWs();
+    const n = this._nodes[this.idx];
+    if (n && n.nodeType === 1 /* ELEMENT_NODE */ && (n as Element).tagName.toLowerCase() === tag.toLowerCase()) {
+      this.idx++;
+      return n as Element;
     }
-    return null
+    return null;
   }
 
   /**
@@ -62,12 +58,12 @@ export class HydrationCursor {
    * Returns `null` if the next node is not a text node.
    */
   claimText(): Text | null {
-    const n = this._nodes[this.idx]
+    const n = this._nodes[this.idx];
     if (n && n.nodeType === 3 /* TEXT_NODE */) {
-      this.idx++
-      return n as Text
+      this.idx++;
+      return n as Text;
     }
-    return null
+    return null;
   }
 
   /**
@@ -78,22 +74,17 @@ export class HydrationCursor {
    * Returns `null` if the marker comment is not found — the caller should
    * fall back to a fresh client render for this region.
    */
-  collectUntilComment(
-    marker: string,
-  ): { contentNodes: ChildNode[]; anchor: Comment } | null {
-    const contentNodes: ChildNode[] = []
+  collectUntilComment(marker: string): { contentNodes: ChildNode[]; anchor: Comment } | null {
+    const contentNodes: ChildNode[] = [];
     for (let i = this.idx; i < this._nodes.length; i++) {
-      const n = this._nodes[i]
-      if (
-        n.nodeType === 8 /* COMMENT_NODE */ &&
-        (n as Comment).data === marker
-      ) {
-        this.idx = i + 1
-        return { contentNodes, anchor: n as Comment }
+      const n = this._nodes[i];
+      if (n.nodeType === 8 /* COMMENT_NODE */ && (n as Comment).data === marker) {
+        this.idx = i + 1;
+        return { contentNodes, anchor: n as Comment };
       }
-      contentNodes.push(n)
+      contentNodes.push(n);
     }
-    return null
+    return null;
   }
 
   /**
@@ -101,6 +92,6 @@ export class HydrationCursor {
    * element's children.
    */
   childCursor(el: Element): HydrationCursor {
-    return new HydrationCursor(el.childNodes)
+    return new HydrationCursor(el.childNodes);
   }
 }

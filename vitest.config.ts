@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config'
-import { resolve } from 'path'
+import { defineConfig } from 'vitest/config';
+import { resolve } from 'path';
 
 export default defineConfig({
   resolve: {
@@ -14,19 +14,17 @@ export default defineConfig({
       '@stewie-js/router': resolve(__dirname, 'packages/router/src/index.ts'),
       '@stewie-js/adapter-node': resolve(__dirname, 'packages/adapter-node/src/index.ts'),
       '@stewie-js/testing': resolve(__dirname, 'packages/testing/src/index.ts'),
-      '@stewie-js/devtools': resolve(__dirname, 'packages/devtools/src/index.ts'),
-    },
+      '@stewie-js/devtools': resolve(__dirname, 'packages/devtools/src/index.ts')
+    }
   },
   test: {
     include: [
       'packages/*/src/**/*.test.ts',
       'packages/*/src/**/*.test.tsx',
       'examples/*/src/**/*.test.ts',
-      'examples/*/src/**/*.test.tsx',
+      'examples/*/src/**/*.test.tsx'
     ],
     environment: 'node',
-    globalSetup: [
-      'examples/ssr-and-routing/vitest.setup.ts'
-    ]
-  },
-})
+    globalSetup: ['examples/ssr-and-routing/vitest.setup.ts']
+  }
+});

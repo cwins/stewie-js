@@ -1,58 +1,58 @@
 // analyzer.ts — walk the AST and identify reactive patterns
 
-import ts from 'typescript'
-import type { ParsedFile } from './parser.js'
+import ts from 'typescript';
+import type { ParsedFile } from './parser.js';
 
 export interface ReactiveAttribute {
-  elementName: string
-  attributeName: string
-  isReactive: boolean
-  line: number
-  column: number
+  elementName: string;
+  attributeName: string;
+  isReactive: boolean;
+  line: number;
+  column: number;
 }
 
 export interface TwoWayBinding {
-  elementName: string
-  propName: string // e.g. 'value' from '$value'
-  signalExpression: string // the expression passed to $value={...}
-  hasReadonly: boolean
-  hasDisabled: boolean
-  hasConflictingValue: boolean // has both $value and value
-  line: number
-  column: number
+  elementName: string;
+  propName: string; // e.g. 'value' from '$value'
+  signalExpression: string; // the expression passed to $value={...}
+  hasReadonly: boolean;
+  hasDisabled: boolean;
+  hasConflictingValue: boolean; // has both $value and value
+  line: number;
+  column: number;
 }
 
 export interface ModuleScopeCall {
-  callee: string // 'signal' | 'store' | 'computed' | 'effect'
-  line: number
-  column: number
+  callee: string; // 'signal' | 'store' | 'computed' | 'effect'
+  line: number;
+  column: number;
 }
 
 export interface BindingConflict {
-  type: 'conflict' | 'readonly' | 'disabled'
-  propName: string
-  line: number
-  column: number
+  type: 'conflict' | 'readonly' | 'disabled';
+  propName: string;
+  line: number;
+  column: number;
 }
 
 export interface AutoWrapCandidate {
   /** Character offset of the opening `{` in the source */
-  start: number
+  start: number;
   /** Character offset just past the closing `}` */
-  end: number
+  end: number;
   /** Expression text without the surrounding braces */
-  expressionText: string
+  expressionText: string;
 }
 
 export interface AnalysisResult {
-  reactiveAttributes: ReactiveAttribute[]
-  twoWayBindings: TwoWayBinding[]
-  moduleScopeReactiveCalls: ModuleScopeCall[]
-  bindingConflicts: BindingConflict[]
-  autoWrapCandidates: AutoWrapCandidate[]
+  reactiveAttributes: ReactiveAttribute[];
+  twoWayBindings: TwoWayBinding[];
+  moduleScopeReactiveCalls: ModuleScopeCall[];
+  bindingConflicts: BindingConflict[];
+  autoWrapCandidates: AutoWrapCandidate[];
 }
 
-const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect'])
+const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect']);
 
 /**
  * Returns true if `node` or any descendant is a no-arg call to a simple
@@ -60,67 +60,54 @@ const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect'])
  * Method calls (`obj.method()`) and calls with arguments are excluded.
  */
 function containsNoArgIdentifierCall(node: ts.Node): boolean {
-  if (
-    ts.isCallExpression(node) &&
-    ts.isIdentifier(node.expression) &&
-    node.arguments.length === 0
-  ) {
-    return true
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length === 0) {
+    return true;
   }
   return (
-    ts.forEachChild(node, (child): true | undefined =>
-      containsNoArgIdentifierCall(child) ? true : undefined,
-    ) === true
-  )
+    ts.forEachChild(node, (child): true | undefined => (containsNoArgIdentifierCall(child) ? true : undefined)) === true
+  );
 }
 
 function isIntrinsicElement(name: string): boolean {
-  return /^[a-z]/.test(name)
+  return /^[a-z]/.test(name);
 }
 
-function getLineAndColumn(
-  node: ts.Node,
-  sourceFile: ts.SourceFile,
-): { line: number; column: number } {
-  const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
-  return { line: line + 1, column: character + 1 }
+function getLineAndColumn(node: ts.Node, sourceFile: ts.SourceFile): { line: number; column: number } {
+  const { line, character } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+  return { line: line + 1, column: character + 1 };
 }
 
 function isReactiveExpression(expr: ts.Expression): boolean {
   // Arrow function or function expression => reactive
   if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
-    return true
+    return true;
   }
   // Call expression with no args => likely a signal read (e.g. mySignal())
   if (ts.isCallExpression(expr) && expr.arguments.length === 0) {
-    return true
+    return true;
   }
-  return false
+  return false;
 }
 
 function getJsxElementName(node: ts.JsxOpeningLikeElement): string {
-  const tagName = node.tagName
-  return tagName.getText()
+  const tagName = node.tagName;
+  return tagName.getText();
 }
 
 export function analyzeFile(parsed: ParsedFile): AnalysisResult {
-  const { sourceFile } = parsed
+  const { sourceFile } = parsed;
 
-  const reactiveAttributes: ReactiveAttribute[] = []
-  const twoWayBindings: TwoWayBinding[] = []
-  const moduleScopeReactiveCalls: ModuleScopeCall[] = []
-  const bindingConflicts: BindingConflict[] = []
-  const autoWrapCandidates: AutoWrapCandidate[] = []
+  const reactiveAttributes: ReactiveAttribute[] = [];
+  const twoWayBindings: TwoWayBinding[] = [];
+  const moduleScopeReactiveCalls: ModuleScopeCall[] = [];
+  const bindingConflicts: BindingConflict[] = [];
+  const autoWrapCandidates: AutoWrapCandidate[] = [];
 
   function visitModuleScope(node: ts.Node): void {
     // Check for reactive calls at module scope
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      REACTIVE_CALLEES.has(node.expression.text)
-    ) {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && REACTIVE_CALLEES.has(node.expression.text)) {
       // Walk up to find the statement, which should be a direct child of SourceFile
-      let current: ts.Node = node
+      let current: ts.Node = node;
       while (current.parent && current.parent !== sourceFile) {
         // If we cross a function boundary, it's not module scope
         if (
@@ -132,77 +119,73 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
           ts.isClassExpression(current.parent) ||
           ts.isBlock(current.parent)
         ) {
-          return
+          return;
         }
-        current = current.parent
+        current = current.parent;
       }
 
       // current.parent === sourceFile => top-level statement
       if (current.parent === sourceFile) {
-        const pos = getLineAndColumn(node, sourceFile)
+        const pos = getLineAndColumn(node, sourceFile);
         moduleScopeReactiveCalls.push({
           callee: (node.expression as ts.Identifier).text,
           line: pos.line,
-          column: pos.column,
-        })
+          column: pos.column
+        });
       }
     }
   }
 
   function visitJsxChildren(node: ts.JsxElement): void {
-    const tagName = node.openingElement.tagName.getText()
-    if (!isIntrinsicElement(tagName)) return
+    const tagName = node.openingElement.tagName.getText();
+    if (!isIntrinsicElement(tagName)) return;
 
     for (const child of node.children) {
-      if (!ts.isJsxExpression(child) || !child.expression) continue
-      const expr = child.expression
-      if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) continue
-      if (!containsNoArgIdentifierCall(expr)) continue
+      if (!ts.isJsxExpression(child) || !child.expression) continue;
+      const expr = child.expression;
+      if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) continue;
+      if (!containsNoArgIdentifierCall(expr)) continue;
 
       autoWrapCandidates.push({
         start: child.getStart(sourceFile),
         end: child.getEnd(),
-        expressionText: expr.getText(sourceFile),
-      })
+        expressionText: expr.getText(sourceFile)
+      });
     }
   }
 
   function visitJsxElement(node: ts.JsxOpeningLikeElement): void {
-    const elementName = getJsxElementName(node)
-    const isIntrinsic = isIntrinsicElement(elementName)
-    const attrs = node.attributes.properties
+    const elementName = getJsxElementName(node);
+    const isIntrinsic = isIntrinsicElement(elementName);
+    const attrs = node.attributes.properties;
 
     // Collect all attribute names for conflict detection
-    const attrNames = new Map<string, ts.JsxAttribute>()
+    const attrNames = new Map<string, ts.JsxAttribute>();
     for (const attr of attrs) {
       if (ts.isJsxAttribute(attr) && ts.isIdentifier(attr.name)) {
-        attrNames.set(attr.name.text, attr)
+        attrNames.set(attr.name.text, attr);
       }
     }
 
     for (const attr of attrs) {
-      if (!ts.isJsxAttribute(attr)) continue
-      if (!ts.isIdentifier(attr.name)) continue
+      if (!ts.isJsxAttribute(attr)) continue;
+      if (!ts.isIdentifier(attr.name)) continue;
 
-      const attrName = attr.name.text
-      const pos = getLineAndColumn(attr, sourceFile)
+      const attrName = attr.name.text;
+      const pos = getLineAndColumn(attr, sourceFile);
 
       // Check for $prop two-way bindings
       if (attrName.startsWith('$')) {
-        const propName = attrName.slice(1) // strip '$'
+        const propName = attrName.slice(1); // strip '$'
 
-        let signalExpr = ''
-        if (
-          attr.initializer &&
-          ts.isJsxExpression(attr.initializer) &&
-          attr.initializer.expression
-        ) {
-          signalExpr = attr.initializer.expression.getText(sourceFile)
+        let signalExpr = '';
+        if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+          signalExpr = attr.initializer.expression.getText(sourceFile);
         }
 
-        const hasReadonly = attrNames.has('readonly') || attrNames.has('readOnly')
-        const hasDisabled = attrNames.has('disabled')
-        const hasConflictingValue = attrNames.has(propName) && attrNames.has(attrName)
+        const hasReadonly = attrNames.has('readonly') || attrNames.has('readOnly');
+        const hasDisabled = attrNames.has('disabled');
+        const hasConflictingValue = attrNames.has(propName) && attrNames.has(attrName);
 
         twoWayBindings.push({
           elementName,
@@ -212,8 +195,8 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
           hasDisabled,
           hasConflictingValue,
           line: pos.line,
-          column: pos.column,
-        })
+          column: pos.column
+        });
 
         // Record conflicts
         if (hasConflictingValue) {
@@ -221,81 +204,76 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
             type: 'conflict',
             propName,
             line: pos.line,
-            column: pos.column,
-          })
+            column: pos.column
+          });
         }
         if (hasReadonly) {
           bindingConflicts.push({
             type: 'readonly',
             propName,
             line: pos.line,
-            column: pos.column,
-          })
+            column: pos.column
+          });
         }
         if (hasDisabled) {
           bindingConflicts.push({
             type: 'disabled',
             propName,
             line: pos.line,
-            column: pos.column,
-          })
+            column: pos.column
+          });
         }
-        continue
+        continue;
       }
 
       // Check for reactive attributes
       if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
-        const expr = attr.initializer.expression
-        const isReactive = isReactiveExpression(expr)
+        const expr = attr.initializer.expression;
+        const isReactive = isReactiveExpression(expr);
 
         reactiveAttributes.push({
           elementName,
           attributeName: attrName,
           isReactive,
           line: pos.line,
-          column: pos.column,
-        })
+          column: pos.column
+        });
 
         // Auto-wrap: if this is an intrinsic element, the attribute is not an
         // event handler, the expression is not already a function, but it
         // contains a no-arg identifier call (signal read pattern) → wrap in () =>
-        if (
-          isIntrinsic &&
-          !attrName.startsWith('on') &&
-          !isReactive &&
-          containsNoArgIdentifierCall(expr)
-        ) {
+        if (isIntrinsic && !attrName.startsWith('on') && !isReactive && containsNoArgIdentifierCall(expr)) {
           autoWrapCandidates.push({
             start: attr.initializer.getStart(sourceFile),
             end: attr.initializer.getEnd(),
-            expressionText: expr.getText(sourceFile),
-          })
+            expressionText: expr.getText(sourceFile)
+          });
         }
       }
     }
   }
 
   function visit(node: ts.Node): void {
-    visitModuleScope(node)
+    visitModuleScope(node);
 
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      visitJsxElement(node)
+      visitJsxElement(node);
     }
 
     if (ts.isJsxElement(node)) {
-      visitJsxChildren(node)
+      visitJsxChildren(node);
     }
 
-    ts.forEachChild(node, visit)
+    ts.forEachChild(node, visit);
   }
 
-  visit(sourceFile)
+  visit(sourceFile);
 
   return {
     reactiveAttributes,
     twoWayBindings,
     moduleScopeReactiveCalls,
     bindingConflicts,
-    autoWrapCandidates,
-  }
+    autoWrapCandidates
+  };
 }

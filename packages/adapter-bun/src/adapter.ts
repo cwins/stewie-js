@@ -1,11 +1,11 @@
 // A Stewie app handler — same type as adapter-node
-export type StewieApp = (req: Request) => Promise<Response> | Response
+export type StewieApp = (req: Request) => Promise<Response> | Response;
 
 // Bun.serve options shape (minimal, not importing Bun types in source)
 export interface BunServeOptions {
-  fetch: (req: Request) => Promise<Response> | Response
-  port?: number
-  hostname?: string
+  fetch: (req: Request) => Promise<Response> | Response;
+  port?: number;
+  hostname?: string;
 }
 
 /**
@@ -21,20 +21,17 @@ export interface BunServeOptions {
  * Bun.serve(createBunHandler(app))
  * ```
  */
-export function createBunHandler(
-  app: StewieApp,
-  options?: { port?: number; hostname?: string },
-): BunServeOptions {
+export function createBunHandler(app: StewieApp, options?: { port?: number; hostname?: string }): BunServeOptions {
   return {
     port: options?.port,
     hostname: options?.hostname,
     fetch: async (req: Request): Promise<Response> => {
       try {
-        return await app(req)
+        return await app(req);
       } catch (err) {
-        console.error('[stewie/adapter-bun] Unhandled error:', err)
-        return new Response('Internal Server Error', { status: 500 })
+        console.error('[stewie/adapter-bun] Unhandled error:', err);
+        return new Response('Internal Server Error', { status: 500 });
       }
-    },
-  }
+    }
+  };
 }

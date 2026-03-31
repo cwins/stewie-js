@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { version } from './index.js'
+import { describe, it, expect } from 'vitest';
+import { version } from './index.js';
 
 describe('create-stewie', () => {
   it('exports version', () => {
-    expect(version).toBe('0.4.0')
-  })
-})
+    expect(version).toBe('0.4.0');
+  });
+});

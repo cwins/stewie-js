@@ -1,7 +1,7 @@
 // styles.ts — injects devtools CSS into the document head
 
 export function injectStyles(): void {
-  const style = document.createElement('style')
+  const style = document.createElement('style');
   style.textContent = `
 /* Container */
 .__sdt-root { all: initial; font-family: system-ui, sans-serif; }
@@ -106,6 +106,6 @@ export function injectStyles(): void {
   15%  { opacity: 1; }
   100% { opacity: 0; }
 }
-`
-  document.head.appendChild(style)
+`;
+  document.head.appendChild(style);
 }

@@ -1,22 +1,22 @@
 // components.ts — built-in control flow components for @stewie-js/core
 // These create element descriptors; actual rendering logic lives in dom-renderer.ts.
 
-import type { Signal } from './reactive.js'
-import { jsx } from './jsx-runtime.js'
-import type { JSXElement, Component } from './jsx-runtime.js'
+import type { Signal } from './reactive.js';
+import { jsx } from './jsx-runtime.js';
+import type { JSXElement, Component } from './jsx-runtime.js';
 
 // ---------------------------------------------------------------------------
 // Show — conditional rendering
 // ---------------------------------------------------------------------------
 
 export interface ShowProps<T> {
-  when: T | (() => T) | Signal<T>
-  fallback?: JSXElement
-  children: JSXElement | JSXElement[] | (() => JSXElement | JSXElement[] | null)
+  when: T | (() => T) | Signal<T>;
+  fallback?: JSXElement;
+  children: JSXElement | JSXElement[] | (() => JSXElement | JSXElement[] | null);
 }
 
 export function Show<T>(props: ShowProps<T>): JSXElement {
-  return jsx(Show as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(Show as unknown as Component, props as unknown as Record<string, unknown>);
 }
 
 // ---------------------------------------------------------------------------
@@ -24,13 +24,13 @@ export function Show<T>(props: ShowProps<T>): JSXElement {
 // ---------------------------------------------------------------------------
 
 export interface ForProps<T> {
-  each: T[] | (() => T[]) | Signal<T[]>
-  key?: (item: T) => string | number
-  children: (item: T, index: number) => JSXElement
+  each: T[] | (() => T[]) | Signal<T[]>;
+  key?: (item: T) => string | number;
+  children: (item: T, index: number) => JSXElement;
 }
 
 export function For<T>(props: ForProps<T>): JSXElement {
-  return jsx(For as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(For as unknown as Component, props as unknown as Record<string, unknown>);
 }
 
 // ---------------------------------------------------------------------------
@@ -38,21 +38,21 @@ export function For<T>(props: ForProps<T>): JSXElement {
 // ---------------------------------------------------------------------------
 
 export interface SwitchProps {
-  children: JSXElement | JSXElement[]
-  fallback?: JSXElement
+  children: JSXElement | JSXElement[];
+  fallback?: JSXElement;
 }
 
 export function Switch(props: SwitchProps): JSXElement {
-  return jsx(Switch as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(Switch as unknown as Component, props as unknown as Record<string, unknown>);
 }
 
 export interface MatchProps<T> {
-  when: T | (() => T)
-  children: JSXElement | ((value: T) => JSXElement)
+  when: T | (() => T);
+  children: JSXElement | ((value: T) => JSXElement);
 }
 
 export function Match<T>(props: MatchProps<T>): JSXElement {
-  return jsx(Match as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(Match as unknown as Component, props as unknown as Record<string, unknown>);
 }
 
 // ---------------------------------------------------------------------------
@@ -60,12 +60,12 @@ export function Match<T>(props: MatchProps<T>): JSXElement {
 // ---------------------------------------------------------------------------
 
 export interface PortalProps {
-  target?: Element | string
-  children: JSXElement | JSXElement[]
+  target?: Element | string;
+  children: JSXElement | JSXElement[];
 }
 
 export function Portal(props: PortalProps): JSXElement {
-  return jsx(Portal as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(Portal as unknown as Component, props as unknown as Record<string, unknown>);
 }
 
 // ---------------------------------------------------------------------------
@@ -73,12 +73,12 @@ export function Portal(props: PortalProps): JSXElement {
 // ---------------------------------------------------------------------------
 
 export interface ErrorBoundaryProps {
-  fallback: (err: unknown) => JSXElement
-  children: JSXElement | JSXElement[]
+  fallback: (err: unknown) => JSXElement;
+  children: JSXElement | JSXElement[];
 }
 
 export function ErrorBoundary(props: ErrorBoundaryProps): JSXElement {
-  return jsx(ErrorBoundary as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(ErrorBoundary as unknown as Component, props as unknown as Record<string, unknown>);
 }
 
 // ---------------------------------------------------------------------------
@@ -86,12 +86,12 @@ export function ErrorBoundary(props: ErrorBoundaryProps): JSXElement {
 // ---------------------------------------------------------------------------
 
 export interface SuspenseProps {
-  fallback: JSXElement
-  children: JSXElement | JSXElement[]
+  fallback: JSXElement;
+  children: JSXElement | JSXElement[];
 }
 
 export function Suspense(props: SuspenseProps): JSXElement {
-  return jsx(Suspense as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(Suspense as unknown as Component, props as unknown as Record<string, unknown>);
 }
 
 // ---------------------------------------------------------------------------
@@ -99,9 +99,9 @@ export function Suspense(props: SuspenseProps): JSXElement {
 // ---------------------------------------------------------------------------
 
 export interface ClientOnlyProps {
-  children: JSXElement | JSXElement[]
+  children: JSXElement | JSXElement[];
 }
 
 export function ClientOnly(props: ClientOnlyProps): JSXElement {
-  return jsx(ClientOnly as unknown as Component, props as unknown as Record<string, unknown>)
+  return jsx(ClientOnly as unknown as Component, props as unknown as Record<string, unknown>);
 }

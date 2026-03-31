@@ -7,6 +7,6 @@
 // Call it after mutating reactive state in tests that use async components
 // or deferred work.
 export async function flushEffects(): Promise<void> {
-  await Promise.resolve()
-  await Promise.resolve()
+  await Promise.resolve();
+  await Promise.resolve();
 }
