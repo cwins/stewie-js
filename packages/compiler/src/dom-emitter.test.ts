@@ -422,6 +422,93 @@ describe('JSX-to-DOM: native child inside component JSX is NOT transformed', () 
 });
 
 // ---------------------------------------------------------------------------
+// Opaque expression children — must NOT be stringified as text nodes
+// Regression tests for: compiler incorrectly emitting String(jsxObject)
+// ---------------------------------------------------------------------------
+
+describe('JSX-to-DOM: opaque expression children are not stringified', () => {
+  it('does NOT transform element with an identifier child that might be JSX', () => {
+    // props.footer could be a JSXElement at runtime — must not become String(props.footer)
+    const code = compileJsx(`
+      function Panel(props: { footer?: unknown }) {
+        return <div>{props.footer}</div>
+      }
+    `);
+    // Parent <div> must not be transformed — falls back to JSX runtime
+    expect(code).not.toContain('document.createElement("div")');
+    expect(code).not.toContain('String(props.footer)');
+    expect(code).not.toContain('[object Object]');
+  });
+
+  it('does NOT transform element with a call-with-args child that might return JSX', () => {
+    // A call that takes arguments cannot be a signal read — not proven scalar
+    const code = compileJsx(`
+      function Layout() {
+        return <div>{renderItem(id)}</div>
+      }
+    `);
+    expect(code).not.toContain('document.createElement("div")');
+    expect(code).not.toContain('String(renderItem(id))');
+  });
+
+  it('does NOT transform the inner element when an outer ternary contains JSX and an opaque prop', () => {
+    // The outer element is already excluded by containsJsx.
+    // The inner <div> has {props.actions} which is opaque — must also not transform.
+    const code = compileJsx(`
+      function Header(props: { actions?: unknown }) {
+        return (
+          <header>
+            {props.actions ? <div class="actions">{props.actions}</div> : null}
+          </header>
+        )
+      }
+    `);
+    expect(code).not.toContain('document.createElement("header")');
+    expect(code).not.toContain('document.createElement("div")');
+    expect(code).not.toContain('String(props.actions)');
+  });
+
+  it('DOES still transform element with a string-literal child', () => {
+    const code = compileJsx(`
+      function C() { return <p>{"hello"}</p> }
+    `);
+    expect(code).toContain('document.createElement("p")');
+    expect(code).toContain('"hello"');
+  });
+
+  it('DOES still transform element with a numeric-literal child', () => {
+    const code = compileJsx(`
+      function C() { return <span>{42}</span> }
+    `);
+    expect(code).toContain('document.createElement("span")');
+    expect(code).toContain('42');
+  });
+
+  it('DOES still transform element with a reactive signal child', () => {
+    const code = compileJsx(`
+      function C() {
+        const count = signal(0)
+        return <p>{count()}</p>
+      }
+    `);
+    expect(code).toContain('document.createElement("p")');
+    expect(code).toContain('effect(');
+    expect(code).toContain('nodeValue');
+  });
+
+  it('DOES still transform element with an arrow-function reactive child', () => {
+    const code = compileJsx(`
+      function C() {
+        const name = signal('world')
+        return <p>{() => name()}</p>
+      }
+    `);
+    expect(code).toContain('document.createElement("p")');
+    expect(code).toContain('effect(');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Render-prop functions: JSX inside arrow/function passed as JSX child
 // must NOT be transformed (would bypass hydration cursor → duplication)
 // ---------------------------------------------------------------------------

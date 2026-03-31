@@ -51,6 +51,28 @@ function containsJsx(node: ts.Node): boolean {
 }
 
 /**
+ * Returns true if `expr` is provably a scalar (text-producing) value that is
+ * safe to compile into a `document.createTextNode(String(...))` or reactive
+ * text effect.
+ *
+ * Anything that is NOT provably scalar (e.g. identifiers, property accesses,
+ * calls with arguments) might return a JSX element object at runtime, and must
+ * not be compiled into a text node — the parent element should fall back to
+ * the JSX runtime so that `renderChildren` can handle it structurally.
+ */
+function isProvenTextExpression(expr: ts.Expression): boolean {
+  // String and number literals are definitely scalar
+  if (ts.isStringLiteral(expr) || ts.isNumericLiteral(expr)) return true;
+  // Template literals (with or without substitutions) produce strings
+  if (ts.isNoSubstitutionTemplateLiteral(expr) || ts.isTemplateExpression(expr)) return true;
+  // Reactive expressions (signal reads / arrow functions) — by Stewie convention
+  // these produce scalar values for reactive text content. Expressions that
+  // contain JSX are already excluded by the containsJsx() check upstream.
+  if (isReactive(expr)) return true;
+  return false;
+}
+
+/**
  * Returns true if `expr` is reactive — meaning it reads signal values and
  * should be wrapped in an effect() when used as an attribute or text child.
  *
@@ -134,10 +156,13 @@ export function canTransformJsx(
 ): boolean {
   if (ts.isJsxText(node)) return true;
   if (ts.isJsxExpression(node)) {
-    // Safe only if the expression doesn't contain JSX — expressions like
-    // items.map(item => <li>{item}</li>) return an array of nodes, which
-    // cannot be emitted as a plain text node.
-    if (node.expression && containsJsx(node.expression)) return false;
+    if (!node.expression) return true; // empty {} — safe, emits nothing
+    // Reject if the expression contains JSX syntax (e.g. items.map(i => <li/>))
+    if (containsJsx(node.expression)) return false;
+    // Reject if the expression is not provably scalar. Opaque identifiers,
+    // property accesses, and calls with arguments might return JSX objects at
+    // runtime. Compiling those as text nodes produces `[object Object]`.
+    if (!isProvenTextExpression(node.expression)) return false;
     return true;
   }
 
