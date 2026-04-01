@@ -632,13 +632,13 @@ export function App(): JSXElement {
                   )}
                   key={(item: TodoItem) => item.id}
                 >
-                  {(item: TodoItem) => (
+                  {(getItem: () => TodoItem) => (
                     <li
-                      class={() => \`todo-item\${item.done ? ' done' : ''}\`}
-                      onClick={() => { item.done = !item.done }}
+                      class={() => \`todo-item\${getItem().done ? ' done' : ''}\`}
+                      onClick={() => { getItem().done = !getItem().done }}
                     >
-                      <span class="todo-check">{() => (item.done ? '✓' : '○')}</span>
-                      <span class="todo-text">{item.text}</span>
+                      <span class="todo-check">{() => (getItem().done ? '✓' : '○')}</span>
+                      <span class="todo-text">{() => getItem().text}</span>
                     </li>
                   )}
                 </For>
@@ -795,7 +795,7 @@ export function HomePage(): JSXElement {
         <Show when={showFeatures}>
           <ul class="features-list">
             <For each={FEATURES}>
-              {(feature: string) => <li>{feature}</li>}
+              {(getFeature: () => string) => <li>{() => getFeature()}</li>}
             </For>
           </ul>
         </Show>
@@ -896,12 +896,12 @@ export function AboutPage(): JSXElement {
           <p class="section-desc">Everything reactive builds on these four primitives.</p>
           <ul class="features-list">
             <For each={PRIMITIVES}>
-              {(p: typeof PRIMITIVES[number]) => (
+              {(getP: () => typeof PRIMITIVES[number]) => (
                 <li>
                   <span>
-                    <strong>{p.name}</strong>
+                    <strong>{() => getP().name}</strong>
                     {' — '}
-                    {p.desc}
+                    {() => getP().desc}
                   </span>
                 </li>
               )}

@@ -169,8 +169,8 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
   if (type === (For as unknown)) {
     const each = typeof props.each === 'function' ? (props.each as () => unknown[])() : (props.each as unknown[]);
     if (Array.isArray(each)) {
-      const renderFn = props.children as (item: unknown, index: number) => JSXElement;
-      for (let i = 0; i < each.length; i++) await streamNode(renderFn(each[i], i), opts);
+      const renderFn = props.children as (item: () => unknown, index: () => number) => JSXElement;
+      for (let i = 0; i < each.length; i++) await streamNode(renderFn(() => each[i], () => i), opts);
     }
     opts.flush('<!--For-->');
     return;

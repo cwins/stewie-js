@@ -25,7 +25,7 @@ describe('Show', () => {
 describe('For', () => {
   it('creates element descriptor with correct type and props', () => {
     const items = [1, 2, 3];
-    const renderItem = (item: number) => jsx('li', { children: String(item) });
+    const renderItem = (item: () => number) => jsx('li', { children: String(item()) });
     const el = For({ each: items, children: renderItem });
     expect(el.type).toBe(For);
     expect(el.props.each).toBe(items);

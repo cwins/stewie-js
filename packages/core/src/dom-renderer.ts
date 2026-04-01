@@ -2,7 +2,7 @@
 // Takes JSXElement descriptors (or DOM Nodes from the DOM JSX runtime) and
 // renders them into real DOM nodes with fine-grained reactive subscriptions.
 
-import { effect, createRoot, untrack, _setNextEffectMeta, isDev, ComputedNode } from './reactive.js';
+import { effect, createRoot, untrack, _setNextEffectMeta, isDev, ComputedNode, signal, batch } from './reactive.js';
 import { Fragment } from './jsx-runtime.js';
 import type { JSXElement, Component } from './jsx-runtime.js';
 import { _pushContext, _popContext } from './context.js';
@@ -315,7 +315,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
   const anchor = claimed?.anchor ?? document.createComment('For');
   if (!claimed) insertBefore(parent, anchor, before);
 
-  const renderFn = props.children as (item: unknown, index: number) => JSXElement;
+  const renderFn = props.children as (item: () => unknown, index: () => number) => JSXElement;
   const keyFn = typeof props.key === 'function' ? (props.key as (item: unknown, index: number) => unknown) : null;
 
   if (keyFn) {
@@ -328,6 +328,8 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
     interface KeyedEntry {
       nodes: ChildNode[];
       disposer: Disposer;
+      setItem: (item: unknown) => void;
+      setIndex: (idx: number) => void;
     }
     const keyMap = new Map<unknown, KeyedEntry>();
     // Keys in their current DOM order — maintained across renders to avoid
@@ -349,19 +351,28 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
             const key = keyFn(each[i], i);
             const startIdx = subCursor.idx;
             const itemFrag = document.createDocumentFragment();
+            const itemSig = signal<unknown>(each[i]);
+            const idxSig = signal<number>(i);
             const disposer = renderWithRoot(() =>
-              _withCursor(subCursor, () => renderChildren(renderFn(each[i], i), itemFrag, null))
+              _withCursor(subCursor, () => renderChildren(renderFn(() => itemSig(), () => idxSig()), itemFrag, null))
             );
             const claimedCount = subCursor.idx - startIdx;
             const itemNodes = claimed.contentNodes.slice(startIdx, startIdx + claimedCount) as ChildNode[];
+            const entry: KeyedEntry = {
+              disposer,
+              setItem: (item) => itemSig.set(item),
+              setIndex: (idx) => idxSig.set(idx),
+              nodes: [],
+            };
             // Handle mismatch overflow (nodes that weren't claimed from the cursor).
             if (itemFrag.childNodes.length > 0) {
               const overflowNodes = Array.from(itemFrag.childNodes) as ChildNode[];
               anchor.parentNode?.insertBefore(itemFrag, anchor);
-              keyMap.set(key, { nodes: [...itemNodes, ...overflowNodes], disposer });
+              entry.nodes = [...itemNodes, ...overflowNodes];
             } else {
-              keyMap.set(key, { nodes: itemNodes, disposer });
+              entry.nodes = itemNodes;
             }
+            keyMap.set(key, entry);
           }
           prevKeys = each.map((item, i) => keyFn(item, i));
         }
@@ -401,16 +412,33 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
         }
       }
 
-      // 2. Render new items not yet in the key map (detached; placed in step 4).
-      for (let i = 0; i < each.length; i++) {
-        const key = newKeys[i];
-        if (!keyMap.has(key)) {
-          const frag = document.createDocumentFragment();
-          const disposer = renderWithRoot(() => renderChildren(renderFn(each[i], i), frag, null));
-          const nodes = Array.from(frag.childNodes) as ChildNode[];
-          keyMap.set(key, { nodes, disposer });
+      // 2. Render new items and refresh existing ones.
+      //    New entries are created with a per-item signal so the render function
+      //    receives a live accessor rather than a captured snapshot.
+      //    Existing entries just update their signals — DOM nodes are preserved.
+      batch(() => {
+        for (let i = 0; i < each.length; i++) {
+          const key = newKeys[i];
+          if (!keyMap.has(key)) {
+            const frag = document.createDocumentFragment();
+            const itemSig = signal<unknown>(each[i]);
+            const idxSig = signal<number>(i);
+            const disposer = renderWithRoot(() => renderChildren(renderFn(() => itemSig(), () => idxSig()), frag, null));
+            const nodes = Array.from(frag.childNodes) as ChildNode[];
+            keyMap.set(key, {
+              nodes,
+              disposer,
+              setItem: (item) => itemSig.set(item),
+              setIndex: (idx) => idxSig.set(idx),
+            });
+          } else {
+            // Stable key — update item and index in place; DOM nodes are reused as-is.
+            const entry = keyMap.get(key)!;
+            entry.setItem(each[i]);
+            entry.setIndex(i);
+          }
         }
-      }
+      });
 
       // 3. Find which positions in newKeys are already in a stable (non-moving)
       //    relative order via LIS on their old DOM indices.
@@ -477,7 +505,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
         const subCursor = new HydrationCursor(claimed.contentNodes);
         const frag = document.createDocumentFragment();
         childDisposers = _withCursor(subCursor, () =>
-          each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null)))
+          each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(() => item, () => i), frag, null)))
         );
         if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       }
@@ -492,7 +520,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
     if (!Array.isArray(each)) return;
 
     const frag = document.createDocumentFragment();
-    childDisposers = each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(item, i), frag, null)));
+    childDisposers = each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(() => item, () => i), frag, null)));
     currentNodes = Array.from(frag.childNodes) as ChildNode[];
     anchor.parentNode?.insertBefore(frag, anchor);
   });

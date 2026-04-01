@@ -301,7 +301,7 @@ describe('SSR → hydrate: control flow', () => {
         jsx('ul', {
           children: For({
             each: ['alpha', 'beta', 'gamma'],
-            children: (item: string) => jsx('li', { children: item })
+            children: (item: () => string) => jsx('li', { children: item() })
           })
         }),
       container

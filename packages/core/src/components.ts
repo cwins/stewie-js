@@ -26,7 +26,7 @@ export function Show<T>(props: ShowProps<T>): JSXElement {
 export interface ForProps<T> {
   each: T[] | (() => T[]) | Signal<T[]>;
   key?: (item: T) => string | number;
-  children: (item: T, index: number) => JSXElement;
+  children: (item: () => T, index: () => number) => JSXElement;
 }
 
 export function For<T>(props: ForProps<T>): JSXElement {

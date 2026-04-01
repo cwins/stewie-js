@@ -301,7 +301,7 @@ describe('For', () => {
     mount(
       For({
         each: ['a', 'b', 'c'],
-        children: (item) => jsx('li', { children: item as string })
+        children: (item) => jsx('li', { children: (item as () => string)() })
       }),
       c
     );
@@ -317,7 +317,7 @@ describe('For', () => {
     mount(
       For({
         each: items,
-        children: (item) => jsx('li', { children: item as string })
+        children: (item) => jsx('li', { children: (item as () => string)() })
       }),
       c
     );
@@ -333,7 +333,7 @@ describe('For', () => {
     mount(
       For({
         each: items,
-        children: (item) => jsx('li', { children: String(item as number) })
+        children: (item) => jsx('li', { children: String((item as () => number)()) })
       }),
       c
     );
@@ -370,7 +370,7 @@ describe('For (keyed)', () => {
       For({
         each: items,
         key: (item) => (item as { id: number }).id,
-        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text })
+        children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
     );
@@ -397,7 +397,7 @@ describe('For (keyed)', () => {
       For({
         each: items,
         key: (item) => (item as { id: number }).id,
-        children: (item) => jsx('li', { children: String((item as { id: number }).id) })
+        children: (item) => jsx('li', { children: String((item as () => { id: number })().id) })
       }),
       c
     );
@@ -419,7 +419,7 @@ describe('For (keyed)', () => {
       For({
         each: items,
         key: (item) => (item as { id: number }).id,
-        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text })
+        children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
     );
@@ -453,7 +453,7 @@ describe('For (keyed)', () => {
       For({
         each: items,
         key: (item) => (item as { id: number }).id,
-        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text })
+        children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
     );
@@ -479,7 +479,7 @@ describe('For (keyed)', () => {
       For({
         each: items,
         key: (item) => (item as { id: number }).id,
-        children: (item) => jsx('li', { children: (item as { id: number; text: string }).text })
+        children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
     );
@@ -503,7 +503,7 @@ describe('For (keyed)', () => {
       For({
         each: items,
         key: (item) => (item as { id: number }).id,
-        children: (item) => jsx('li', { children: String((item as { id: number }).id) })
+        children: (item) => jsx('li', { children: String((item as () => { id: number })().id) })
       }),
       c
     );
@@ -517,6 +517,102 @@ describe('For (keyed)', () => {
     expect(allAfter[0]).toBe(allBefore[0]);
     expect(allAfter[3]).toBe(allBefore[3]);
     expect(allAfter[4]).toBe(allBefore[5]); // was index 5 (id=6), now index 4
+  });
+
+  it('updates text when same-key item object is replaced', () => {
+    const items = sig([{ id: 1, text: 'a', done: false }]);
+    const c = container();
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => {
+          const i = item as () => { id: number; text: string; done: boolean };
+          return jsx('li', { children: () => i().text });
+        }
+      }),
+      c
+    );
+    expect(c.querySelector('li')?.textContent).toBe('a');
+    const liNode = c.querySelector('li')!;
+    items.set([{ id: 1, text: 'b', done: true }]);
+    expect(c.querySelector('li')?.textContent).toBe('b');
+    // Same DOM node preserved
+    expect(c.querySelector('li')).toBe(liNode);
+  });
+
+  it('updates class when same-key item done field changes', () => {
+    const items = sig([{ id: 1, text: 'x', done: false }]);
+    const c = container();
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => {
+          const i = item as () => { id: number; text: string; done: boolean };
+          return jsx('li', { class: () => (i().done ? 'done' : ''), children: () => i().text });
+        }
+      }),
+      c
+    );
+    expect(c.querySelector('li')?.getAttribute('class')).toBe('');
+    items.set([{ id: 1, text: 'x', done: true }]);
+    expect(c.querySelector('li')?.getAttribute('class')).toBe('done');
+  });
+
+  it('mixed update preserves unaffected nodes and updates affected row', () => {
+    const items = sig([
+      { id: 1, text: 'a' },
+      { id: 2, text: 'b' },
+      { id: 3, text: 'c' }
+    ]);
+    const c = container();
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => {
+          const i = item as () => { id: number; text: string };
+          return jsx('li', { children: () => i().text });
+        }
+      }),
+      c
+    );
+    const [li1, li2, li3] = Array.from(c.querySelectorAll('li'));
+    items.set([
+      { id: 1, text: 'a' },
+      { id: 2, text: 'B updated' },
+      { id: 3, text: 'c' }
+    ]);
+    const after = Array.from(c.querySelectorAll('li'));
+    expect(after[0].textContent).toBe('a');
+    expect(after[1].textContent).toBe('B updated');
+    expect(after[2].textContent).toBe('c');
+    // All three are the same DOM nodes
+    expect(after[0]).toBe(li1);
+    expect(after[1]).toBe(li2);
+    expect(after[2]).toBe(li3);
+  });
+
+  it('disposed keyed entry stops updating after key is removed', () => {
+    const items = sig([{ id: 1, text: 'a' }, { id: 2, text: 'b' }]);
+    const c = container();
+    mount(
+      For({
+        each: items,
+        key: (item) => (item as { id: number }).id,
+        children: (item) => {
+          const i = item as () => { id: number; text: string };
+          return jsx('li', { children: () => i().text });
+        }
+      }),
+      c
+    );
+    expect(c.querySelectorAll('li').length).toBe(2);
+    // Remove id=1
+    items.set([{ id: 2, text: 'b' }]);
+    expect(c.querySelectorAll('li').length).toBe(1);
+    expect(c.querySelector('li')?.textContent).toBe('b');
   });
 });
 

@@ -69,7 +69,7 @@ describe('renderToString', () => {
   it('For renders list items', async () => {
     const el = For({
       each: ['a', 'b', 'c'],
-      children: (item: string) => jsx('li', { children: item })
+      children: (item: () => string) => jsx('li', { children: item() })
     });
     const { html } = await renderToString(el);
     expect(html).toContain('<li>a</li>');

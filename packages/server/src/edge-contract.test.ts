@@ -157,7 +157,7 @@ describe('edge: renderToString / renderToStream parity', () => {
   it('both renderers emit <!--For--> anchor for hydration cursor', async () => {
     const el = For({
       each: ['a', 'b', 'c'],
-      children: (item: string) => jsx('li', { children: item })
+      children: (item: () => string) => jsx('li', { children: item() })
     });
     const { html } = await renderToString(el);
     const streamed = await collectStream(renderToStream(el));

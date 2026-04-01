@@ -7,8 +7,8 @@
 
 export type CSSProperties = Record<string, string | number>;
 
-// A single renderable child node — element, text, or null.
-export type JSXChild = JSXElement | string | number | null;
+// A single renderable child node — element, text, reactive function, or null.
+export type JSXChild = JSXElement | string | number | (() => unknown) | null;
 
 export interface HTMLAttributes {
   class?: string | (() => string);

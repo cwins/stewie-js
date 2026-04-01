@@ -5,7 +5,7 @@
 // Server flow: renderApp(url) → renderToString(<App initialUrl={url} />) → HTML
 // Client flow: hydrate(<App />, container) reads window.__STEWIE_STATE__
 
-import { store, createContext, inject, signal, createRoot, computed } from '@stewie-js/core';
+import { store, createContext, inject, signal, computed } from '@stewie-js/core';
 import { For, Show } from '@stewie-js/core';
 import { useHydrationRegistry } from '@stewie-js/core';
 import type { JSXElement } from '@stewie-js/core';
@@ -102,16 +102,16 @@ function DashboardView(): JSXElement {
       </div>
       <div class="grid" data-testid="project-grid">
         <For each={app.projects} key={(project) => project.id}>
-          {(project: Project) => {
-            const count = app.tasks.filter((t) => t.projectId === project.id && !t.isCompleted).length;
+          {(getProject: () => Project) => {
+            const count = () => app.tasks.filter((t) => t.projectId === getProject().id && !t.isCompleted).length;
             return (
               <div
                 class="card"
-                data-testid={`project-card-${project.id}`}
-                onClick={() => router.navigate(`/project/${project.id}`)}
+                data-testid={`project-card-${getProject().id}`}
+                onClick={() => router.navigate(`/project/${getProject().id}`)}
               >
-                <p class="card-title">{project.name}</p>
-                <p class="card-subtitle">{`${String(count)} active task${count !== 1 ? 's' : ''}`}</p>
+                <p class="card-title">{() => getProject().name}</p>
+                <p class="card-subtitle">{() => `${String(count())} active task${count() !== 1 ? 's' : ''}`}</p>
               </div>
             );
           }}
@@ -132,14 +132,11 @@ function CreateProjectView(): JSXElement {
   const router = useRouter();
   const app = inject(AppContext)!;
 
-  let nameSig!: ReturnType<typeof signal<string>>;
-  createRoot(() => {
-    nameSig = signal('');
-  });
+  const $name = signal<string>('');
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
-    const name = nameSig();
+    const name = $name();
     if (!name.trim()) return;
     app.addProject(name.trim());
     router.navigate('/');
@@ -159,9 +156,9 @@ function CreateProjectView(): JSXElement {
               id="project-name"
               type="text"
               placeholder="Enter project name"
-              value={nameSig()}
+              value={$name()}
               onInput={(e: Event) => {
-                nameSig.set((e.target as HTMLInputElement).value);
+                $name.set((e.target as HTMLInputElement).value);
               }}
               data-testid="project-name-input"
             />
@@ -185,24 +182,18 @@ function CreateProjectView(): JSXElement {
 function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): JSXElement {
   const app = inject(AppContext)!;
 
-  let titleSig!: ReturnType<typeof signal<string>>;
-  let descSig!: ReturnType<typeof signal<string>>;
-  let dueDateSig!: ReturnType<typeof signal<string>>;
-  let completedSig!: ReturnType<typeof signal<boolean>>;
-  createRoot(() => {
-    titleSig = signal(task.title);
-    descSig = signal(task.description);
-    dueDateSig = signal(task.dueDate ?? '');
-    completedSig = signal(task.isCompleted);
-  });
+  const $title = signal<string>(task.title);
+  const $description = signal<string>(task.description);
+  const $dueDate = signal<string>(task.dueDate ?? '');
+  const $completed = signal<boolean>(task.isCompleted);
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
     app.updateTask(task.id, {
-      title: titleSig().trim(),
-      description: descSig().trim(),
-      dueDate: dueDateSig().trim() || null,
-      isCompleted: completedSig()
+      title: $title().trim(),
+      description: $description().trim(),
+      dueDate: $dueDate().trim() || null,
+      isCompleted: $completed()
     });
     onClose();
   };
@@ -226,9 +217,9 @@ function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): 
           <input
             id="edit-task-title"
             type="text"
-            value={titleSig()}
+            value={$title()}
             onInput={(e: Event) => {
-              titleSig.set((e.target as HTMLInputElement).value);
+              $title.set((e.target as HTMLInputElement).value);
             }}
             data-testid="edit-task-title-input"
           />
@@ -237,9 +228,9 @@ function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): 
           <label for="edit-task-desc">Description</label>
           <textarea
             id="edit-task-desc"
-            value={descSig()}
+            value={$description()}
             onInput={(e: Event) => {
-              descSig.set((e.target as HTMLTextAreaElement).value);
+              $description.set((e.target as HTMLTextAreaElement).value);
             }}
             data-testid="edit-task-desc-input"
           />
@@ -249,9 +240,9 @@ function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): 
           <input
             id="edit-task-due"
             type="date"
-            value={dueDateSig()}
+            value={$dueDate()}
             onInput={(e: Event) => {
-              dueDateSig.set((e.target as HTMLInputElement).value);
+              $dueDate.set((e.target as HTMLInputElement).value);
             }}
             data-testid="edit-task-due-input"
           />
@@ -260,9 +251,9 @@ function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): 
           <input
             id="edit-task-completed"
             type="checkbox"
-            checked={completedSig()}
+            checked={$completed()}
             onChange={(e: Event) => {
-              completedSig.set((e.target as HTMLInputElement).checked);
+              $completed.set((e.target as HTMLInputElement).checked);
             }}
             data-testid="edit-task-completed-input"
             style="width: auto;"
@@ -298,7 +289,7 @@ function ProjectDetailView(): JSXElement {
   const app = inject(AppContext)!;
   const { projectId, taskId: urlTaskId } = router.location.params;
 
-  const project = app.projects.find((p) => p.id === projectId);
+  const project = () => (app.projects.find((p) => p.id === projectId));
 
   if (!project) {
     return (
@@ -315,14 +306,11 @@ function ProjectDetailView(): JSXElement {
   // component stays alive, reactive prop effects re-run, and the devtools
   // Renders tab can observe fine-grained updates.
   // Initialised from the URL param so direct-URL access and SSR still work.
-  let selectedTaskId!: ReturnType<typeof signal<string | null>>;
-  createRoot(() => {
-    selectedTaskId = signal(urlTaskId ?? null);
-  });
+  const $selectedTaskId = signal<string | null>(urlTaskId ?? null);
 
-  const closeSheet = () => selectedTaskId.set(null);
+  const closeSheet = () => $selectedTaskId.set(null);
 
-  const tasks = app.tasks.filter((t) => t.projectId === projectId);
+  const tasks = computed(() => app.tasks.filter((t) => t.projectId === projectId));
 
   const listPane = (
     <div data-testid={`project-detail-${projectId}`}>
@@ -331,7 +319,7 @@ function ProjectDetailView(): JSXElement {
       </button>
       <div class="page-header">
         <h1 class="page-title" data-testid="project-name">
-          {project.name}
+          {project()?.name}
         </h1>
         <button
           class="btn-primary"
@@ -343,7 +331,7 @@ function ProjectDetailView(): JSXElement {
         </button>
       </div>
       <Show
-        when={tasks.length > 0}
+        when={tasks().length > 0}
         fallback={
           <div class="empty-state" data-testid="no-tasks">
             No tasks yet. Add one!
@@ -351,20 +339,20 @@ function ProjectDetailView(): JSXElement {
         }
       >
         <div data-testid="task-list">
-          <For each={tasks} key={(task) => task.id}>
-            {(task: Task) => {
-              const isSelected = computed(() => task.id === selectedTaskId());
+          <For each={tasks()} key={(task) => task.id}>
+            {(getTask: () => Task) => {
+              const isSelected = computed(() => getTask().id === $selectedTaskId());
               const cssClasses = computed(() => {
-                return ['task-row', isSelected() && 'task-row-selected', task.isCompleted && 'task-row-completed']
+                return ['task-row', isSelected() && 'task-row-selected', getTask().isCompleted && 'task-row-completed']
                   .filter(Boolean)
                   .join(' ');
               });
 
               return (
-                <div class={cssClasses} data-testid={`task-row-${task.id}`} onClick={() => selectedTaskId.set(task.id)}>
-                  <span class="task-title">{task.title}</span>
-                  <span class="badge" data-testid={`task-badge-${task.id}`}>
-                    {formatDueDate(task.dueDate)}
+                <div class={cssClasses} data-testid={`task-row-${getTask().id}`} onClick={() => $selectedTaskId.set(getTask().id)}>
+                  <span class="task-title">{() => getTask().title}</span>
+                  <span class="badge" data-testid={`task-badge-${getTask().id}`}>
+                    {() => formatDueDate(getTask().dueDate)}
                   </span>
                 </div>
               );
@@ -379,11 +367,11 @@ function ProjectDetailView(): JSXElement {
   // (.project-layout) reactively — no remount, just a class change.
   // The list pane is always in the DOM; only the sheet Show mounts/unmounts.
   return (
-    <div class={() => (selectedTaskId() !== null ? 'project-layout' : 'container')}>
+    <div class={() => ($selectedTaskId() !== null ? 'project-layout' : 'container')}>
       <div class="task-list-pane">{listPane}</div>
-      <Show when={() => selectedTaskId() !== null}>
+      <Show when={() => $selectedTaskId() !== null}>
         {() => {
-          const task = app.tasks.find((t) => t.id === selectedTaskId());
+          const task = app.tasks.find((t) => t.id === $selectedTaskId());
           if (!task) return <p data-testid="task-not-found">Task not found.</p>;
           return (
             <div class="task-sheet" data-testid="edit-task">
@@ -405,21 +393,16 @@ function CreateTaskView(): JSXElement {
   const app = inject(AppContext)!;
   const projectId = router.location.params.projectId;
 
-  let titleSig!: ReturnType<typeof signal<string>>;
-  let descSig!: ReturnType<typeof signal<string>>;
-  let dueDateSig!: ReturnType<typeof signal<string>>;
-  createRoot(() => {
-    titleSig = signal('');
-    descSig = signal('');
-    dueDateSig = signal('');
-  });
+  const $title = signal<string>('');
+  const $description = signal<string>('');
+  const $dueDate = signal<string>('');
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
-    const title = titleSig();
+    const title = $title();
     if (!title.trim()) return;
-    const dueDate = dueDateSig().trim() || null;
-    app.addTask(projectId, title.trim(), descSig().trim(), dueDate);
+    const dueDate = $dueDate().trim() || null;
+    app.addTask(projectId, title.trim(), $description().trim(), dueDate);
     router.navigate(`/project/${projectId}`);
   };
 
@@ -437,9 +420,9 @@ function CreateTaskView(): JSXElement {
               id="task-title"
               type="text"
               placeholder="Task title"
-              value={titleSig()}
+              value={$title()}
               onInput={(e: Event) => {
-                titleSig.set((e.target as HTMLInputElement).value);
+                $title.set((e.target as HTMLInputElement).value);
               }}
               data-testid="task-title-input"
             />
@@ -449,9 +432,9 @@ function CreateTaskView(): JSXElement {
             <textarea
               id="task-desc"
               placeholder="Optional description"
-              value={descSig()}
+              value={$description()}
               onInput={(e: Event) => {
-                descSig.set((e.target as HTMLTextAreaElement).value);
+                $description.set((e.target as HTMLTextAreaElement).value);
               }}
               data-testid="task-desc-input"
             />
@@ -461,9 +444,9 @@ function CreateTaskView(): JSXElement {
             <input
               id="task-due"
               type="date"
-              value={dueDateSig()}
+              value={$dueDate()}
               onInput={(e: Event) => {
-                dueDateSig.set((e.target as HTMLInputElement).value);
+                $dueDate.set((e.target as HTMLInputElement).value);
               }}
               data-testid="task-due-input"
             />
@@ -520,7 +503,7 @@ export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
     },
 
     updateTask(taskId: string, updates: Partial<Task>) {
-      appStore.tasks = appStore.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t));
+        appStore.tasks = appStore.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t));
     },
 
     deleteTask(taskId: string) {
