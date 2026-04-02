@@ -75,8 +75,8 @@ describe('renderApp("/project/p1") — Project Detail SSR', () => {
 
   it('renders task rows for tasks in p1', async () => {
     const { html } = await renderApp('/project/p1');
-    expect(html).toContain('task-row-t1');
-    expect(html).toContain('task-row-t2');
+    expect(html).toContain('task-row-p1-t1');
+    expect(html).toContain('task-row-p1-t2');
   });
 
   it('renders task titles', async () => {
@@ -90,12 +90,12 @@ describe('renderApp("/project/p1") — Project Detail SSR', () => {
     // t3 (Run 5K) belongs to p2 — its task-row should not appear in the rendered view.
     // Note: "Run 5K" may still appear inside __STEWIE_STATE__ JSON, so we check
     // for the task-row element specifically.
-    expect(html).not.toContain('task-row-t3');
+    expect(html).not.toContain('task-row-p1-t3');
   });
 
   it('renders a due date badge for t1', async () => {
     const { html } = await renderApp('/project/p1');
-    expect(html).toContain('task-badge-t1');
+    expect(html).toContain('task-badge-t1'); // data-testid on badge is still task-badge-${task.id}
   });
 
   it('renders "No date" badge for t2 (null dueDate)', async () => {
@@ -118,7 +118,7 @@ describe('renderApp("/project/p2") — Project Detail p2 SSR', () => {
   it('renders the Run 5K task', async () => {
     const { html } = await renderApp('/project/p2');
     expect(html).toContain('Run 5K');
-    expect(html).toContain('task-row-t3');
+    expect(html).toContain('task-row-p2-t3');
   });
 });
 

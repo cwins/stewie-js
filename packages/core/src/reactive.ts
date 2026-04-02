@@ -14,7 +14,7 @@ export interface Signal<T> {
 
 export interface Computed<T> {
   (): T;
-}
+};
 
 export type Dispose = () => void;
 
@@ -452,6 +452,36 @@ export function computed<T>(fn: () => T): Computed<T> {
 export function effect(fn: () => void | (() => void)): Dispose {
   const node = new EffectNode(fn);
   return () => node.dispose();
+}
+
+/**
+ * Like `computed`, but specialized for derived arrays.
+ *
+ * Returns the same array reference when every item is reference-equal (`===`)
+ * to the corresponding item in the previous result and the length is unchanged.
+ * Because `computed` uses strict equality to decide whether to notify subscribers,
+ * returning the same reference short-circuits all downstream reactive work —
+ * including `<For>` reconciliation — when the derived set hasn't meaningfully changed.
+ *
+ * Typical use: filtered or sorted views of a store collection.
+ *
+ * ```ts
+ * const projectTasks = stableList(() =>
+ *   appStore.tasks.filter(t => t.projectId === projectId)
+ * );
+ * // <For each={projectTasks}> won't re-reconcile when an unrelated task changes
+ * ```
+ */
+export function stableList<T>(fn: () => T[]): Computed<T[]> {
+  let prev: T[] = [];
+  return computed(() => {
+    const next = fn();
+    if (next.length === prev.length && next.every((item, i) => item === prev[i])) {
+      return prev;
+    }
+    prev = next;
+    return next;
+  });
 }
 
 // Run fn without registering any reactive subscriptions in the current scope.

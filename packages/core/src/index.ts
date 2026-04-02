@@ -7,6 +7,7 @@ export {
   signal,
   computed,
   effect,
+  stableList,
   batch,
   untrack,
   createRoot,
