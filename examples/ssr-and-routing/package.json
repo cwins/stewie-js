@@ -10,7 +10,7 @@
     "mock:create-empty": "mkdir -p ./src/.temp-mocks && echo 'null' > ./src/.temp-mocks/data.json",
     "mock:create": "tsx src/get-mock-data.ts --overwrite",
     "dev": "tsx src/server.ts",
-    "dev:temp-mock": "VITE_USE_TEMP_MOCK=true tsx src/server.ts",
+    "dev:temp-mock": "pnpm run mock:create && VITE_USE_TEMP_MOCK=true tsx src/server.ts",
     "build": "vite build && vite build --ssr",
     "build:temp-mock": "VITE_USE_TEMP_MOCK=true vite build && vite build --ssr",
     "preview": "NODE_ENV=production tsx src/server.ts",

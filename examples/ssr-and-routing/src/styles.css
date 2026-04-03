@@ -249,10 +249,10 @@ body {
 
 /* View transitions (for full-page route changes) */
 ::view-transition-old(root) {
-  animation: slide-out 0.2s ease-in;
+  animation: slide-out 0.5s ease-in;
 }
 ::view-transition-new(root) {
-  animation: slide-in 0.2s ease-out;
+  animation: slide-in 0.5s ease-out;
 }
 @keyframes slide-out {
   from {

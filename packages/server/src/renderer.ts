@@ -182,7 +182,17 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     const each = typeof props.each === 'function' ? (props.each as () => unknown[])() : (props.each as unknown[]);
     if (!Array.isArray(each)) return '<!--For-->';
     const renderFn = props.children as (item: () => unknown, index: () => number) => JSXElement;
-    const parts = await Promise.all(each.map((item, i) => renderNode(renderFn(() => item, () => i), opts)));
+    const parts = await Promise.all(
+      each.map((item, i) =>
+        renderNode(
+          renderFn(
+            () => item,
+            () => i
+          ),
+          opts
+        )
+      )
+    );
     return `${parts.join('')}<!--For-->`;
   }
 
