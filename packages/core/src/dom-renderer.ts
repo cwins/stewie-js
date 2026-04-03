@@ -16,6 +16,10 @@ import { Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly }
 
 export type Disposer = () => void;
 
+// Sentinel used to detect the first run of a function-child effect.
+// A real child value can be JSXElement | string | number | null | boolean — never a Symbol.
+const _UNSET = Symbol();
+
 // ---------------------------------------------------------------------------
 // Render scope — used by the DOM JSX runtime to collect effect disposers
 // ---------------------------------------------------------------------------
@@ -110,6 +114,10 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
     // Pre-populate with claimed nodes so the cleanup path always has the right set.
     let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
     let firstRun = !!claimed;
+    // Memoize: skip DOM teardown/rebuild when the returned value is reference-equal
+    // to the previous value. This prevents spurious DOM churn when a parent signal
+    // changes but the property accessed by this child expression did not.
+    let lastValue: unknown = _UNSET;
 
     if (isDev) _setNextEffectMeta({ type: 'children' });
     const disposeEffect = effect(() => {
@@ -118,6 +126,7 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
         // Subscribe to signals (children() call) AND wire reactive effects onto the
         // existing SSR nodes via a sub-cursor. No DOM insertions happen here.
         const value = (children as () => unknown)();
+        lastValue = value;
         const subCursor = new HydrationCursor(currentNodes);
         const frag = document.createDocumentFragment();
         childDisposer = _withCursor(subCursor, () => renderChildren(value, frag, null));
@@ -127,6 +136,11 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
       }
 
       const value = (children as () => unknown)();
+      // If the value is reference-equal to the previous result, no DOM update is needed.
+      // Catches the common case where a parent signal changed (e.g. task object replaced)
+      // but the specific property read here (e.g. title) is the same primitive value.
+      if (value === lastValue) return;
+      lastValue = value;
       childDisposer();
       childDisposer = () => {};
       currentNodes.forEach((n) => n.parentNode?.removeChild(n));
@@ -316,7 +330,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
   if (!claimed) insertBefore(parent, anchor, before);
 
   const renderFn = props.children as (item: () => unknown, index: () => number) => JSXElement;
-  const keyFn = typeof props.key === 'function' ? (props.key as (item: unknown, index: number) => unknown) : null;
+  const keyFn = typeof props.by === 'function' ? (props.by as (item: unknown, index: number) => unknown) : null;
 
   if (keyFn) {
     // Keyed mode: diff by key so stable items reuse their DOM nodes and effects.
@@ -354,7 +368,16 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
             const itemSig = signal<unknown>(each[i]);
             const idxSig = signal<number>(i);
             const disposer = renderWithRoot(() =>
-              _withCursor(subCursor, () => renderChildren(renderFn(() => itemSig(), () => idxSig()), itemFrag, null))
+              _withCursor(subCursor, () =>
+                renderChildren(
+                  renderFn(
+                    () => itemSig(),
+                    () => idxSig()
+                  ),
+                  itemFrag,
+                  null
+                )
+              )
             );
             const claimedCount = subCursor.idx - startIdx;
             const itemNodes = claimed.contentNodes.slice(startIdx, startIdx + claimedCount) as ChildNode[];
@@ -362,7 +385,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
               disposer,
               setItem: (item) => itemSig.set(item),
               setIndex: (idx) => idxSig.set(idx),
-              nodes: [],
+              nodes: []
             };
             // Handle mismatch overflow (nodes that weren't claimed from the cursor).
             if (itemFrag.childNodes.length > 0) {
@@ -423,13 +446,22 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
             const frag = document.createDocumentFragment();
             const itemSig = signal<unknown>(each[i]);
             const idxSig = signal<number>(i);
-            const disposer = renderWithRoot(() => renderChildren(renderFn(() => itemSig(), () => idxSig()), frag, null));
+            const disposer = renderWithRoot(() =>
+              renderChildren(
+                renderFn(
+                  () => itemSig(),
+                  () => idxSig()
+                ),
+                frag,
+                null
+              )
+            );
             const nodes = Array.from(frag.childNodes) as ChildNode[];
             keyMap.set(key, {
               nodes,
               disposer,
               setItem: (item) => itemSig.set(item),
-              setIndex: (idx) => idxSig.set(idx),
+              setIndex: (idx) => idxSig.set(idx)
             });
           } else {
             // Stable key — update item and index in place; DOM nodes are reused as-is.
@@ -505,7 +537,18 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
         const subCursor = new HydrationCursor(claimed.contentNodes);
         const frag = document.createDocumentFragment();
         childDisposers = _withCursor(subCursor, () =>
-          each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(() => item, () => i), frag, null)))
+          each.map((item, i) =>
+            renderWithRoot(() =>
+              renderChildren(
+                renderFn(
+                  () => item,
+                  () => i
+                ),
+                frag,
+                null
+              )
+            )
+          )
         );
         if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       }
@@ -520,7 +563,18 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
     if (!Array.isArray(each)) return;
 
     const frag = document.createDocumentFragment();
-    childDisposers = each.map((item, i) => renderWithRoot(() => renderChildren(renderFn(() => item, () => i), frag, null)));
+    childDisposers = each.map((item, i) =>
+      renderWithRoot(() =>
+        renderChildren(
+          renderFn(
+            () => item,
+            () => i
+          ),
+          frag,
+          null
+        )
+      )
+    );
     currentNodes = Array.from(frag.childNodes) as ChildNode[];
     anchor.parentNode?.insertBefore(frag, anchor);
   });

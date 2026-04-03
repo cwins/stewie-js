@@ -369,7 +369,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
@@ -396,7 +396,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => jsx('li', { children: String((item as () => { id: number })().id) })
       }),
       c
@@ -418,7 +418,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
@@ -452,7 +452,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
@@ -478,7 +478,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => jsx('li', { children: (item as () => { id: number; text: string })().text })
       }),
       c
@@ -502,7 +502,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => jsx('li', { children: String((item as () => { id: number })().id) })
       }),
       c
@@ -525,7 +525,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => {
           const i = item as () => { id: number; text: string; done: boolean };
           return jsx('li', { children: () => i().text });
@@ -547,7 +547,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => {
           const i = item as () => { id: number; text: string; done: boolean };
           return jsx('li', { class: () => (i().done ? 'done' : ''), children: () => i().text });
@@ -570,7 +570,7 @@ describe('For (keyed)', () => {
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => {
           const i = item as () => { id: number; text: string };
           return jsx('li', { children: () => i().text });
@@ -595,12 +595,15 @@ describe('For (keyed)', () => {
   });
 
   it('disposed keyed entry stops updating after key is removed', () => {
-    const items = sig([{ id: 1, text: 'a' }, { id: 2, text: 'b' }]);
+    const items = sig([
+      { id: 1, text: 'a' },
+      { id: 2, text: 'b' }
+    ]);
     const c = container();
     mount(
       For({
         each: items,
-        key: (item) => (item as { id: number }).id,
+        by: (item) => (item as { id: number }).id,
         children: (item) => {
           const i = item as () => { id: number; text: string };
           return jsx('li', { children: () => i().text });

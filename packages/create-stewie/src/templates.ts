@@ -630,7 +630,7 @@ export function App(): JSXElement {
                   each={() => todos.filter((t: TodoItem) =>
                     t.text.toLowerCase().includes(filter().toLowerCase())
                   )}
-                  key={(item: TodoItem) => item.id}
+                  by={(item: TodoItem) => item.id}
                 >
                   {(getItem: () => TodoItem) => (
                     <li

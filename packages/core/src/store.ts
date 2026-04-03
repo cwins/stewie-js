@@ -51,6 +51,16 @@ type PathNodeMap = Map<string, StoreNode>;
  */
 type ProxyCache = WeakMap<object, Map<string, object>>;
 
+/**
+ * Reverse map: proxy → raw target.
+ *
+ * Prevents double-wrapping when a store-proxied object ends up stored back
+ * inside the same store array (e.g. `store.tasks = store.tasks.map(t => t)`).
+ * On re-read, makeProxy detects the existing proxy, resolves its raw target,
+ * and returns the already-cached proxy for that (rawTarget, path) pair.
+ */
+type ProxyTargetMap = WeakMap<object, object>;
+
 function getOrCreateNode(nodeMap: PathNodeMap, path: string): StoreNode {
   let node = nodeMap.get(path);
   if (!node) {
@@ -68,16 +78,28 @@ function trackNode(nodeMap: PathNodeMap, path: string): void {
   scope.dependencies.add(node);
 }
 
-function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: string, proxyCache: ProxyCache): T {
-  // Return a cached proxy when the same (target, path) pair is seen again.
+function makeProxy<T extends object>(
+  target: T,
+  nodeMap: PathNodeMap,
+  path: string,
+  proxyCache: ProxyCache,
+  proxyTargetMap: ProxyTargetMap
+): T {
+  // If target is already a proxy created by this store, unwrap it to the raw
+  // object so the (rawTarget, path) cache lookup works correctly and we never
+  // produce a Proxy-of-a-Proxy. This happens when store array elements are
+  // proxy objects (e.g. after `store.tasks = store.tasks.map(t => t)`).
+  const rawTarget = (proxyTargetMap.get(target) as T | undefined) ?? target;
+
+  // Return a cached proxy when the same (rawTarget, path) pair is seen again.
   // This gives stable referential identity: store.user === store.user.
-  let pathMap = proxyCache.get(target);
+  let pathMap = proxyCache.get(rawTarget);
   if (pathMap) {
     const cached = pathMap.get(path);
     if (cached) return cached as T;
   }
 
-  const proxy = new Proxy(target, {
+  const proxy = new Proxy(rawTarget, {
     get(obj: T, key: string | symbol): unknown {
       // Pass through symbols (like Symbol.iterator, Symbol.toPrimitive, etc.)
       if (typeof key === 'symbol') {
@@ -131,7 +153,7 @@ function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: stri
 
       // Recursively proxy nested objects/arrays — use the cache to preserve identity
       if (value !== null && typeof value === 'object') {
-        return makeProxy(value as object, nodeMap, fullPath, proxyCache);
+        return makeProxy(value as object, nodeMap, fullPath, proxyCache, proxyTargetMap);
       }
 
       return value;
@@ -149,7 +171,9 @@ function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: stri
       // subsequent reads of this property create a fresh proxy for the new value.
       const oldValue = (obj as Record<string, unknown>)[key];
       if (oldValue !== null && typeof oldValue === 'object') {
-        const oldPathMap = proxyCache.get(oldValue as object);
+        // Unwrap if the stored value is itself a proxy from this store
+        const rawOldValue = (proxyTargetMap.get(oldValue as object) as object | undefined) ?? (oldValue as object);
+        const oldPathMap = proxyCache.get(rawOldValue);
         if (oldPathMap) oldPathMap.delete(fullPath);
       }
 
@@ -172,9 +196,11 @@ function makeProxy<T extends object>(target: T, nodeMap: PathNodeMap, path: stri
   // Store in cache before returning
   if (!pathMap) {
     pathMap = new Map();
-    proxyCache.set(target, pathMap);
+    proxyCache.set(rawTarget, pathMap);
   }
   pathMap.set(path, proxy);
+  // Register the reverse mapping so future makeProxy(proxy, ...) calls can unwrap
+  proxyTargetMap.set(proxy, rawTarget);
 
   return proxy;
 }
@@ -192,5 +218,6 @@ export function store<T extends object>(initial: T): T {
 
   const nodeMap: PathNodeMap = new Map();
   const proxyCache: ProxyCache = new WeakMap();
-  return makeProxy(initial, nodeMap, '', proxyCache);
+  const proxyTargetMap: ProxyTargetMap = new WeakMap();
+  return makeProxy(initial, nodeMap, '', proxyCache, proxyTargetMap);
 }

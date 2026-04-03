@@ -192,7 +192,7 @@ createRoot(() => {
       </div>
       <table class="table table-hover table-striped test-data">
         <tbody id="tbody">
-          <For each={rows} key={(row: Row) => row.id}>
+          <For each={rows} by={(row: Row) => row.id}>
             {(row: Row) => (
               <tr id={String(row.id)} class={() => (selected() === row.id ? 'danger' : '')}>
                 <td class="col-md-1">{row.id}</td>

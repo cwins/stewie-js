@@ -101,7 +101,7 @@ function DashboardView(): JSXElement {
         <h1 class="page-title">Projects</h1>
       </div>
       <div class="grid" data-testid="project-grid">
-        <For each={app.projects} key={(project) => project.id}>
+        <For each={app.projects} by={(project) => project.id}>
           {(getProject: () => Project) => {
             const count = () => app.tasks.filter((t) => t.projectId === getProject().id && !t.isCompleted).length;
             return (
@@ -289,7 +289,7 @@ function ProjectDetailView(): JSXElement {
   const app = inject(AppContext)!;
   const { projectId, taskId: urlTaskId } = router.location.params;
 
-  const project = () => (app.projects.find((p) => p.id === projectId));
+  const project = () => app.projects.find((p) => p.id === projectId);
 
   if (!project) {
     return (
@@ -302,76 +302,83 @@ function ProjectDetailView(): JSXElement {
     );
   }
 
-  // Local signal for the selected task — avoids URL-driven remounting so the
-  // component stays alive, reactive prop effects re-run, and the devtools
-  // Renders tab can observe fine-grained updates.
-  // Initialised from the URL param so direct-URL access and SSR still work.
-  const $selectedTaskId = signal<string | null>(urlTaskId ?? null);
+  // Hold the selected task object directly so the edit sheet never needs to
+  // re-read app.tasks — it just uses what was passed in at open time.
+  // Initialised from the URL param for direct-URL access and SSR.
+  const initTask = urlTaskId ? (app.tasks.find((t) => t.id === urlTaskId) ?? null) : null;
+  const $selectedTask = signal<Task | null>(initTask);
 
-  const closeSheet = () => $selectedTaskId.set(null);
+  const closeSheet = () => $selectedTask.set(null);
 
   const tasks = computed(() => app.tasks.filter((t) => t.projectId === projectId));
-
-  const listPane = (
-    <div data-testid={`project-detail-${projectId}`}>
-      <button class="back-btn" onClick={() => router.navigate('/')}>
-        ← Back
-      </button>
-      <div class="page-header">
-        <h1 class="page-title" data-testid="project-name">
-          {project()?.name}
-        </h1>
-        <button
-          class="btn-primary"
-          style="width: auto; padding: 0.5rem 1rem;"
-          onClick={() => router.navigate(`/project/${projectId}/task/create`)}
-          data-testid="add-task-btn"
-        >
-          + Add Task
-        </button>
-      </div>
-      <Show
-        when={tasks().length > 0}
-        fallback={
-          <div class="empty-state" data-testid="no-tasks">
-            No tasks yet. Add one!
-          </div>
-        }
-      >
-        <div data-testid="task-list">
-          <For each={tasks()} key={(task) => task.id}>
-            {(getTask: () => Task) => {
-              const isSelected = computed(() => getTask().id === $selectedTaskId());
-              const cssClasses = computed(() => {
-                return ['task-row', isSelected() && 'task-row-selected', getTask().isCompleted && 'task-row-completed']
-                  .filter(Boolean)
-                  .join(' ');
-              });
-
-              return (
-                <div class={cssClasses} data-testid={`task-row-${getTask().id}`} onClick={() => $selectedTaskId.set(getTask().id)}>
-                  <span class="task-title">{() => getTask().title}</span>
-                  <span class="badge" data-testid={`task-badge-${getTask().id}`}>
-                    {() => formatDueDate(getTask().dueDate)}
-                  </span>
-                </div>
-              );
-            }}
-          </For>
-        </div>
-      </Show>
-    </div>
-  );
+  const showTasks = computed(() => tasks().length > 0);
 
   // Outer div class switches between single-column (.container) and two-column
   // (.project-layout) reactively — no remount, just a class change.
   // The list pane is always in the DOM; only the sheet Show mounts/unmounts.
   return (
-    <div class={() => ($selectedTaskId() !== null ? 'project-layout' : 'container')}>
-      <div class="task-list-pane">{listPane}</div>
-      <Show when={() => $selectedTaskId() !== null}>
+    <div class={() => ($selectedTask() !== null ? 'project-layout' : 'container')}>
+      <div class="task-list-pane">
+        <div data-testid={`project-detail-${projectId}`}>
+          <button class="back-btn" onClick={() => router.navigate('/')}>
+            ← Back
+          </button>
+          <div class="page-header">
+            <h1 class="page-title" data-testid="project-name">
+              {project()?.name}
+            </h1>
+            <button
+              class="btn-primary"
+              style="width: auto; padding: 0.5rem 1rem;"
+              onClick={() => router.navigate(`/project/${projectId}/task/create`)}
+              data-testid="add-task-btn"
+            >
+              + Add Task
+            </button>
+          </div>
+          <Show
+            when={showTasks}
+            fallback={
+              <div class="empty-state" data-testid="no-tasks">
+                No tasks yet. Add one!
+              </div>
+            }
+          >
+            <div data-testid="task-list">
+              <For each={tasks} by={(task) => task.id}>
+                {(getTask: () => Task) => {
+                  const isSelected = computed(() => $selectedTask()?.id === getTask().id);
+                  const cssClasses = computed(() => {
+                    return [
+                      'task-row',
+                      isSelected() && 'task-row-selected',
+                      getTask().isCompleted && 'task-row-completed'
+                    ]
+                      .filter(Boolean)
+                      .join(' ');
+                  });
+
+                  return (
+                    <div
+                      class={cssClasses}
+                      data-testid={`task-row-${projectId}-${getTask().id}`}
+                      onClick={() => $selectedTask.set(getTask())}
+                    >
+                      <span class="task-title">{() => getTask().title}</span>
+                      <span class="badge" data-testid={`task-badge-${getTask().id}`}>
+                        {() => formatDueDate(getTask().dueDate)}
+                      </span>
+                    </div>
+                  );
+                }}
+              </For>
+            </div>
+          </Show>
+        </div>
+      </div>
+      <Show when={() => $selectedTask() !== null}>
         {() => {
-          const task = app.tasks.find((t) => t.id === $selectedTaskId());
+          const task = $selectedTask();
           if (!task) return <p data-testid="task-not-found">Task not found.</p>;
           return (
             <div class="task-sheet" data-testid="edit-task">
@@ -503,7 +510,7 @@ export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
     },
 
     updateTask(taskId: string, updates: Partial<Task>) {
-        appStore.tasks = appStore.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t));
+      appStore.tasks = appStore.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t));
     },
 
     deleteTask(taskId: string) {
