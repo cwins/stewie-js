@@ -3,6 +3,6 @@ import { version } from './index.js';
 
 describe('@stewie-js/router', () => {
   it('exports version', () => {
-    expect(version).toBe('0.4.0');
+    expect(version).toBe('0.5.0');
   });
 });
