@@ -16,6 +16,6 @@ Practical patterns and non-obvious behaviours worth knowing about.
 
 ## Reference
 
-- [Core API](reference/core-api.md)
-- [Router API](reference/router-api.md)
-- [Server API](reference/server-api.md)
+- [Core API](reference/core-api.md) — signals, computed, effects, store, context, control flow, resource, lazy, mount, hydrate
+- [Router API](reference/router-api.md) — Router, Route, Link, hooks, guards
+- [Server API](reference/server-api.md) — renderToString, renderToStream, hydration registry
