@@ -2,13 +2,20 @@
 
 import { jsx, inject, effect, signal, createRoot } from '@stewie-js/core';
 import type { JSXElement, Component } from '@stewie-js/core';
-import { createRouter, RouterContext } from './router.js';
+import { createRouter, RouterContext, RedirectError } from './router.js';
 import type { Router, RouteGuard } from './router.js';
 import { matchRoute } from './matcher.js';
 
 export interface RouterProps {
   /** Starting URL — defaults to window.location on browser, '/' on server. */
   initialUrl?: string;
+  /**
+   * Pre-configured router instance produced by `createSsrRouter`.
+   * When provided, the Router component skips creating a new router and
+   * running guards (they already ran in `createSsrRouter`).
+   * Only used for SSR — on the client omit this prop.
+   */
+  router?: Router;
   /**
    * Rendered while the initial route's guard or data loader is resolving.
    * Defaults to null (nothing shown) if omitted.
@@ -114,7 +121,9 @@ export function Router(props: RouterProps): JSXElement {
       ? globalThis.location.pathname + globalThis.location.search + globalThis.location.hash
       : '/');
 
-  const router = createRouter(initialUrl);
+  // Use pre-configured router from createSsrRouter if provided (SSR path).
+  // Otherwise create a fresh one (browser path).
+  const router = props.router ?? createRouter(initialUrl);
   const routes = extractRoutes(props.children);
 
   // Register routes so navigate() can resolve params
@@ -136,11 +145,13 @@ export function Router(props: RouterProps): JSXElement {
   });
 
   let _ready!: ReturnType<typeof signal<boolean>>;
+  // If a pre-configured SSR router was provided, guards already ran — start ready.
+  const alreadyResolved = !!props.router;
   createRoot(() => {
-    _ready = signal(!initialRouteNeedsAsync);
+    _ready = signal(!initialRouteNeedsAsync || alreadyResolved);
   });
 
-  if (initialRouteNeedsAsync) {
+  if (initialRouteNeedsAsync && !alreadyResolved) {
     // Fire-and-forget: run the guard / loader for the initial URL in the
     // background. When they resolve, flip _ready which triggers matchedContent
     // to re-evaluate and render the (possibly redirected) route.
@@ -227,4 +238,59 @@ export function Link(props: LinkProps): JSXElement {
     children: props.children,
     ...(handleClick ? { onClick: handleClick } : {})
   });
+}
+
+// ---------------------------------------------------------------------------
+// createSsrRouter — SSR guard + loader helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Runs route guards and data loaders for the given URL on the server.
+ * Returns a pre-configured `Router` instance that can be passed to the
+ * `<Router router={...}>` prop, ensuring the rendered HTML reflects the
+ * guard outcome and pre-loaded route data.
+ *
+ * Throws `RedirectError` if any `beforeEnter` guard returns a redirect URL.
+ * Catch this in your server handler and return an HTTP 302 response.
+ *
+ * **Usage:**
+ * ```ts
+ * import { createSsrRouter, RedirectError, Router, Route } from '@stewie-js/router'
+ * import { renderToString } from '@stewie-js/server'
+ *
+ * // Define routes once — reuse in createSsrRouter and <Router>
+ * const routes = jsx(Fragment, { children: [
+ *   jsx(Route, { path: '/', component: Home }),
+ *   jsx(Route, { path: '/protected', component: Protected, beforeEnter: authGuard }),
+ * ]})
+ *
+ * // In your SSR request handler:
+ * try {
+ *   const ssrRouter = await createSsrRouter(req.url, routes)
+ *   const { html, stateScript } = await renderToString(
+ *     jsx(Router, { router: ssrRouter, children: routes })
+ *   )
+ *   return new Response(html + stateScript, { headers: { 'content-type': 'text/html' } })
+ * } catch (err) {
+ *   if (err instanceof RedirectError) {
+ *     return new Response(null, { status: 302, headers: { location: err.location } })
+ *   }
+ *   throw err
+ * }
+ * ```
+ */
+export async function createSsrRouter(
+  url: string,
+  routes: import('@stewie-js/core').JSXElement | import('@stewie-js/core').JSXElement[]
+): Promise<Router> {
+  const routeConfigs = extractRoutes(Array.isArray(routes) ? routes : [routes]);
+  const router = createRouter(url);
+  router._routes = routeConfigs;
+
+  const redirect = await router._runGuardsAndLoad(url);
+  if (redirect !== null) {
+    throw new RedirectError(redirect);
+  }
+
+  return router;
 }

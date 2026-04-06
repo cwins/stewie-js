@@ -38,6 +38,34 @@ function hasNavigationApi(): boolean {
 export type RouteGuard = (to: string, from: string) => Promise<true | string> | (true | string);
 
 // ---------------------------------------------------------------------------
+// RedirectError — thrown by createSsrRouter when a guard redirects
+// ---------------------------------------------------------------------------
+
+/**
+ * Thrown by `createSsrRouter` when a `beforeEnter` guard returns a redirect URL.
+ * Catch this in your SSR request handler and return an HTTP 302 response.
+ *
+ * ```ts
+ * try {
+ *   const router = await createSsrRouter(req.url, routeElements)
+ *   const { html, stateScript } = await renderToString(<App router={router} />)
+ *   return new Response(html + stateScript, { headers: { 'content-type': 'text/html' } })
+ * } catch (err) {
+ *   if (err instanceof RedirectError) {
+ *     return new Response(null, { status: 302, headers: { location: err.location } })
+ *   }
+ *   throw err
+ * }
+ * ```
+ */
+export class RedirectError extends Error {
+  constructor(public readonly location: string) {
+    super(`SSR redirect to ${location}`);
+    this.name = 'RedirectError';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Router types
 // ---------------------------------------------------------------------------
 

@@ -52,8 +52,8 @@ Genuine gaps in the current implementation.
 **`createRoot()` async ownership**
 Synchronous effects created during a `createRoot()` body are now tracked and disposed on unmount. What remains: effects created from async callbacks (after `await`) are not automatically owned by the root and will not be disposed with it. A fully async-aware ownership tree (closer to Solid's `createOwner` semantics) is needed for long-lived async workflows.
 
-**Route guards and data loading during SSR**
-`beforeEnter` and `load` now run on initial client render and on browser back/forward navigation. They do not yet run during SSR (`renderToString`). An SSR guard redirect requires Suspense + `resource()` integration so the async result can be awaited inside the render pipeline. Until then, apps that need SSR guard redirects should run guards before calling `renderToString` and return an HTTP redirect response from their server handler.
+~~**Route guards and data loading during SSR**~~
+`createSsrRouter(url, routes)` runs `beforeEnter` guards and `load` functions before `renderToString`. Throws `RedirectError` (catch it in the server handler, return HTTP 302) when a guard redirects. Pass the returned router via `<Router router={ssrRouter}>` so the pre-loaded `_routeData` and correct location are available during the render.
 
 **SSR renderer consistency (`renderToString` / `renderToStream`)**
 `renderToString` and `renderToStream` are separate implementations with shared goals but diverging details. The string renderer and stream renderer must emit identical boundary/anchor comment semantics so that the `HydrationCursor` can claim nodes correctly regardless of which server path produced the HTML. Currently they are close but not provably identical — any divergence becomes a latent hydration bug. The fix is a shared serializer layer consumed by both paths.
@@ -129,7 +129,7 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 6. ~~`ComputedNode` ownership and reactive prop memoization~~ — done
 7. ~~SSR renderer consistency (`renderToString` / `renderToStream`)~~ — done
 8. ~~`resource()` cancellation / abort lifecycle~~ — done
-9. Route guards and data loading during SSR — required for complete auth flows
+9. ~~Route guards and data loading during SSR~~ — done
 10. `createRoot()` async ownership — correctness for async-heavy apps
 11. DevTools improvements — component tree tab, signal graph visualization, time-travel debugging, browser extension
 12. Form primitives — highest-value DX enhancement

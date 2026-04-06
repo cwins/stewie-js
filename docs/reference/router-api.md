@@ -174,9 +174,46 @@ If a guard redirects, the target URL goes through its own guards and loaders bef
 
 ---
 
+## `createSsrRouter(url, routes): Promise<Router>`
+
+Runs route guards and data loaders for the given URL on the server, returning a pre-configured `Router`. Pass it to `<Router router={ssrRouter}>` so the render uses the correct location and pre-loaded route data.
+
+Throws `RedirectError` if a `beforeEnter` guard returns a redirect URL.
+
+```ts
+import { createSsrRouter, RedirectError } from '@stewie-js/router'
+
+try {
+  const ssrRouter = await createSsrRouter(req.url, routeChildren)
+  const { html } = await renderToString(
+    jsx(Router, { router: ssrRouter, children: routeChildren })
+  )
+  return new Response(html, { headers: { 'content-type': 'text/html' } })
+} catch (err) {
+  if (err instanceof RedirectError) {
+    return new Response(null, { status: 302, headers: { location: err.location } })
+  }
+  throw err
+}
+```
+
+See the [SSR guide](../guide/ssr.md#route-guards-and-data-loading-during-ssr) for a complete example.
+
+---
+
+## `class RedirectError`
+
+Thrown by `createSsrRouter` when a `beforeEnter` guard returns a redirect URL.
+
+| Property | Description |
+|----------|-------------|
+| `location` | The redirect target URL. |
+
+---
+
 ## `createRouter(initialUrl?): Router`
 
-Creates a router instance directly, without the `<Router>` component. Useful for server-side rendering where you need a router instance before mounting.
+Creates a router instance directly, without the `<Router>` component.
 
 ```ts
 import { createRouter } from '@stewie-js/router'

@@ -4,7 +4,8 @@ import { jsx } from '@stewie-js/core';
 import { mount } from '@stewie-js/core';
 import { createRoot } from '@stewie-js/core';
 import { renderToString } from '@stewie-js/server';
-import { Router, Route, Link } from './components.js';
+import { Router, Route, Link, createSsrRouter } from './components.js';
+import { RedirectError } from './router.js';
 import { createRouter, RouterContext, useRouter } from './router.js';
 import { matchRoute } from './matcher.js';
 
@@ -460,5 +461,82 @@ describe('Router teardown', () => {
     // The primary guarantee we test is: unmounting must not throw.
     expect(() => unmount()).not.toThrow();
     document.body.removeChild(container);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createSsrRouter + RedirectError
+// ---------------------------------------------------------------------------
+
+describe('createSsrRouter', () => {
+  function Home() {
+    return jsx('div', { children: 'Home SSR' });
+  }
+  function Protected() {
+    return jsx('div', { children: 'Protected SSR' });
+  }
+
+  const allowGuard = async () => true as true;
+  const redirectGuard = async () => '/login';
+
+  it('returns a Router with location set to the given URL', async () => {
+    const routeElements = [
+      jsx(Route as any, { path: '/', component: Home }),
+    ];
+    const router = await createSsrRouter('/', routeElements);
+    expect(router.location.pathname).toBe('/');
+  });
+
+  it('returns a Router with _routeData populated from load()', async () => {
+    const routeElements = [
+      jsx(Route as any, {
+        path: '/data',
+        component: Home,
+        load: async () => ({ message: 'hello from loader' })
+      })
+    ];
+    const router = await createSsrRouter('/data', routeElements);
+    expect(router._routeData()).toEqual({ message: 'hello from loader' });
+  });
+
+  it('throws RedirectError when a beforeEnter guard returns a redirect URL', async () => {
+    const routeElements = [
+      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: redirectGuard }),
+    ];
+    await expect(createSsrRouter('/protected', routeElements)).rejects.toThrow(RedirectError);
+  });
+
+  it('RedirectError has the correct .location property', async () => {
+    const routeElements = [
+      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: redirectGuard }),
+    ];
+    try {
+      await createSsrRouter('/protected', routeElements);
+      expect.fail('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(RedirectError);
+      expect((err as RedirectError).location).toBe('/login');
+    }
+  });
+
+  it('does not throw when guard returns true (allow)', async () => {
+    const routeElements = [
+      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: allowGuard }),
+    ];
+    const router = await createSsrRouter('/protected', routeElements);
+    expect(router.location.pathname).toBe('/protected');
+  });
+
+  it('pre-configured router renders the correct route in renderToString', async () => {
+    const routeChildren = [
+      jsx(Route as any, { path: '/', component: Home }),
+      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: allowGuard }),
+    ];
+    const ssrRouter = await createSsrRouter('/protected', routeChildren);
+    const { html } = await renderToString(
+      jsx(Router as any, { router: ssrRouter, children: routeChildren })
+    );
+    expect(html).toContain('Protected SSR');
+    expect(html).not.toContain('Home SSR');
   });
 });

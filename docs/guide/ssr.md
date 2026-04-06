@@ -161,6 +161,49 @@ const { html, stateScript } = await renderToString(<App />, {
 
 ---
 
+## Route guards and data loading during SSR
+
+When using `@stewie-js/router`, `beforeEnter` guards and route-level `load()` functions must run before the render so the server can either redirect or include pre-loaded data in the HTML.
+
+Use `createSsrRouter` from `@stewie-js/router`:
+
+```ts
+import { createSsrRouter, RedirectError, Router, Route } from '@stewie-js/router'
+import { renderToString } from '@stewie-js/server'
+
+// Define routes as an array — reuse in both createSsrRouter and <Router>
+const routeChildren = [
+  jsx(Route, { path: '/', component: Home }),
+  jsx(Route, { path: '/protected', component: Protected, beforeEnter: authGuard }),
+  jsx(Route, { path: '/data', component: DataPage, load: () => fetchPageData() }),
+]
+
+async function handleRequest(req: Request): Promise<Response> {
+  let ssrRouter
+  try {
+    ssrRouter = await createSsrRouter(req.url, routeChildren)
+  } catch (err) {
+    if (err instanceof RedirectError) {
+      return new Response(null, { status: 302, headers: { location: err.location } })
+    }
+    throw err
+  }
+
+  const { html, stateScript } = await renderToString(
+    jsx(Router, { router: ssrRouter, children: routeChildren })
+  )
+  return new Response(html + stateScript, {
+    headers: { 'content-type': 'text/html; charset=utf-8' }
+  })
+}
+```
+
+`createSsrRouter` runs guards and loaders before rendering begins. If a guard returns a redirect URL, it throws `RedirectError` — catch it and return an HTTP 302. Otherwise it returns a pre-configured `Router` instance; pass it as `router={ssrRouter}` so the component skips re-running guards and uses the already-loaded route data.
+
+Route data loaded via `load()` is available inside the rendered component via `useRouteData()`.
+
+---
+
 ## Platform adapters
 
 `@stewie-js/server` is runtime-agnostic. Platform adapters translate the native request format to the standard `Request`/`Response` interface.
