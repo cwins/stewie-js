@@ -29,72 +29,15 @@ import {
   Suspense,
   ClientOnly,
   runWithContext,
-  createRoot
+  withRenderIsolation,
+  createRoot,
+  _LazyBoundary
 } from '@stewie-js/core';
-import type { ContextProvider, ContextSnapshot } from '@stewie-js/core';
+import type { ContextProvider, ContextSnapshot, _LazyBoundaryProps } from '@stewie-js/core';
 import type { RenderToStreamOptions } from './types.js';
 import { createHydrationRegistry, HydrationRegistryContext } from './hydration.js';
 import type { HydrationRegistry } from './hydration.js';
-
-// ---------------------------------------------------------------------------
-// Internal helpers (duplicated from renderer.ts to avoid circular deps)
-// ---------------------------------------------------------------------------
-
-const VOID_ELEMENTS = new Set([
-  'area',
-  'base',
-  'br',
-  'col',
-  'embed',
-  'hr',
-  'img',
-  'input',
-  'link',
-  'meta',
-  'param',
-  'source',
-  'track',
-  'wbr'
-]);
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function styleObjectToString(style: Record<string, string | number>): string {
-  return Object.entries(style)
-    .map(([key, value]) => `${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${value}`)
-    .join('; ');
-}
-
-function serializeAttrs(props: Record<string, unknown>): string {
-  let out = '';
-  for (const [key, rawValue] of Object.entries(props)) {
-    if (key === 'children' || key === 'key' || key === 'ref' || typeof rawValue === 'function' || /^on[A-Z]/.test(key))
-      continue;
-
-    const value = key === 'className' ? rawValue : rawValue;
-    const attrName = key === 'className' ? 'class' : key === 'htmlFor' ? 'for' : key;
-
-    if (value === true) {
-      out += ` ${attrName}`;
-      continue;
-    }
-    if (value === false || value === null || value === undefined) continue;
-
-    if (attrName === 'style' && typeof value === 'object') {
-      out += ` style="${escapeHtml(styleObjectToString(value as Record<string, string | number>))}"`;
-      continue;
-    }
-    out += ` ${attrName}="${escapeHtml(String(value))}"`;
-  }
-  return out;
-}
+import { VOID_ELEMENTS, escapeHtml, serializeAttrs } from './serializer.js';
 
 // ---------------------------------------------------------------------------
 // Internal streaming render context
@@ -138,6 +81,9 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
 
   if (typeof node === 'function') {
     await streamNode((node as () => unknown)(), opts);
+    // Emit the same anchor the DOM renderer inserts after function-child output
+    // so HydrationCursor.collectUntilComment('') can bound the region correctly.
+    opts.flush('<!---->');
     return;
   }
 
@@ -186,6 +132,16 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
   // ClientOnly — skip on server
   if (type === (ClientOnly as unknown)) return;
 
+  // LazyBoundary — emit <!--Lazy--> anchor to match the string renderer and DOM renderer
+  if (type === (_LazyBoundary as unknown)) {
+    const lazyProps = props as unknown as _LazyBoundaryProps;
+    if (lazyProps.loaded()) {
+      await streamNode(lazyProps.render(), opts);
+    }
+    opts.flush('<!--Lazy-->');
+    return;
+  }
+
   // Portal — render children inline
   if (type === (Portal as unknown)) {
     await streamNode(props.children, opts);
@@ -203,7 +159,8 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Switch / Match
+  // Switch / Match — emit <!--Switch--> anchor on every path to match the string
+  // renderer and DOM renderer so HydrationCursor.collectUntilComment('Switch') works.
   if (type === (Switch as unknown)) {
     const children = Array.isArray(props.children) ? props.children : [props.children];
     for (const child of children as JSXElement[]) {
@@ -217,10 +174,12 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
         const content =
           typeof mp.children === 'function' ? (mp.children as (v: unknown) => JSXElement)(when) : mp.children;
         await streamNode(content, opts);
+        opts.flush('<!--Switch-->');
         return;
       }
     }
     if (props.fallback !== undefined) await streamNode(props.fallback, opts);
+    opts.flush('<!--Switch-->');
     return;
   }
 
@@ -335,30 +294,32 @@ export function renderToStream(
       };
 
       try {
-        const registry = createHydrationRegistry();
-        const contextSnapshot: ContextSnapshot = new Map([[HydrationRegistryContext.id, registry]]);
+        await withRenderIsolation(async () => {
+          const registry = createHydrationRegistry();
+          const contextSnapshot: ContextSnapshot = new Map([[HydrationRegistryContext.id, registry]]);
 
-        const deferred: Array<() => Promise<void>> = [];
+          const deferred: Array<() => Promise<void>> = [];
 
-        const opts: StreamOpts = {
-          nonce: options?.nonce,
-          registry,
-          contextSnapshot,
-          flush,
-          defer: (work) => deferred.push(work),
-          suspenseId: { n: 0 }
-        };
+          const opts: StreamOpts = {
+            nonce: options?.nonce,
+            registry,
+            contextSnapshot,
+            flush,
+            defer: (work) => deferred.push(work),
+            suspenseId: { n: 0 }
+          };
 
-        const rootEl = typeof root === 'function' ? root() : root;
-        await streamNode(rootEl, opts);
+          const rootEl = typeof root === 'function' ? root() : root;
+          await streamNode(rootEl, opts);
 
-        // Resolve deferred Suspense boundaries in order
-        for (const work of deferred) await work();
+          // Resolve deferred Suspense boundaries in order
+          for (const work of deferred) await work();
 
-        // Flush hydration state last — escape </script> to prevent XSS breakout
-        const stateJson = registry.serialize().replace(/<\//g, '<\\/');
-        const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : '';
-        flush(`<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson}</script>`);
+          // Flush hydration state last — escape </script> to prevent XSS breakout
+          const stateJson = registry.serialize().replace(/<\//g, '<\\/');
+          const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : '';
+          flush(`<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson}</script>`);
+        });
 
         controller.close();
       } catch (err) {

@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToString } from './renderer.js';
 import { renderToStream } from './stream.js';
-import { jsx, Show, For } from '@stewie-js/core';
+import { jsx, Show, For, Switch, Match } from '@stewie-js/core';
 
 // ---------------------------------------------------------------------------
 // Helpers — minimal edge-style harness (no Node http, no Express)
@@ -177,5 +177,66 @@ describe('edge: renderToString / renderToStream parity', () => {
     // Content must not appear
     expect(html).not.toContain('hidden');
     expect(streamed).not.toContain('hidden');
+  });
+
+  it('function children: both renderers emit <!----> anchor after content', async () => {
+    // A function child (e.g., from reactive expressions or Router match) must
+    // emit an empty comment anchor so HydrationCursor.collectUntilComment('')
+    // can bound the region correctly.
+    const fnChild = () => jsx('span', { children: 'fn-content' });
+    const el = jsx('div', { children: fnChild });
+    const { html } = await renderToString(el);
+    const streamed = await collectStream(renderToStream(el));
+    expect(html).toContain('<!---->');
+    expect(streamed).toContain('<!---->');
+    expect(html).toContain('fn-content');
+    expect(streamed).toContain('fn-content');
+  });
+
+  it('Switch/Match: both renderers emit <!--Switch--> anchor on match', async () => {
+    const el = Switch({
+      children: [
+        Match({ when: false, children: jsx('span', { children: 'no' }) }),
+        Match({ when: true, children: jsx('span', { children: 'yes' }) })
+      ]
+    });
+    const { html } = await renderToString(el);
+    const streamed = await collectStream(renderToStream(el));
+    expect(html).toContain('<!--Switch-->');
+    expect(streamed).toContain('<!--Switch-->');
+    expect(html).toContain('yes');
+    expect(streamed).toContain('yes');
+    expect(html).not.toContain('no');
+    expect(streamed).not.toContain('no');
+  });
+
+  it('Switch no-match: both renderers emit <!--Switch--> anchor with fallback', async () => {
+    const el = Switch({
+      fallback: jsx('span', { children: 'default' }),
+      children: [Match({ when: false, children: jsx('span', { children: 'never' }) })]
+    });
+    const { html } = await renderToString(el);
+    const streamed = await collectStream(renderToStream(el));
+    expect(html).toContain('<!--Switch-->');
+    expect(streamed).toContain('<!--Switch-->');
+    expect(html).toContain('default');
+    expect(streamed).toContain('default');
+  });
+
+  it('reactive attribute values (function props) are resolved by both renderers', async () => {
+    // serializeAttrs must call function values — this was missing in the old stream renderer
+    const el = jsx('div', { class: () => 'reactive-class', children: 'hi' });
+    const { html } = await renderToString(el);
+    const streamed = await collectStream(renderToStream(el));
+    expect(html).toContain('class="reactive-class"');
+    expect(streamed).toContain('class="reactive-class"');
+  });
+
+  it('htmlFor prop is serialized as for= by both renderers', async () => {
+    const el = jsx('label', { htmlFor: 'my-input', children: 'Label' });
+    const { html } = await renderToString(el);
+    const streamed = await collectStream(renderToStream(el));
+    expect(html).toContain('for="my-input"');
+    expect(streamed).toContain('for="my-input"');
   });
 });
