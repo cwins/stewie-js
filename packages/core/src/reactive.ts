@@ -454,6 +454,28 @@ export function effect(fn: () => void | (() => void)): Dispose {
   return () => node.dispose();
 }
 
+/**
+ * Register a cleanup function that runs when the current reactive root is disposed.
+ *
+ * Call inside a `createRoot()` body (or inside a component, which runs inside a root).
+ * If called outside any root, the cleanup is silently ignored — there is no scope to
+ * attach it to.
+ *
+ * ```ts
+ * createRoot(() => {
+ *   const ctrl = new AbortController()
+ *   onCleanup(() => ctrl.abort())
+ *   fetch('/api/data', { signal: ctrl.signal })
+ * })
+ * ```
+ */
+export function onCleanup(fn: () => void): void {
+  const owner = _ownerStack[_ownerStack.length - 1];
+  if (owner) {
+    owner.push({ dispose: fn });
+  }
+}
+
 // Run fn without registering any reactive subscriptions in the current scope.
 export function untrack<T>(fn: () => T): T {
   const saved = _scopeStack.splice(0);

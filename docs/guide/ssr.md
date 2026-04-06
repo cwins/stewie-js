@@ -114,9 +114,9 @@ function UserProfile() {
 
   // check for cached data first (populated during SSR, read on client)
   const cached = registry.get('profile') as User | undefined
-  const user = resource(async () => {
+  const user = resource(async (signal) => {
     if (cached) return cached
-    const data = await fetch('/api/me').then(r => r.json())
+    const data = await fetch('/api/me', { signal }).then(r => r.json())
     registry.set('profile', data)
     return data
   })

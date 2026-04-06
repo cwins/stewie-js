@@ -9,6 +9,7 @@ export {
   effect,
   batch,
   untrack,
+  onCleanup,
   createRoot,
   withRenderIsolation,
   getCurrentScope,

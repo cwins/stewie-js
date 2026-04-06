@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { signal, computed, effect, batch, untrack, createRoot, createScope, withRenderIsolation } from './reactive.js';
+import { signal, computed, effect, batch, untrack, onCleanup, createRoot, createScope, withRenderIsolation } from './reactive.js';
 
 // ---------------------------------------------------------------------------
 // signal
@@ -572,6 +572,55 @@ describe('createRoot', () => {
     capturedSig.set(99);
     expect(capturedComputed()).toBe(10); // stale — disposed
     expect(effectRuns).toBe(2); // effect also disposed
+  });
+});
+
+// ---------------------------------------------------------------------------
+// onCleanup
+// ---------------------------------------------------------------------------
+
+describe('onCleanup', () => {
+  it('calls the cleanup function when the owning root is disposed', () => {
+    let cleaned = false;
+    let dispose!: () => void;
+    createRoot((d) => {
+      dispose = d;
+      onCleanup(() => { cleaned = true; });
+    });
+    expect(cleaned).toBe(false);
+    dispose();
+    expect(cleaned).toBe(true);
+  });
+
+  it('calls multiple cleanup functions in registration order', () => {
+    const order: number[] = [];
+    let dispose!: () => void;
+    createRoot((d) => {
+      dispose = d;
+      onCleanup(() => order.push(1));
+      onCleanup(() => order.push(2));
+      onCleanup(() => order.push(3));
+    });
+    dispose();
+    expect(order).toEqual([1, 2, 3]);
+  });
+
+  it('is a no-op when called outside any createRoot', () => {
+    // Should not throw and should not affect anything
+    expect(() => onCleanup(() => {})).not.toThrow();
+  });
+
+  it('cleanup does not run before dispose is called', () => {
+    let cleaned = false;
+    let dispose!: () => void;
+    createRoot((d) => {
+      dispose = d;
+      onCleanup(() => { cleaned = true; });
+    });
+    // Advance time — cleanup must not run spontaneously
+    expect(cleaned).toBe(false);
+    dispose();
+    expect(cleaned).toBe(true);
   });
 });
 

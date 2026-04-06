@@ -96,6 +96,27 @@ effect(() => {
 
 ---
 
+### `onCleanup(fn): void`
+
+Registers a cleanup function that runs when the current reactive root (component) is disposed — i.e., when the component unmounts.
+
+Call inside a component body or inside `createRoot()`. If called outside any root it is silently ignored.
+
+```ts
+function DataLoader() {
+  const ctrl = new AbortController()
+  onCleanup(() => ctrl.abort())
+
+  fetch('/api/data', { signal: ctrl.signal })
+    .then(r => r.json())
+    .then(data => /* update signals */)
+}
+```
+
+This is the mechanism `resource()` uses to cancel in-flight requests when a component unmounts.
+
+---
+
 ### `createRoot<T>(fn): T`
 
 Creates a reactive ownership scope. Effects and computed values created inside `fn` are owned by this root and disposed together when `dispose()` is called.
@@ -318,8 +339,14 @@ Renders children only on the client. Renders nothing during SSR.
 
 Wraps an async function and exposes reactive signals for its loading state, data, and error. The fetcher is called immediately.
 
+The fetcher receives an `AbortSignal` that is cancelled automatically in two situations:
+- When `refetch()` is called — the previous in-flight request is aborted before the new one starts.
+- When the owning component unmounts — the in-flight request is aborted and its result is discarded.
+
 ```ts
-const users = resource(() => fetch('/api/users').then(r => r.json()))
+const users = resource((signal) =>
+  fetch('/api/users', { signal }).then(r => r.json())
+)
 ```
 
 **`Resource<T>` interface**
@@ -330,13 +357,15 @@ const users = resource(() => fetch('/api/users').then(r => r.json()))
 | `loading` | `Signal<boolean>` — true while the fetch is in flight. |
 | `error` | `Signal<unknown>` — the thrown error, or `null` if none. |
 | `read()` | Suspense-compatible accessor — throws a Promise while loading, throws the error on failure, returns data when ready. |
-| `refetch()` | Re-invoke the fetcher. Returns a Promise that resolves when the new fetch completes. |
+| `refetch()` | Abort the current fetch, then re-invoke the fetcher. Returns a Promise that resolves when the new fetch completes. |
 
 **DOM usage (recommended):**
 
 ```tsx
 function UserList() {
-  const users = resource(() => fetch('/api/users').then(r => r.json()))
+  const users = resource((signal) =>
+    fetch('/api/users', { signal }).then(r => r.json())
+  )
   return (
     <Show when={() => !users.loading()} fallback={<Spinner />}>
       {() => <ul>{users.data()!.map(u => <li>{u.name}</li>)}</ul>}
@@ -349,7 +378,9 @@ function UserList() {
 
 ```tsx
 function UserList() {
-  const users = resource(() => fetch('/api/users').then(r => r.json()))
+  const users = resource((signal) =>
+    fetch('/api/users', { signal }).then(r => r.json())
+  )
   const data = users.read()  // throws Promise — <Suspense> awaits it
   return <ul>{data.map(u => <li>{u.name}</li>)}</ul>
 }

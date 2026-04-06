@@ -58,8 +58,8 @@ Synchronous effects created during a `createRoot()` body are now tracked and dis
 **SSR renderer consistency (`renderToString` / `renderToStream`)**
 `renderToString` and `renderToStream` are separate implementations with shared goals but diverging details. The string renderer and stream renderer must emit identical boundary/anchor comment semantics so that the `HydrationCursor` can claim nodes correctly regardless of which server path produced the HTML. Currently they are close but not provably identical — any divergence becomes a latent hydration bug. The fix is a shared serializer layer consumed by both paths.
 
-**`resource()` cancellation / abort lifecycle**
-`resource()` starts async work immediately and has no cancellation support. When a component unmounts mid-fetch or a dependency changes, the in-flight request continues and its result is discarded silently. `AbortController` integration is needed so the framework can cancel stale work when the owning scope tears down.
+~~**`resource()` cancellation / abort lifecycle**~~
+`AbortController` integrated: fetcher receives an `AbortSignal`; signal is cancelled on `refetch()` and on owning scope disposal (via `onCleanup`). Stale results are silently dropped. `onCleanup()` is now a public API usable by application code as well.
 
 ### Router
 
@@ -127,8 +127,8 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 4. ~~`_routeData` stickiness / redirect-on-back guard bypass~~ — done
 5. ~~Fine-grained compiler output~~ — done
 6. ~~`ComputedNode` ownership and reactive prop memoization~~ — done
-7. SSR renderer consistency (`renderToString` / `renderToStream`) — architectural correctness
-8. `resource()` cancellation / abort lifecycle — correctness for async-heavy apps
+7. ~~SSR renderer consistency (`renderToString` / `renderToStream`)~~ — done
+8. ~~`resource()` cancellation / abort lifecycle~~ — done
 9. Route guards and data loading during SSR — required for complete auth flows
 10. `createRoot()` async ownership — correctness for async-heavy apps
 11. DevTools improvements — component tree tab, signal graph visualization, time-travel debugging, browser extension

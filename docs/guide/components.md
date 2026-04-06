@@ -189,7 +189,9 @@ function Button() {
 
 ```tsx
 function UserProfile() {
-  const user = resource(() => fetch('/api/me').then(r => r.json()))
+  const user = resource((signal) =>
+    fetch('/api/me', { signal }).then(r => r.json())
+  )
 
   return (
     <Show when={() => !user.loading()} fallback={<Spinner />}>
@@ -198,6 +200,8 @@ function UserProfile() {
   )
 }
 ```
+
+The fetcher receives an `AbortSignal`. Pass it to `fetch()` so the network request is cancelled when the component unmounts or when `refetch()` is called. If you don't need cancellation you can ignore it.
 
 Use `user.error()` to check for failures and `user.refetch()` to re-trigger the fetch.
 

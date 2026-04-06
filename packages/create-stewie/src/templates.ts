@@ -523,8 +523,11 @@ interface TodoItem {
   done: boolean
 }
 
-// Simulated async data load — replace with fetch('/api/...').then(r => r.json())
-async function loadWelcomeTip(): Promise<{ tip: string }> {
+// Simulated async data load — in a real app replace with:
+// async function loadWelcomeTip(signal: AbortSignal) {
+//   return fetch('/api/tip', { signal }).then(r => r.json())
+// }
+async function loadWelcomeTip(_signal: AbortSignal): Promise<{ tip: string }> {
   await new Promise<void>((r) => setTimeout(r, 600))
   return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
 }
@@ -735,8 +738,11 @@ import type { Resource, JSXElement } from '@stewie-js/core'
 import { useRouter } from '@stewie-js/router'
 import { Shell } from '../shell.js'
 
-// Simulated async data load — in a real app replace with fetch('/api/...').then(r => r.json())
-async function loadWelcomeTip(): Promise<{ tip: string }> {
+// Simulated async data load — in a real app replace with:
+// async function loadWelcomeTip(signal: AbortSignal) {
+//   return fetch('/api/tip', { signal }).then(r => r.json())
+// }
+async function loadWelcomeTip(_signal: AbortSignal): Promise<{ tip: string }> {
   await new Promise<void>((r) => setTimeout(r, 600))
   return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
 }

@@ -7,6 +7,7 @@ import { mount } from './dom-renderer.js';
 import { resource, type Resource } from './resource.js';
 import { renderToString } from '@stewie-js/server';
 
+
 // ---------------------------------------------------------------------------
 // resource() — signal API
 // ---------------------------------------------------------------------------
@@ -232,5 +233,94 @@ describe('Suspense + resource() SSR rendering', () => {
     const { html } = await renderToString(el);
     expect(html).toContain('Error fallback');
     expect(html).not.toContain('content');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AbortSignal / cancellation
+// ---------------------------------------------------------------------------
+
+describe('resource() AbortSignal and cancellation', () => {
+  it('passes an AbortSignal to the fetcher', async () => {
+    let receivedSignal: AbortSignal | undefined;
+    let res!: ReturnType<typeof resource<number>>;
+    createRoot(() => {
+      res = resource((signal) => {
+        receivedSignal = signal;
+        return Promise.resolve(1);
+      });
+    });
+    expect(receivedSignal).toBeInstanceOf(AbortSignal);
+    expect(receivedSignal!.aborted).toBe(false);
+    await vi.waitFor(() => expect(res.loading()).toBe(false));
+  });
+
+  it('aborts the previous request when refetch() is called', async () => {
+    const abortedSignals: AbortSignal[] = [];
+    let res!: ReturnType<typeof resource<number>>;
+    createRoot(() => {
+      res = resource((signal) => {
+        // Return a never-resolving promise so we can catch the abort
+        return new Promise<number>((_, reject) => {
+          signal.addEventListener('abort', () => {
+            abortedSignals.push(signal);
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
+      });
+    });
+
+    // First request is in flight — call refetch() to abort it
+    res.refetch();
+    // Give the abort event a tick to fire
+    await new Promise((r) => setTimeout(r, 0));
+    expect(abortedSignals.length).toBe(1);
+    expect(abortedSignals[0].aborted).toBe(true);
+  });
+
+  it('stale result from aborted refetch is ignored — signals not updated', async () => {
+    let resolveFirst!: (v: string) => void;
+    let resolveSecond!: (v: string) => void;
+    const firstPromise = new Promise<string>((r) => { resolveFirst = r; });
+    const secondPromise = new Promise<string>((r) => { resolveSecond = r; });
+    let call = 0;
+
+    let res!: ReturnType<typeof resource<string>>;
+    createRoot(() => {
+      res = resource(() => {
+        call++;
+        return call === 1 ? firstPromise : secondPromise;
+      });
+    });
+
+    // Start a second fetch (aborts first)
+    res.refetch();
+    // Now resolve the FIRST (stale) promise — result should be discarded
+    resolveFirst('stale');
+    await new Promise((r) => setTimeout(r, 10));
+    // data should still be undefined — stale result was ignored
+    expect(res.data()).toBeUndefined();
+
+    // Resolve the second (live) fetch
+    resolveSecond('fresh');
+    await vi.waitFor(() => expect(res.loading()).toBe(false));
+    expect(res.data()).toBe('fresh');
+  });
+
+  it('aborts in-flight request when the owning scope disposes', async () => {
+    let receivedSignal!: AbortSignal;
+    let dispose!: () => void;
+    createRoot((d) => {
+      dispose = d;
+      resource((signal) => {
+        receivedSignal = signal;
+        // Never-resolving fetch
+        return new Promise<number>(() => {});
+      });
+    });
+
+    expect(receivedSignal.aborted).toBe(false);
+    dispose();
+    expect(receivedSignal.aborted).toBe(true);
   });
 });
