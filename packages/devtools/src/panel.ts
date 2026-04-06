@@ -5,6 +5,34 @@ import { buildStoresTab, addSignalEntry, addStoreEntry, clearStoresTabRef } from
 import { buildRoutesTab, clearRoutesTabRef, onNavigation } from './tabs/routes.js';
 import type { DevEffectMeta } from '@stewie-js/core';
 
+export interface Trigger {
+  kind: 'signal' | 'store';
+  value: unknown;
+  label?: string;  // signal label (if set)
+  path?: string;   // store path
+}
+
+// The most recently observed reactive write — used to attribute effect re-runs
+// to their triggering write in the Renders tab. Cleared after each flush of the
+// microtask queue so stale attribution doesn't bleed into unrelated rerenders.
+let _currentTrigger: Trigger | null = null;
+let _triggerClearTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function setCurrentTrigger(t: Trigger): void {
+  _currentTrigger = t;
+  // Clear after the current synchronous task so future async rerenders
+  // don't get falsely attributed to an old write.
+  if (_triggerClearTimer !== null) clearTimeout(_triggerClearTimer);
+  _triggerClearTimer = setTimeout(() => {
+    _currentTrigger = null;
+    _triggerClearTimer = null;
+  }, 0);
+}
+
+export function getCurrentTrigger(): Trigger | null {
+  return _currentTrigger;
+}
+
 type TabId = 'renders' | 'stores' | 'routes';
 
 let panelEl: HTMLElement | null = null;
@@ -107,12 +135,12 @@ export function isVisible(): boolean {
 
 // Called by hooks.ts when an effect re-runs
 export function notifyEffectRun(meta: DevEffectMeta | undefined): void {
-  addRenderEntry(meta);
+  addRenderEntry(meta, _currentTrigger);
 }
 
 // Called by hooks.ts when a signal is written
-export function notifySignalWrite(value: unknown): void {
-  addSignalEntry(value);
+export function notifySignalWrite(value: unknown, label?: string): void {
+  addSignalEntry(value, label);
 }
 
 // Called by hooks.ts when a store property is written

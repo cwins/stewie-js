@@ -53,7 +53,12 @@ export interface DevEffectMeta {
 
 export const __devHooks: {
   onEffectRun?: (meta: DevEffectMeta | undefined) => void;
-  onSignalWrite?: (value: unknown) => void;
+  /**
+   * Called when a signal is written.
+   * @param value - The new value.
+   * @param label - The optional label passed as the second argument to `signal()`.
+   */
+  onSignalWrite?: (value: unknown, label?: string) => void;
   onStoreWrite?: (path: string, value: unknown) => void;
 } = {};
 
@@ -201,9 +206,12 @@ export class ReactiveNode<T> implements Subscribable {
 // ---------------------------------------------------------------------------
 
 class SignalNode<T> extends ReactiveNode<T> {
-  constructor(initial: T) {
+  private _label: string | undefined;
+
+  constructor(initial: T, label?: string) {
     super();
     this._value = initial;
+    this._label = label;
   }
 
   read(): T {
@@ -219,7 +227,7 @@ class SignalNode<T> extends ReactiveNode<T> {
     if (value === this._value) return;
     this._value = value;
     if (isDev && __devHooks.onSignalWrite) {
-      __devHooks.onSignalWrite(value);
+      __devHooks.onSignalWrite(value, this._label);
     }
     this._notifySubscribers();
   }
@@ -427,10 +435,10 @@ export class EffectNode implements Subscriber {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function signal<T>(initialValue: T): Signal<T> {
+export function signal<T>(initialValue: T, label?: string): Signal<T> {
   _warnModuleScope();
 
-  const node = new SignalNode(initialValue);
+  const node = new SignalNode(initialValue, label);
 
   const sig = function (): T {
     return node.read();

@@ -62,6 +62,7 @@ export function injectStyles(): void {
   font-size: 12px; gap: 8px;
 }
 .__sdt-entry-label { color: #e2e8f0; font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.__sdt-entry-trigger { color: #64748b; font-family: monospace; font-size: 11px; flex-shrink: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 6px; }
 .__sdt-entry-time { color: #64748b; font-size: 11px; flex-shrink: 0; }
 .__sdt-entry-value { color: #94a3b8; font-family: monospace; font-size: 11px; flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

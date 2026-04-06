@@ -4,7 +4,8 @@ const MAX_ENTRIES = 100;
 
 interface WriteEntry {
   kind: 'signal' | 'store';
-  path?: string; // store writes only
+  path?: string;  // store writes only
+  label?: string; // signal label (if set via signal(value, 'name'))
   value: unknown;
   time: number;
 }
@@ -38,7 +39,13 @@ function createEntry(entry: WriteEntry): HTMLElement {
 
   const label = document.createElement('span');
   label.className = '__sdt-entry-label';
-  label.textContent = entry.kind === 'store' ? `store: ${entry.path}` : 'signal';
+  if (entry.kind === 'store') {
+    label.textContent = `store: ${entry.path}`;
+  } else if (entry.label) {
+    label.textContent = `signal(${entry.label})`;
+  } else {
+    label.textContent = 'signal';
+  }
 
   const value = document.createElement('span');
   value.className = '__sdt-entry-value';
@@ -72,8 +79,8 @@ function push(entry: WriteEntry): void {
   }
 }
 
-export function addSignalEntry(value: unknown): void {
-  push({ kind: 'signal', value, time: Date.now() });
+export function addSignalEntry(value: unknown, label?: string): void {
+  push({ kind: 'signal', label, value, time: Date.now() });
 }
 
 export function addStoreEntry(path: string, value: unknown): void {

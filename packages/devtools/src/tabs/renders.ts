@@ -2,12 +2,14 @@
 
 import { flashElement, setHighlightEnabled, isHighlightEnabled } from '../highlight.js';
 import type { DevEffectMeta } from '@stewie-js/core';
+import type { Trigger } from '../panel.js';
 
 const MAX_ENTRIES = 100;
 
 interface RenderEntry {
   label: string;
   element?: Element;
+  trigger?: Trigger;
   time: number;
 }
 
@@ -26,6 +28,26 @@ function formatLabel(meta: DevEffectMeta | undefined): string {
   return meta.type;
 }
 
+function formatTrigger(trigger: Trigger): string {
+  if (trigger.kind === 'signal') {
+    const name = trigger.label ? `signal(${trigger.label})` : 'signal';
+    const val = formatValue(trigger.value);
+    return `${name} = ${val}`;
+  }
+  const val = formatValue(trigger.value);
+  return `store.${trigger.path} = ${val}`;
+}
+
+function formatValue(v: unknown): string {
+  try {
+    const s = JSON.stringify(v);
+    if (s === undefined) return String(v);
+    return s.length > 30 ? s.slice(0, 27) + '...' : s;
+  } catch {
+    return String(v);
+  }
+}
+
 function formatTime(time: number): string {
   const delta = Date.now() - time;
   if (delta < 1000) return 'just now';
@@ -42,20 +64,28 @@ function createEntry(entry: RenderEntry): HTMLElement {
     el.addEventListener('click', () => flashElement(entry.element!));
   }
 
-  const label = document.createElement('span');
-  label.className = '__sdt-entry-label';
-  label.textContent = entry.label;
+  const labelSpan = document.createElement('span');
+  labelSpan.className = '__sdt-entry-label';
+  labelSpan.textContent = entry.label;
+
+  el.appendChild(labelSpan);
+
+  if (entry.trigger) {
+    const triggerSpan = document.createElement('span');
+    triggerSpan.className = '__sdt-entry-trigger';
+    triggerSpan.textContent = `← ${formatTrigger(entry.trigger)}`;
+    el.appendChild(triggerSpan);
+  }
 
   const time = document.createElement('span');
   time.className = '__sdt-entry-time';
   time.textContent = formatTime(entry.time);
 
-  el.appendChild(label);
   el.appendChild(time);
   return el;
 }
 
-export function addRenderEntry(meta: DevEffectMeta | undefined): void {
+export function addRenderEntry(meta: DevEffectMeta | undefined, trigger?: Trigger | null): void {
   if (!meta) return;
   // 'children' is the Router's top-level navigation effect — too noisy, skip
   if (meta.type === 'children') return;
@@ -63,6 +93,7 @@ export function addRenderEntry(meta: DevEffectMeta | undefined): void {
   const entry: RenderEntry = {
     label: formatLabel(meta),
     element: meta.element,
+    trigger: trigger ?? undefined,
     time: Date.now()
   };
 
