@@ -2,11 +2,11 @@
 
 ## Guide
 
-- [Getting Started](guide/getting-started.md)
-- [Reactivity](guide/reactivity.md)
-- [Components](guide/components.md)
-- [Routing](guide/routing.md)
-- [Server-Side Rendering](guide/ssr.md)
+- [Getting Started](guide/getting-started.md) — scaffold, manual setup, first component
+- [Reactivity](guide/reactivity.md) — signals, computed, effects, store, the subscription model
+- [Components](guide/components.md) — function components, JSX, control flow, context, lifecycle
+- [Routing](guide/routing.md) — Router setup, navigation, guards, data loading, lazy routes
+- [Server-Side Rendering](guide/ssr.md) — renderToString, streaming, hydration, ClientOnly, adapters
 
 ## Patterns
 
