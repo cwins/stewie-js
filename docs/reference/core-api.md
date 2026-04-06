@@ -117,6 +117,36 @@ This is the mechanism `resource()` uses to cancel in-flight requests when a comp
 
 ---
 
+### `getOwner(): Owner | null`
+
+Returns the current reactive ownership scope, or `null` if called outside any `createRoot()`.
+
+Use this together with `runInOwner` to track effects and cleanup functions created in async continuations (after `await`) back to their originating root.
+
+```ts
+createRoot(async (dispose) => {
+  const owner = getOwner()   // capture before first await
+  const data = await loadData()
+
+  runInOwner(owner, () => {
+    effect(() => render(data))   // owned — disposed when root disposes
+    onCleanup(() => cleanup())   // owned — runs on dispose
+  })
+})
+```
+
+---
+
+### `runInOwner<T>(owner: Owner | null, fn: () => T): T`
+
+Run `fn` with the given ownership scope active. Effects, computed values, and `onCleanup` calls inside `fn` are registered with `owner`'s root and will be disposed when that root is disposed.
+
+If `owner` is `null`, `fn` runs without any owner.
+
+See `getOwner` for the typical usage pattern.
+
+---
+
 ### `createRoot<T>(fn): T`
 
 Creates a reactive ownership scope. Effects and computed values created inside `fn` are owned by this root and disposed together when `dispose()` is called.

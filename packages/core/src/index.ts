@@ -2,7 +2,7 @@
 
 export const version = '0.5.0';
 
-export type { Signal, Computed, Dispose, Scope, Subscribable, Subscriber } from './reactive.js';
+export type { Signal, Computed, Dispose, Scope, Subscribable, Subscriber, Owner } from './reactive.js';
 export {
   signal,
   computed,
@@ -10,6 +10,8 @@ export {
   batch,
   untrack,
   onCleanup,
+  getOwner,
+  runInOwner,
   createRoot,
   withRenderIsolation,
   getCurrentScope,

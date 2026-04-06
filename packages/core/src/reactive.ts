@@ -94,6 +94,17 @@ interface Disposable {
 // can dispose them all when it tears down (e.g. on component / For-item unmount).
 const _ownerStack: Disposable[][] = [];
 
+/**
+ * Opaque handle to a reactive ownership scope — the object returned by
+ * `getOwner()`. Pass it to `runInOwner()` to register reactive nodes
+ * (effects, computed values, cleanup functions) with that scope from
+ * outside its original synchronous body, e.g. inside an async callback.
+ */
+export interface Owner {
+  /** @internal */
+  _nodes: Disposable[];
+}
+
 // ---------------------------------------------------------------------------
 // Tracking scope stack (module-level — this is framework infrastructure)
 // ---------------------------------------------------------------------------
@@ -473,6 +484,53 @@ export function onCleanup(fn: () => void): void {
   const owner = _ownerStack[_ownerStack.length - 1];
   if (owner) {
     owner.push({ dispose: fn });
+  }
+}
+
+/**
+ * Returns the current reactive ownership scope, or `null` if called outside
+ * any `createRoot()`.
+ *
+ * Capture the owner before the first `await` in an async function, then use
+ * `runInOwner(owner, fn)` to restore ownership for async continuations so that
+ * effects and cleanup functions created after `await` are tracked and disposed
+ * with the root.
+ *
+ * ```ts
+ * createRoot(async (dispose) => {
+ *   const owner = getOwner()   // capture before first await
+ *
+ *   const data = await loadData()
+ *
+ *   runInOwner(owner, () => {
+ *     effect(() => renderData(data))   // owned — disposed when root is disposed
+ *     onCleanup(() => cleanup())       // owned — runs on dispose
+ *   })
+ * })
+ * ```
+ */
+export function getOwner(): Owner | null {
+  const nodes = _ownerStack[_ownerStack.length - 1];
+  return nodes ? { _nodes: nodes } : null;
+}
+
+/**
+ * Run `fn` with the given ownership scope active on the stack.
+ * Effects, computed values, and `onCleanup` calls inside `fn` are registered
+ * with `owner` and will be disposed when `owner`'s root is disposed.
+ *
+ * If `owner` is `null` the function runs without any owner (same as calling
+ * `fn()` directly).
+ *
+ * See `getOwner` for the typical usage pattern.
+ */
+export function runInOwner<T>(owner: Owner | null, fn: () => T): T {
+  if (!owner) return fn();
+  _ownerStack.push(owner._nodes);
+  try {
+    return fn();
+  } finally {
+    _ownerStack.pop();
   }
 }
 

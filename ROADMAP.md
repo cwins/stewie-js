@@ -49,8 +49,8 @@ Genuine gaps in the current implementation.
 
 ### Foundational (High Priority)
 
-**`createRoot()` async ownership**
-Synchronous effects created during a `createRoot()` body are now tracked and disposed on unmount. What remains: effects created from async callbacks (after `await`) are not automatically owned by the root and will not be disposed with it. A fully async-aware ownership tree (closer to Solid's `createOwner` semantics) is needed for long-lived async workflows.
+~~**`createRoot()` async ownership**~~
+`getOwner()` and `runInOwner(owner, fn)` are now public APIs. Capture the owner before the first `await` in an async `createRoot` body, then pass it to `runInOwner` in async continuations so effects and `onCleanup` calls are registered with the root. This is the manual equivalent of Solid's `AsyncLocalStorage`-based ownership; fully automatic async propagation requires `AsyncLocalStorage` which is not available in all WinterCG environments.
 
 ~~**Route guards and data loading during SSR**~~
 `createSsrRouter(url, routes)` runs `beforeEnter` guards and `load` functions before `renderToString`. Throws `RedirectError` (catch it in the server handler, return HTTP 302) when a guard redirects. Pass the returned router via `<Router router={ssrRouter}>` so the pre-loaded `_routeData` and correct location are available during the render.
@@ -130,7 +130,7 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 7. ~~SSR renderer consistency (`renderToString` / `renderToStream`)~~ — done
 8. ~~`resource()` cancellation / abort lifecycle~~ — done
 9. ~~Route guards and data loading during SSR~~ — done
-10. `createRoot()` async ownership — correctness for async-heavy apps
+10. ~~`createRoot()` async ownership~~ — done (getOwner / runInOwner)
 11. DevTools improvements — component tree tab, signal graph visualization, time-travel debugging, browser extension
 12. Form primitives — highest-value DX enhancement
 13. Documentation site — needed before recommending Stewie to others

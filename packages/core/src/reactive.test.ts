@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { signal, computed, effect, batch, untrack, onCleanup, createRoot, createScope, withRenderIsolation } from './reactive.js';
+import { signal, computed, effect, batch, untrack, onCleanup, getOwner, runInOwner, createRoot, createScope, withRenderIsolation } from './reactive.js';
 
 // ---------------------------------------------------------------------------
 // signal
@@ -618,6 +618,78 @@ describe('onCleanup', () => {
       onCleanup(() => { cleaned = true; });
     });
     // Advance time — cleanup must not run spontaneously
+    expect(cleaned).toBe(false);
+    dispose();
+    expect(cleaned).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getOwner / runInOwner
+// ---------------------------------------------------------------------------
+
+describe('getOwner / runInOwner', () => {
+  it('getOwner() returns null outside any createRoot', () => {
+    expect(getOwner()).toBeNull();
+  });
+
+  it('getOwner() returns a non-null owner inside createRoot', () => {
+    createRoot(() => {
+      expect(getOwner()).not.toBeNull();
+    });
+  });
+
+  it('runInOwner(null, fn) runs fn without owner — does not throw', () => {
+    expect(() => runInOwner(null, () => {})).not.toThrow();
+  });
+
+  it('effects created via runInOwner are disposed with the owner root', () => {
+    let runCount = 0;
+    let dispose!: () => void;
+    let capturedSig!: ReturnType<typeof signal<number>>;
+
+    // Capture the owner synchronously inside createRoot
+    let capturedOwner: ReturnType<typeof getOwner> = null;
+    createRoot((d) => {
+      dispose = d;
+      capturedSig = signal(0);
+      capturedOwner = getOwner();
+      // Simulate: create effect in an "async continuation" outside the root body
+      // by running it via runInOwner after the synchronous phase
+    });
+
+    // Simulate async continuation: create effect outside the synchronous root body
+    runInOwner(capturedOwner, () => {
+      effect(() => {
+        capturedSig(); // subscribe
+        runCount++;
+      });
+    });
+
+    expect(runCount).toBe(1); // ran once on init
+    capturedSig.set(1);
+    expect(runCount).toBe(2); // reacted
+
+    // Dispose the root — the effect created via runInOwner must be stopped
+    dispose();
+    capturedSig.set(2);
+    expect(runCount).toBe(2); // effect is gone — no re-run
+  });
+
+  it('onCleanup registered via runInOwner fires on dispose', () => {
+    let cleaned = false;
+    let dispose!: () => void;
+    let capturedOwner: ReturnType<typeof getOwner> = null;
+
+    createRoot((d) => {
+      dispose = d;
+      capturedOwner = getOwner();
+    });
+
+    runInOwner(capturedOwner, () => {
+      onCleanup(() => { cleaned = true; });
+    });
+
     expect(cleaned).toBe(false);
     dispose();
     expect(cleaned).toBe(true);
