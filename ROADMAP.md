@@ -83,7 +83,7 @@ Things not strictly missing but that would meaningfully improve the project.
 ### DevTools
 
 - **Component tree tab** — live component hierarchy with signal subscription counts per node
-- **Signal graph visualization** — dependency graph showing which signals feed which computed values and effects
+- **Signal graph visualization** — dependency graph showing which signals feed which computed values and effects ✓ shipped (Graph tab, text-based dep tree)
 - **Time-travel debugging** — snapshot signal/store state at each write, step backwards through history
 - **Browser extension** — move the overlay panel into a proper Chrome/Firefox DevTools extension to eliminate z-index and layout interference
 
@@ -131,6 +131,6 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 8. ~~`resource()` cancellation / abort lifecycle~~ — done
 9. ~~Route guards and data loading during SSR~~ — done
 10. ~~`createRoot()` async ownership~~ — done (getOwner / runInOwner)
-11. DevTools improvements — component tree tab, signal graph visualization, time-travel debugging, browser extension
+11. ~~DevTools improvements~~ — done (signal labels, causality attribution, Graph tab with live dep visualization)
 12. Form primitives — highest-value DX enhancement
 13. Documentation site — needed before recommending Stewie to others
