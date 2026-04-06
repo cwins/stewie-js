@@ -60,6 +60,20 @@ export const __devHooks: {
    */
   onSignalWrite?: (value: unknown, label?: string) => void;
   onStoreWrite?: (path: string, value: unknown) => void;
+  /**
+   * Called when a reactive node (signal, computed, effect) is created.
+   * id is a unique numeric ID assigned to the node in dev mode.
+   */
+  onNodeCreate?: (id: number, kind: 'signal' | 'computed' | 'effect', label?: string) => void;
+  /**
+   * Called when a reactive node is disposed.
+   */
+  onNodeDispose?: (id: number) => void;
+  /**
+   * Called when an effect or computed node's dependencies change after a run.
+   * deps is the array of signal/computed IDs this node now depends on.
+   */
+  onDepsUpdate?: (id: number, deps: number[]) => void;
 } = {};
 
 let _pendingEffectMeta: DevEffectMeta | undefined;
@@ -67,6 +81,10 @@ let _pendingEffectMeta: DevEffectMeta | undefined;
 export function _setNextEffectMeta(meta: DevEffectMeta): void {
   _pendingEffectMeta = meta;
 }
+
+// Dev-mode unique node ID counter
+let _nextNodeId = 0;
+function _nextId(): number { return ++_nextNodeId; }
 
 // ---------------------------------------------------------------------------
 // Module-scope creation guard (dev-mode warning)
@@ -207,11 +225,16 @@ export class ReactiveNode<T> implements Subscribable {
 
 class SignalNode<T> extends ReactiveNode<T> {
   private _label: string | undefined;
+  readonly _devId: number;
 
   constructor(initial: T, label?: string) {
     super();
     this._value = initial;
     this._label = label;
+    this._devId = isDev ? _nextId() : 0;
+    if (isDev && __devHooks.onNodeCreate) {
+      __devHooks.onNodeCreate(this._devId, 'signal', label);
+    }
   }
 
   read(): T {
@@ -252,10 +275,15 @@ export class ComputedNode<T> extends ReactiveNode<T> implements Subscriber {
   private _computing = false;
   private _initialized = false;
   private _disposed = false;
+  readonly _devId: number;
 
   constructor(fn: () => T) {
     super();
     this._fn = fn;
+    this._devId = isDev ? _nextId() : 0;
+    if (isDev && __devHooks.onNodeCreate) {
+      __devHooks.onNodeCreate(this._devId, 'computed');
+    }
     // Register with the nearest enclosing createRoot() so this computed is
     // disposed automatically when the owning scope tears down (component
     // unmount, For-item removal, etc.).
@@ -301,6 +329,11 @@ export class ComputedNode<T> extends ReactiveNode<T> implements Subscriber {
       this._deps.add(dep);
     }
 
+    if (isDev && __devHooks.onDepsUpdate) {
+      const depIds = [...this._deps].map((d) => (d as { _devId?: number })._devId ?? 0).filter(Boolean);
+      __devHooks.onDepsUpdate(this._devId, depIds);
+    }
+
     const wasInitialized = this._initialized;
     const changed = !wasInitialized || newValue !== this._value;
     this._value = newValue;
@@ -328,6 +361,9 @@ export class ComputedNode<T> extends ReactiveNode<T> implements Subscriber {
   dispose(): void {
     if (this._disposed) return;
     this._disposed = true;
+    if (isDev && __devHooks.onNodeDispose) {
+      __devHooks.onNodeDispose(this._devId);
+    }
     for (const dep of this._deps) {
       dep._unsubscribe(this);
     }
@@ -348,12 +384,17 @@ export class EffectNode implements Subscriber {
   private _running = false;
   _devMeta: DevEffectMeta | undefined = undefined;
   private _isFirstRun = true;
+  readonly _devId: number;
 
   constructor(fn: () => void | (() => void)) {
     this._fn = fn;
+    this._devId = isDev ? _nextId() : 0;
     if (isDev) {
       this._devMeta = _pendingEffectMeta;
       _pendingEffectMeta = undefined;
+      if (__devHooks.onNodeCreate) {
+        __devHooks.onNodeCreate(this._devId, 'effect');
+      }
     }
     // Register with the nearest enclosing createRoot() owner so it can
     // dispose this effect when the root is torn down (e.g. on component unmount).
@@ -399,6 +440,10 @@ export class EffectNode implements Subscriber {
     }
 
     if (isDev) {
+      if (__devHooks.onDepsUpdate) {
+        const depIds = [...this._deps].map((d) => (d as { _devId?: number })._devId ?? 0).filter(Boolean);
+        __devHooks.onDepsUpdate(this._devId, depIds);
+      }
       if (!this._isFirstRun && __devHooks.onEffectRun) {
         __devHooks.onEffectRun(this._devMeta);
       }
@@ -418,6 +463,10 @@ export class EffectNode implements Subscriber {
   dispose(): void {
     if (this._disposed) return;
     this._disposed = true;
+
+    if (isDev && __devHooks.onNodeDispose) {
+      __devHooks.onNodeDispose(this._devId);
+    }
 
     if (typeof this._cleanup === 'function') {
       this._cleanup();

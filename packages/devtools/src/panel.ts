@@ -3,6 +3,7 @@
 import { buildRendersTab, addRenderEntry, clearRendersTabRef } from './tabs/renders.js';
 import { buildStoresTab, addSignalEntry, addStoreEntry, clearStoresTabRef } from './tabs/stores.js';
 import { buildRoutesTab, clearRoutesTabRef, onNavigation } from './tabs/routes.js';
+import { buildGraphTab, clearGraphTabRef, onGraphNodeCreate, onGraphNodeDispose, onGraphDepsUpdate } from './tabs/graph.js';
 import type { DevEffectMeta } from '@stewie-js/core';
 
 export interface Trigger {
@@ -33,7 +34,7 @@ export function getCurrentTrigger(): Trigger | null {
   return _currentTrigger;
 }
 
-type TabId = 'renders' | 'stores' | 'routes';
+type TabId = 'renders' | 'stores' | 'routes' | 'graph';
 
 let panelEl: HTMLElement | null = null;
 let toggleBtn: HTMLElement | null = null;
@@ -81,7 +82,7 @@ export function createPanel(): HTMLElement {
   // Tabs
   const tabBar = document.createElement('div');
   tabBar.className = '__sdt-tabs';
-  (['renders', 'stores', 'routes'] as TabId[]).forEach((id) => {
+  (['renders', 'stores', 'routes', 'graph'] as TabId[]).forEach((id) => {
     const btn = document.createElement('button');
     btn.className = `__sdt-tab${id === activeTab ? ' __sdt-active' : ''}`;
     btn.textContent = id.charAt(0).toUpperCase() + id.slice(1);
@@ -94,7 +95,7 @@ export function createPanel(): HTMLElement {
   // Content
   const content = document.createElement('div');
   content.className = '__sdt-content';
-  (['renders', 'stores', 'routes'] as TabId[]).forEach((id) => {
+  (['renders', 'stores', 'routes', 'graph'] as TabId[]).forEach((id) => {
     const pane = document.createElement('div');
     pane.className = `__sdt-pane${id === activeTab ? ' __sdt-visible' : ''}`;
     panes[id] = pane;
@@ -107,6 +108,7 @@ export function createPanel(): HTMLElement {
   buildRendersTab(panes.renders);
   buildStoresTab(panes.stores);
   buildRoutesTab(panes.routes);
+  buildGraphTab(panes.graph);
 
   return root;
 }
@@ -155,6 +157,10 @@ export function destroyPanel(): void {
   clearRendersTabRef();
   clearStoresTabRef();
   clearRoutesTabRef();
+  clearGraphTabRef();
   panelEl = null;
   toggleBtn = null;
 }
+
+// Graph node lifecycle — forwarded from hooks.ts
+export { onGraphNodeCreate, onGraphNodeDispose, onGraphDepsUpdate };

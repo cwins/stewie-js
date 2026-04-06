@@ -193,16 +193,16 @@ createRoot(() => {
       <table class="table table-hover table-striped test-data">
         <tbody id="tbody">
           <For each={rows} by={(row: Row) => row.id}>
-            {(row: Row) => (
-              <tr id={String(row.id)} class={() => (selected() === row.id ? 'danger' : '')}>
-                <td class="col-md-1">{row.id}</td>
+            {(row) => (
+              <tr id={String(row().id)} class={() => (selected() === row().id ? 'danger' : '')}>
+                <td class="col-md-1">{row().id}</td>
                 <td class="col-md-4">
-                  <a class="lbl" onClick={() => select(row.id)}>
-                    {row.label}
+                  <a class="lbl" onClick={() => select(row().id)}>
+                    {row().label}
                   </a>
                 </td>
                 <td class="col-md-1">
-                  <a class="remove" onClick={() => remove(row.id)}>
+                  <a class="remove" onClick={() => remove(row().id)}>
                     <span class="remove glyphicon glyphicon-remove" aria-hidden="true" />
                   </a>
                 </td>
