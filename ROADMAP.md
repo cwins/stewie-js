@@ -131,5 +131,6 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 8. `resource()` cancellation / abort lifecycle — correctness for async-heavy apps
 9. Route guards and data loading during SSR — required for complete auth flows
 10. `createRoot()` async ownership — correctness for async-heavy apps
-11. Form primitives — highest-value DX enhancement
-12. Documentation site — needed before recommending Stewie to others
+11. DevTools improvements — component tree tab, signal graph visualization, time-travel debugging, browser extension
+12. Form primitives — highest-value DX enhancement
+13. Documentation site — needed before recommending Stewie to others
