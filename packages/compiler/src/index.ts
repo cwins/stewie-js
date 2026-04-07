@@ -1,5 +1,5 @@
 // @stewie-js/compiler — TSX to fine-grained reactive output
-export const version = '0.5.0';
+export const version = '0.6.0';
 
 import { parseFile } from './parser.js';
 import { analyzeFile } from './analyzer.js';

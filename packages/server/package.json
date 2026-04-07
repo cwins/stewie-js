@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/server",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "WinterCG-compatible server-side rendering for the Stewie framework",
   "keywords": [
     "hydration",
