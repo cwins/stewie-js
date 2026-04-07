@@ -4,6 +4,7 @@
   "private": true,
   "description": "Stewie implementation for js-framework-benchmark",
   "type": "module",
+  "main": "dist/index.html",
   "scripts": {
     "build-prod": "vite build",
     "build": "vite build",
@@ -16,6 +17,7 @@
     "@stewie-js/core": "workspace:*"
   },
   "devDependencies": {
+    "@stewie-js/vite": "workspace:*",
     "vite": "^7.0.0"
   },
   "js-framework-benchmark": {
