@@ -84,7 +84,9 @@ export function _setNextEffectMeta(meta: DevEffectMeta): void {
 
 // Dev-mode unique node ID counter
 let _nextNodeId = 0;
-function _nextId(): number { return ++_nextNodeId; }
+function _nextId(): number {
+  return ++_nextNodeId;
+}
 
 // ---------------------------------------------------------------------------
 // Module-scope creation guard (dev-mode warning)

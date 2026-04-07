@@ -1,7 +1,7 @@
-import type { JSXElement } from '@stewie-js/core'
-import { Button } from './lib/button.js'
-import { Input } from './lib/input.js'
-import { Select } from './lib/select.js'
+import type { JSXElement } from '@stewie-js/core';
+import { Button } from './lib/button.js';
+import { Input } from './lib/input.js';
+import { Select } from './lib/select.js';
 
 export function FilterBar({
   searchValue,
@@ -13,14 +13,14 @@ export function FilterBar({
   onApply,
   onClear
 }: {
-  searchValue: string
-  searchPlaceholder: string
-  onSearchInput: (e: Event) => void
-  selectValue: string
-  selectOptions: Array<{ label: string; value: string }>
-  onSelectChange: (e: Event) => void
-  onApply: (e: Event) => void
-  onClear: () => void
+  searchValue: string;
+  searchPlaceholder: string;
+  onSearchInput: (e: Event) => void;
+  selectValue: string;
+  selectOptions: Array<{ label: string; value: string }>;
+  onSelectChange: (e: Event) => void;
+  onApply: (e: Event) => void;
+  onClear: () => void;
 }): JSXElement {
   return (
     <form class="filter-bar" onSubmit={onApply}>
@@ -36,5 +36,5 @@ export function FilterBar({
         Clear
       </Button>
     </form>
-  )
+  );
 }

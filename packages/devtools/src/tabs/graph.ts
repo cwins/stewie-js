@@ -4,7 +4,7 @@ interface GraphNode {
   id: number;
   kind: 'signal' | 'computed' | 'effect';
   label?: string;
-  deps: number[];    // IDs of nodes this node depends on
+  deps: number[]; // IDs of nodes this node depends on
   disposed: boolean;
 }
 
@@ -67,7 +67,8 @@ function _render(container: HTMLElement): void {
 
   // Header row
   const headerRow = document.createElement('div');
-  headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0';
+  headerRow.style.cssText =
+    'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0';
 
   const info = document.createElement('span');
   info.style.cssText = 'font-size:11px;color:#64748b';
@@ -106,7 +107,8 @@ function _render(container: HTMLElement): void {
     section.style.cssText = 'margin-bottom:8px';
 
     const sectionLabel = document.createElement('div');
-    sectionLabel.style.cssText = 'font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:4px;font-weight:600';
+    sectionLabel.style.cssText =
+      'font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:4px;font-weight:600';
     sectionLabel.textContent = kind === 'signal' ? 'Signals' : kind === 'computed' ? 'Computed' : 'Effects';
     section.appendChild(sectionLabel);
 
@@ -121,13 +123,13 @@ function _render(container: HTMLElement): void {
 const KIND_COLOR: Record<string, string> = {
   signal: '#0ea5e9',
   computed: '#a78bfa',
-  effect: '#34d399',
+  effect: '#34d399'
 };
 
 const KIND_PREFIX: Record<string, string> = {
   signal: 'sig',
   computed: 'cmp',
-  effect: 'eff',
+  effect: 'eff'
 };
 
 function _nodeName(node: GraphNode): string {

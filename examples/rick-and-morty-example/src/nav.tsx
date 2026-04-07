@@ -1,12 +1,12 @@
-import type { JSXElement } from '@stewie-js/core'
-import { Link, useRouter } from '@stewie-js/router'
-import { Icon } from './components/lib/icon.js'
-import { cx } from './utils/format.js'
+import type { JSXElement } from '@stewie-js/core';
+import { Link, useRouter } from '@stewie-js/router';
+import { Icon } from './components/lib/icon.js';
+import { cx } from './utils/format.js';
 
 export function Nav(): JSXElement {
-  const router = useRouter()
+  const router = useRouter();
 
-  const isActive = (path: string) => router.location.pathname === path
+  const isActive = (path: string) => router.location.pathname === path;
 
   return (
     <header class="topbar">
@@ -34,5 +34,5 @@ export function Nav(): JSXElement {
         </nav>
       </div>
     </header>
-  )
+  );
 }

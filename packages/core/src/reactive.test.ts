@@ -1,5 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
-import { signal, computed, effect, batch, untrack, onCleanup, getOwner, runInOwner, createRoot, createScope, withRenderIsolation } from './reactive.js';
+import {
+  signal,
+  computed,
+  effect,
+  batch,
+  untrack,
+  onCleanup,
+  getOwner,
+  runInOwner,
+  createRoot,
+  createScope,
+  withRenderIsolation
+} from './reactive.js';
 
 // ---------------------------------------------------------------------------
 // signal
@@ -585,7 +597,9 @@ describe('onCleanup', () => {
     let dispose!: () => void;
     createRoot((d) => {
       dispose = d;
-      onCleanup(() => { cleaned = true; });
+      onCleanup(() => {
+        cleaned = true;
+      });
     });
     expect(cleaned).toBe(false);
     dispose();
@@ -615,7 +629,9 @@ describe('onCleanup', () => {
     let dispose!: () => void;
     createRoot((d) => {
       dispose = d;
-      onCleanup(() => { cleaned = true; });
+      onCleanup(() => {
+        cleaned = true;
+      });
     });
     // Advance time — cleanup must not run spontaneously
     expect(cleaned).toBe(false);
@@ -687,7 +703,9 @@ describe('getOwner / runInOwner', () => {
     });
 
     runInOwner(capturedOwner, () => {
-      onCleanup(() => { cleaned = true; });
+      onCleanup(() => {
+        cleaned = true;
+      });
     });
 
     expect(cleaned).toBe(false);

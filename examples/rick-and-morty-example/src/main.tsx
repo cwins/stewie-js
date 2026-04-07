@@ -1,4 +1,4 @@
-import { mount } from '@stewie-js/core'
-import { App } from './app.js'
+import { mount } from '@stewie-js/core';
+import { App } from './app.js';
 
-mount(<App />, document.getElementById('app')!)
+mount(<App />, document.getElementById('app')!);

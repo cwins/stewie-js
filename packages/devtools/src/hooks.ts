@@ -8,7 +8,7 @@ import {
   setCurrentTrigger,
   onGraphNodeCreate,
   onGraphNodeDispose,
-  onGraphDepsUpdate,
+  onGraphDepsUpdate
 } from './panel.js';
 
 export function installHooks(): void {

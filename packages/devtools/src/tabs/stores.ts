@@ -4,7 +4,7 @@ const MAX_ENTRIES = 100;
 
 interface WriteEntry {
   kind: 'signal' | 'store';
-  path?: string;  // store writes only
+  path?: string; // store writes only
   label?: string; // signal label (if set via signal(value, 'name'))
   value: unknown;
   time: number;

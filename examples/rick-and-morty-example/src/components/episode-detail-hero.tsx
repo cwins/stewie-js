@@ -1,9 +1,9 @@
-import type { JSXElement } from '@stewie-js/core'
-import type { Episode } from '../api/types.js'
-import { Badge } from './lib/badge.js'
-import { Card } from './lib/card.js'
-import { StatCard } from './lib/stat-card.js'
-import { formatAirDate, getSeasonLabel } from '../utils/format.js'
+import type { JSXElement } from '@stewie-js/core';
+import type { Episode } from '../api/types.js';
+import { Badge } from './lib/badge.js';
+import { Card } from './lib/card.js';
+import { StatCard } from './lib/stat-card.js';
+import { formatAirDate, getSeasonLabel } from '../utils/format.js';
 
 export function EpisodeDetailHero({ episode }: { episode: Episode }): JSXElement {
   return (
@@ -26,5 +26,5 @@ export function EpisodeDetailHero({ episode }: { episode: Episode }): JSXElement
         <StatCard label="Cast" value={String(episode.characters.length)} />
       </div>
     </div>
-  )
+  );
 }

@@ -7,7 +7,6 @@ import { mount } from './dom-renderer.js';
 import { resource, type Resource } from './resource.js';
 import { renderToString } from '@stewie-js/server';
 
-
 // ---------------------------------------------------------------------------
 // resource() — signal API
 // ---------------------------------------------------------------------------
@@ -281,8 +280,12 @@ describe('resource() AbortSignal and cancellation', () => {
   it('stale result from aborted refetch is ignored — signals not updated', async () => {
     let resolveFirst!: (v: string) => void;
     let resolveSecond!: (v: string) => void;
-    const firstPromise = new Promise<string>((r) => { resolveFirst = r; });
-    const secondPromise = new Promise<string>((r) => { resolveSecond = r; });
+    const firstPromise = new Promise<string>((r) => {
+      resolveFirst = r;
+    });
+    const secondPromise = new Promise<string>((r) => {
+      resolveSecond = r;
+    });
     let call = 0;
 
     let res!: ReturnType<typeof resource<string>>;

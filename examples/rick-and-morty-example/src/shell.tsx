@@ -1,5 +1,5 @@
-import type { JSXElement } from '@stewie-js/core'
-import { Nav } from './nav.js'
+import type { JSXElement } from '@stewie-js/core';
+import { Nav } from './nav.js';
 
 export function Shell({ children }: { children: JSXElement }): JSXElement {
   return (
@@ -7,5 +7,5 @@ export function Shell({ children }: { children: JSXElement }): JSXElement {
       <Nav />
       <main class="page-shell">{children}</main>
     </div>
-  )
+  );
 }

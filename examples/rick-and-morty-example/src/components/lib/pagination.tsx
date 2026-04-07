@@ -1,5 +1,5 @@
-import type { JSXElement } from '@stewie-js/core'
-import { Button } from './button.js'
+import type { JSXElement } from '@stewie-js/core';
+import { Button } from './button.js';
 
 export function Pagination({
   page,
@@ -7,10 +7,10 @@ export function Pagination({
   onPrevious,
   onNext
 }: {
-  page: number
-  totalPages: number
-  onPrevious: () => void
-  onNext: () => void
+  page: number;
+  totalPages: number;
+  onPrevious: () => void;
+  onNext: () => void;
 }): JSXElement {
   return (
     <div class="pagination">
@@ -24,5 +24,5 @@ export function Pagination({
         Next
       </Button>
     </div>
-  )
+  );
 }

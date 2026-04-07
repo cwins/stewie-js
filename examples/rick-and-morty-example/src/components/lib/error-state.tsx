@@ -1,17 +1,17 @@
-import { Show } from '@stewie-js/core'
-import type { JSXElement } from '@stewie-js/core'
-import { Button } from './button.js'
-import { Card } from './card.js'
-import { Icon } from './icon.js'
+import { Show } from '@stewie-js/core';
+import type { JSXElement } from '@stewie-js/core';
+import { Button } from './button.js';
+import { Card } from './card.js';
+import { Icon } from './icon.js';
 
 export function ErrorState({
   title = 'Signal lost in the multiverse',
   message,
   onRetry
 }: {
-  title?: string
-  message: string
-  onRetry?: (() => void) | null
+  title?: string;
+  message: string;
+  onRetry?: (() => void) | null;
 }): JSXElement {
   return (
     <Card class="message-card message-card--error">
@@ -29,5 +29,5 @@ export function ErrorState({
         )}
       </Show>
     </Card>
-  )
+  );
 }

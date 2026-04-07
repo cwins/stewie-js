@@ -480,9 +480,7 @@ describe('createSsrRouter', () => {
   const redirectGuard = async () => '/login';
 
   it('returns a Router with location set to the given URL', async () => {
-    const routeElements = [
-      jsx(Route as any, { path: '/', component: Home }),
-    ];
+    const routeElements = [jsx(Route as any, { path: '/', component: Home })];
     const router = await createSsrRouter('/', routeElements);
     expect(router.location.pathname).toBe('/');
   });
@@ -500,16 +498,12 @@ describe('createSsrRouter', () => {
   });
 
   it('throws RedirectError when a beforeEnter guard returns a redirect URL', async () => {
-    const routeElements = [
-      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: redirectGuard }),
-    ];
+    const routeElements = [jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: redirectGuard })];
     await expect(createSsrRouter('/protected', routeElements)).rejects.toThrow(RedirectError);
   });
 
   it('RedirectError has the correct .location property', async () => {
-    const routeElements = [
-      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: redirectGuard }),
-    ];
+    const routeElements = [jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: redirectGuard })];
     try {
       await createSsrRouter('/protected', routeElements);
       expect.fail('should have thrown');
@@ -520,9 +514,7 @@ describe('createSsrRouter', () => {
   });
 
   it('does not throw when guard returns true (allow)', async () => {
-    const routeElements = [
-      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: allowGuard }),
-    ];
+    const routeElements = [jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: allowGuard })];
     const router = await createSsrRouter('/protected', routeElements);
     expect(router.location.pathname).toBe('/protected');
   });
@@ -530,12 +522,10 @@ describe('createSsrRouter', () => {
   it('pre-configured router renders the correct route in renderToString', async () => {
     const routeChildren = [
       jsx(Route as any, { path: '/', component: Home }),
-      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: allowGuard }),
+      jsx(Route as any, { path: '/protected', component: Protected, beforeEnter: allowGuard })
     ];
     const ssrRouter = await createSsrRouter('/protected', routeChildren);
-    const { html } = await renderToString(
-      jsx(Router as any, { router: ssrRouter, children: routeChildren })
-    );
+    const { html } = await renderToString(jsx(Router as any, { router: ssrRouter, children: routeChildren }));
     expect(html).toContain('Protected SSR');
     expect(html).not.toContain('Home SSR');
   });

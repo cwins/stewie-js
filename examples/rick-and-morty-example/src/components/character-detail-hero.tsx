@@ -1,9 +1,9 @@
-import type { JSXElement } from '@stewie-js/core'
-import type { Character } from '../api/types.js'
-import { Badge } from './lib/badge.js'
-import { Card } from './lib/card.js'
-import { StatCard } from './lib/stat-card.js'
-import { statusTone, titleCase } from '../utils/format.js'
+import type { JSXElement } from '@stewie-js/core';
+import type { Character } from '../api/types.js';
+import { Badge } from './lib/badge.js';
+import { Card } from './lib/card.js';
+import { StatCard } from './lib/stat-card.js';
+import { statusTone, titleCase } from '../utils/format.js';
 
 export function CharacterDetailHero({ character }: { character: Character }): JSXElement {
   return (
@@ -30,5 +30,5 @@ export function CharacterDetailHero({ character }: { character: Character }): JS
         <StatCard label="Episodes" value={String(character.episode.length)} />
       </div>
     </div>
-  )
+  );
 }

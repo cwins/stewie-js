@@ -47,7 +47,7 @@ export const HOME_QUERY = `
       }
     }
   }
-`
+`;
 
 export const CHARACTERS_QUERY = `
   query CharactersQuery($page: Int!, $filter: FilterCharacter) {
@@ -72,7 +72,7 @@ export const CHARACTERS_QUERY = `
       }
     }
   }
-`
+`;
 
 export const CHARACTER_DETAIL_QUERY = `
   query CharacterDetailQuery($id: ID!) {
@@ -94,7 +94,7 @@ export const CHARACTER_DETAIL_QUERY = `
       }
     }
   }
-`
+`;
 
 export const EPISODES_QUERY = `
   query EpisodesQuery($page: Int!, $filter: FilterEpisode) {
@@ -125,7 +125,7 @@ export const EPISODES_QUERY = `
       }
     }
   }
-`
+`;
 
 export const EPISODE_DETAIL_QUERY = `
   query EpisodeDetailQuery($id: ID!) {
@@ -153,4 +153,4 @@ export const EPISODE_DETAIL_QUERY = `
       }
     }
   }
-`
+`;

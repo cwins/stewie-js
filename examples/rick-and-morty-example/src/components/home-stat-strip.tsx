@@ -1,12 +1,8 @@
-import type { JSXElement } from '@stewie-js/core'
-import { For } from '@stewie-js/core'
-import { Card } from './lib/card.js'
+import type { JSXElement } from '@stewie-js/core';
+import { For } from '@stewie-js/core';
+import { Card } from './lib/card.js';
 
-export function HomeStatStrip({
-  stats
-}: {
-  stats: Array<{ label: string; value: string; hint: string }>
-}): JSXElement {
+export function HomeStatStrip({ stats }: { stats: Array<{ label: string; value: string; hint: string }> }): JSXElement {
   return (
     <div class="stat-strip">
       <For each={stats}>
@@ -19,5 +15,5 @@ export function HomeStatStrip({
         )}
       </For>
     </div>
-  )
+  );
 }

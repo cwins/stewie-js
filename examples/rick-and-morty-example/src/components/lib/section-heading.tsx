@@ -1,4 +1,4 @@
-import type { JSXElement } from '@stewie-js/core'
+import type { JSXElement } from '@stewie-js/core';
 
 export function SectionHeading({
   eyebrow,
@@ -6,10 +6,10 @@ export function SectionHeading({
   description,
   action
 }: {
-  eyebrow?: string
-  title: string
-  description?: string
-  action?: JSXElement | null
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  action?: JSXElement | null;
 }): JSXElement {
   return (
     <div class="section-heading">
@@ -20,5 +20,5 @@ export function SectionHeading({
       </div>
       {action ?? null}
     </div>
-  )
+  );
 }

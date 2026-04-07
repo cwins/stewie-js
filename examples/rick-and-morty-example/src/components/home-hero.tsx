@@ -1,7 +1,7 @@
-import type { JSXElement } from '@stewie-js/core'
-import { LinkButton } from './lib/link-button.js'
-import { Card } from './lib/card.js'
-import { Icon } from './lib/icon.js'
+import type { JSXElement } from '@stewie-js/core';
+import { LinkButton } from './lib/link-button.js';
+import { Card } from './lib/card.js';
+import { Icon } from './lib/icon.js';
 
 export function HomeHero(): JSXElement {
   return (
@@ -38,5 +38,5 @@ export function HomeHero(): JSXElement {
         </ul>
       </Card>
     </section>
-  )
+  );
 }

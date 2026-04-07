@@ -1,9 +1,9 @@
-import type { JSXElement } from '@stewie-js/core'
-import type { Episode } from '../api/types.js'
-import { Badge } from './lib/badge.js'
-import { Card } from './lib/card.js'
-import { LinkButton } from './lib/link-button.js'
-import { formatAirDate, getSeasonLabel } from '../utils/format.js'
+import type { JSXElement } from '@stewie-js/core';
+import type { Episode } from '../api/types.js';
+import { Badge } from './lib/badge.js';
+import { Card } from './lib/card.js';
+import { LinkButton } from './lib/link-button.js';
+import { formatAirDate, getSeasonLabel } from '../utils/format.js';
 
 export function EpisodeCard({ episode }: { episode: Episode }): JSXElement {
   return (
@@ -21,5 +21,5 @@ export function EpisodeCard({ episode }: { episode: Episode }): JSXElement {
         View episode
       </LinkButton>
     </Card>
-  )
+  );
 }

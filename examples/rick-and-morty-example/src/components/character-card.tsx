@@ -1,9 +1,9 @@
-import type { JSXElement } from '@stewie-js/core'
-import type { Character } from '../api/types.js'
-import { Badge } from './lib/badge.js'
-import { Card } from './lib/card.js'
-import { LinkButton } from './lib/link-button.js'
-import { statusTone, titleCase } from '../utils/format.js'
+import type { JSXElement } from '@stewie-js/core';
+import type { Character } from '../api/types.js';
+import { Badge } from './lib/badge.js';
+import { Card } from './lib/card.js';
+import { LinkButton } from './lib/link-button.js';
+import { statusTone, titleCase } from '../utils/format.js';
 
 export function CharacterCard({ character, compact = false }: { character: Character; compact?: boolean }): JSXElement {
   return (
@@ -26,5 +26,5 @@ export function CharacterCard({ character, compact = false }: { character: Chara
         </LinkButton>
       </div>
     </Card>
-  )
+  );
 }

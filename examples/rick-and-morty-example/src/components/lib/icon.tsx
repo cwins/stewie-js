@@ -1,4 +1,4 @@
-import type { JSXElement } from '@stewie-js/core'
+import type { JSXElement } from '@stewie-js/core';
 
 const GLYPHS = {
   spark: '✦',
@@ -9,18 +9,12 @@ const GLYPHS = {
   arrow: '→',
   back: '←',
   refresh: '↻'
-} as const
+} as const;
 
-export function Icon({
-  name,
-  class: className
-}: {
-  name: keyof typeof GLYPHS
-  class?: string
-}): JSXElement {
+export function Icon({ name, class: className }: { name: keyof typeof GLYPHS; class?: string }): JSXElement {
   return (
     <span aria-hidden="true" class={className ? `icon ${className}` : 'icon'}>
       {GLYPHS[name]}
     </span>
-  )
+  );
 }

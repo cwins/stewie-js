@@ -1,40 +1,40 @@
-import { computed, effect, For, resource, Show } from '@stewie-js/core'
-import type { Resource, JSXElement } from '@stewie-js/core'
-import { LinkButton } from '../components/lib/link-button.js'
-import { useQuery } from '@stewie-js/router'
-import { fetchGraphQL } from '../api/graphql.js'
-import { CHARACTER_DETAIL_QUERY } from '../api/queries.js'
-import type { CharacterResponse, DetailVariables } from '../api/types.js'
-import { CharacterDetailHero } from '../components/character-detail-hero.js'
-import { EmptyState } from '../components/lib/empty-state.js'
-import { ErrorState } from '../components/lib/error-state.js'
-import { LoadingBlock } from '../components/lib/loading-block.js'
-import { SectionHeading } from '../components/lib/section-heading.js'
-import { Shell } from '../shell.js'
-import { formatAirDate, getErrorMessage, parseId } from '../utils/format.js'
+import { computed, effect, For, resource, Show } from '@stewie-js/core';
+import type { Resource, JSXElement } from '@stewie-js/core';
+import { LinkButton } from '../components/lib/link-button.js';
+import { useQuery } from '@stewie-js/router';
+import { fetchGraphQL } from '../api/graphql.js';
+import { CHARACTER_DETAIL_QUERY } from '../api/queries.js';
+import type { CharacterResponse, DetailVariables } from '../api/types.js';
+import { CharacterDetailHero } from '../components/character-detail-hero.js';
+import { EmptyState } from '../components/lib/empty-state.js';
+import { ErrorState } from '../components/lib/error-state.js';
+import { LoadingBlock } from '../components/lib/loading-block.js';
+import { SectionHeading } from '../components/lib/section-heading.js';
+import { Shell } from '../shell.js';
+import { formatAirDate, getErrorMessage, parseId } from '../utils/format.js';
 
 export function CharacterDetailPage(): JSXElement {
-  const query = useQuery<{ id?: string }>()
-  const characterId = computed(() => parseId(query.id))
+  const query = useQuery<{ id?: string }>();
+  const characterId = computed(() => parseId(query.id));
 
-  let characterResource!: Resource<CharacterResponse>
+  let characterResource!: Resource<CharacterResponse>;
   characterResource = resource(() => {
-    const id = characterId()
-    if (!id) return Promise.resolve({ character: null })
-    return fetchGraphQL<CharacterResponse, DetailVariables>(CHARACTER_DETAIL_QUERY, { id })
-  })
+    const id = characterId();
+    if (!id) return Promise.resolve({ character: null });
+    return fetchGraphQL<CharacterResponse, DetailVariables>(CHARACTER_DETAIL_QUERY, { id });
+  });
 
-  let didInit = false
+  let didInit = false;
   effect(() => {
-    characterId()
+    characterId();
     if (!didInit) {
-      didInit = true
-      return
+      didInit = true;
+      return;
     }
-    void characterResource.refetch()
-  })
+    void characterResource.refetch();
+  });
 
-  const character = computed(() => characterResource.data()?.character ?? null)
+  const character = computed(() => characterResource.data()?.character ?? null);
 
   return (
     <Shell>
@@ -55,12 +55,12 @@ export function CharacterDetailPage(): JSXElement {
           <Show when={() => !characterResource.loading()} fallback={<LoadingBlock lines={5} />}>
             <Show
               when={() => !characterResource.error()}
-            fallback={
-              <ErrorState
-                message={getErrorMessage(characterResource.error(), 'Unable to load this character.')}
-                onRetry={() => {
-                  void characterResource.refetch()
-                }}
+              fallback={
+                <ErrorState
+                  message={getErrorMessage(characterResource.error(), 'Unable to load this character.')}
+                  onRetry={() => {
+                    void characterResource.refetch();
+                  }}
                 />
               }
             >
@@ -74,8 +74,8 @@ export function CharacterDetailPage(): JSXElement {
                 }
               >
                 {() => {
-                  const currentCharacter = character()
-                  if (!currentCharacter) return <span />
+                  const currentCharacter = character();
+                  if (!currentCharacter) return <span />;
 
                   return (
                     <div class="page-stack">
@@ -105,7 +105,7 @@ export function CharacterDetailPage(): JSXElement {
                         </div>
                       </section>
                     </div>
-                  )
+                  );
                 }}
               </Show>
             </Show>
@@ -113,5 +113,5 @@ export function CharacterDetailPage(): JSXElement {
         </Show>
       </div>
     </Shell>
-  )
+  );
 }
