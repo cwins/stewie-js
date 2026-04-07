@@ -121,11 +121,21 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
 
     if (isDev) _setNextEffectMeta({ type: 'children' });
     const disposeEffect = effect(() => {
+      // Evaluate the children function and subscribe to its dependencies.
+      // If the result is itself a function (Signal pattern — e.g. the compiler
+      // emits `() => item().label` where `item().label` is a Signal), call
+      // through one level within the same effect so that both the outer
+      // function's dependencies AND the Signal's dependencies are tracked here.
+      // This eliminates the nested anchor + effect that would otherwise be
+      // created by a recursive renderChildren call, halving the DOM node and
+      // reactive object count for this pattern.
+      let value = (children as () => unknown)();
+      if (typeof value === 'function') value = (value as () => unknown)();
+
       if (firstRun) {
         firstRun = false;
         // Subscribe to signals (children() call) AND wire reactive effects onto the
         // existing SSR nodes via a sub-cursor. No DOM insertions happen here.
-        const value = (children as () => unknown)();
         lastValue = value;
         const subCursor = new HydrationCursor(currentNodes);
         const frag = document.createDocumentFragment();
@@ -135,7 +145,6 @@ function renderChildren(children: unknown, parent: Node, before: Node | null): D
         return;
       }
 
-      const value = (children as () => unknown)();
       // If the value is reference-equal to the previous result, no DOM update is needed.
       // Catches the common case where a parent signal changed (e.g. task object replaced)
       // but the specific property read here (e.g. title) is the same primitive value.
