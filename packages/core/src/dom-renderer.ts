@@ -4,7 +4,7 @@
 
 import {
   effect,
-  createRoot,
+  reactiveScope,
   untrack,
   _setNextEffectMeta,
   _pushComponent,
@@ -328,7 +328,7 @@ function computeLIS(seq: number[]): Set<number> {
 function renderWithRoot(fn: () => Disposer): Disposer {
   let rootDispose: Disposer = () => {};
   let childDisposer: Disposer = () => {};
-  createRoot((dispose) => {
+  reactiveScope((dispose) => {
     rootDispose = dispose;
     childDisposer = fn();
   });
@@ -894,11 +894,11 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
     };
   }
 
-  // Component function — wrap in createRoot so signal() is allowed inside,
+  // Component function — wrap in reactiveScope so signal() is allowed inside,
   // and run the component body with untrack() so that signal reads in the
   // component's render output do not create dependencies on any parent effect
   // (e.g. the routing effect must not re-run when a form-field signal changes).
-  // The dispose callback from createRoot disposes all effects the component
+  // The dispose callback from reactiveScope disposes all effects the component
   // created in its body when the component is unmounted.
   //
   // If the component throws (e.g. resource().read() throws a Promise for Suspense),
@@ -910,7 +910,7 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
     if (isDev) _pushComponent((type as { name?: string }).name || 'Anonymous');
     try {
       untrack(() => {
-        createRoot((dispose) => {
+        reactiveScope((dispose) => {
           rootDispose = dispose;
           try {
             result = (type as Component)(props);
@@ -1037,7 +1037,7 @@ export function mount(root: JSXElement | Node | (() => JSXElement | Node | null)
   try {
     value =
       typeof root === 'function'
-        ? createRoot((dispose) => {
+        ? reactiveScope((dispose) => {
             rootDispose = dispose;
             return (root as () => unknown)();
           })
@@ -1092,7 +1092,7 @@ export function _hydrateInto(
   try {
     value =
       typeof root === 'function'
-        ? createRoot((dispose) => {
+        ? reactiveScope((dispose) => {
             rootDispose = dispose;
             return (root as () => unknown)();
           })

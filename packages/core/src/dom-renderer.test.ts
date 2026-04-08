@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest';
 import { jsx, Fragment } from './jsx-runtime.js';
-import { signal, createRoot } from './reactive.js';
+import { signal, reactiveScope } from './reactive.js';
 import { Show, For, Switch, Match, ErrorBoundary } from './components.js';
 import { mount } from './dom-renderer.js';
 
@@ -15,7 +15,7 @@ function container(): HTMLDivElement {
 
 function sig<T>(v: T) {
   let s!: ReturnType<typeof signal<T>>;
-  createRoot(() => {
+  reactiveScope(() => {
     s = signal(v);
   });
   return s;
@@ -130,7 +130,7 @@ describe('mount — components', () => {
     expect(c.querySelector('span')?.textContent).toBe('inner');
   });
 
-  it('component can create signals with createRoot', () => {
+  it('component can create signals with reactiveScope', () => {
     function Counter() {
       const count = sig(0);
       return jsx('span', { children: count });

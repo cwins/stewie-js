@@ -1,6 +1,6 @@
 // router.ts — router context + navigation
 
-import { signal, createRoot } from '@stewie-js/core';
+import { signal, reactiveScope } from '@stewie-js/core';
 import type { Signal } from '@stewie-js/core';
 import { createContext, inject } from '@stewie-js/core';
 import { createLocationStore, parseUrl } from './location.js';
@@ -93,9 +93,9 @@ export interface Router extends StewieRouterSPI {
 export const RouterContext = createContext<Router | null>(null);
 
 export function createRouter(initialUrl?: string): Router {
-  // _routeData is created inside createRoot() so signal creation is allowed.
+  // _routeData is created inside reactiveScope() so signal creation is allowed.
   let _routeData!: Signal<unknown>;
-  createRoot(() => {
+  reactiveScope(() => {
     _routeData = signal<unknown>(undefined);
   });
 

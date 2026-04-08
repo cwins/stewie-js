@@ -11,7 +11,7 @@ import {
   ClientOnly,
   runWithContext,
   withRenderIsolation,
-  createRoot,
+  reactiveScope,
   _LazyBoundary
 } from '@stewie-js/core';
 import type { _LazyBoundaryProps } from '@stewie-js/core';
@@ -231,10 +231,10 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
 
   // Component function — restore context snapshot so inject() works throughout the
   // component body, including synchronous inject() calls before any await.
-  // createRoot() allows signal/store/computed/effect creation inside components.
+  // reactiveScope() allows signal/store/computed/effect creation inside components.
   if (typeof type === 'function') {
     let result: JSXElement | null = null;
-    createRoot(() => {
+    reactiveScope(() => {
       runWithContext(opts.contextSnapshot, () => {
         result = (type as (props: Record<string, unknown>) => JSXElement | null)(props);
       });

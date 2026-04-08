@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from 'vitest';
 import { jsx } from './jsx-runtime.js';
-import { createRoot } from './reactive.js';
+import { reactiveScope } from './reactive.js';
 import { Suspense } from './components.js';
 import { mount } from './dom-renderer.js';
 import { resource, type Resource } from './resource.js';
@@ -13,7 +13,7 @@ import { renderToString } from '@stewie-js/server';
 
 describe('resource() signals', () => {
   it('starts in loading state', () => {
-    createRoot(() => {
+    reactiveScope(() => {
       const res = resource(() => Promise.resolve(42));
       expect(res.loading()).toBe(true);
       expect(res.data()).toBeUndefined();
@@ -23,7 +23,7 @@ describe('resource() signals', () => {
 
   it('resolves data and clears loading', async () => {
     let res!: ReturnType<typeof resource<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => Promise.resolve(42));
     });
     expect(res.loading()).toBe(true);
@@ -34,7 +34,7 @@ describe('resource() signals', () => {
 
   it('sets error and clears loading on failure', async () => {
     let res!: ReturnType<typeof resource<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => Promise.reject(new Error('fetch failed')));
     });
     await vi.waitFor(() => expect(res.loading()).toBe(false));
@@ -46,7 +46,7 @@ describe('resource() signals', () => {
   it('refetch() re-runs the fetcher and updates signals', async () => {
     let callCount = 0;
     let res!: ReturnType<typeof resource<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => {
         callCount++;
         return Promise.resolve(callCount * 10);
@@ -70,7 +70,7 @@ describe('resource() signals', () => {
 
 describe('resource().read()', () => {
   it('throws a Promise while loading', () => {
-    createRoot(() => {
+    reactiveScope(() => {
       const res = resource(() => Promise.resolve(1));
       let thrown: unknown;
       try {
@@ -84,7 +84,7 @@ describe('resource().read()', () => {
 
   it('returns data once resolved', async () => {
     let res!: ReturnType<typeof resource<string>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => Promise.resolve('hello'));
     });
     await vi.waitFor(() => expect(res.loading()).toBe(false));
@@ -94,7 +94,7 @@ describe('resource().read()', () => {
   it('throws the error once rejected', async () => {
     const err = new Error('oops');
     let res!: ReturnType<typeof resource<never>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => Promise.reject(err));
     });
     await vi.waitFor(() => expect(res.loading()).toBe(false));
@@ -118,7 +118,7 @@ describe('Suspense + resource() DOM rendering', () => {
 
     // Resource created outside component — persists across Suspense retries.
     let res!: Resource<{ name: string }>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => dataPromise);
     });
 
@@ -128,7 +128,7 @@ describe('Suspense + resource() DOM rendering', () => {
     }
 
     const c = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Suspense as any, {
           fallback: jsx('span', { children: 'Loading...' }),
@@ -154,7 +154,7 @@ describe('Suspense + resource() DOM rendering', () => {
 
     // Resource created outside component.
     let res!: Resource<never>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => failPromise);
     });
 
@@ -164,7 +164,7 @@ describe('Suspense + resource() DOM rendering', () => {
     }
 
     const c = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Suspense as any, {
           fallback: jsx('span', { children: 'Loading...' }),
@@ -196,7 +196,7 @@ describe('Suspense + resource() SSR rendering', () => {
   it('renders resolved content (not fallback) after awaiting thrown Promise', async () => {
     // Resource created outside component — same instance is reused on retry.
     let res!: Resource<string>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => Promise.resolve('SSR data'));
     });
 
@@ -216,7 +216,7 @@ describe('Suspense + resource() SSR rendering', () => {
 
   it('renders fallback if the fetch rejects', async () => {
     let res!: Resource<string>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => Promise.reject(new Error('SSR error')));
     });
 
@@ -243,7 +243,7 @@ describe('resource() AbortSignal and cancellation', () => {
   it('passes an AbortSignal to the fetcher', async () => {
     let receivedSignal: AbortSignal | undefined;
     let res!: ReturnType<typeof resource<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource((signal) => {
         receivedSignal = signal;
         return Promise.resolve(1);
@@ -257,7 +257,7 @@ describe('resource() AbortSignal and cancellation', () => {
   it('aborts the previous request when refetch() is called', async () => {
     const abortedSignals: AbortSignal[] = [];
     let res!: ReturnType<typeof resource<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource((signal) => {
         // Return a never-resolving promise so we can catch the abort
         return new Promise<number>((_, reject) => {
@@ -289,7 +289,7 @@ describe('resource() AbortSignal and cancellation', () => {
     let call = 0;
 
     let res!: ReturnType<typeof resource<string>>;
-    createRoot(() => {
+    reactiveScope(() => {
       res = resource(() => {
         call++;
         return call === 1 ? firstPromise : secondPromise;
@@ -313,7 +313,7 @@ describe('resource() AbortSignal and cancellation', () => {
   it('aborts in-flight request when the owning scope disposes', async () => {
     let receivedSignal!: AbortSignal;
     let dispose!: () => void;
-    createRoot((d) => {
+    reactiveScope((d) => {
       dispose = d;
       resource((signal) => {
         receivedSignal = signal;

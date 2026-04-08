@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { lazy } from './lazy.js';
 import { jsx } from './jsx-runtime.js';
 import { mount } from './dom-renderer.js';
-import { createRoot } from './reactive.js';
+import { reactiveScope } from './reactive.js';
 import type { Component } from './jsx-runtime.js';
 
 function RealComp() {
@@ -20,7 +20,7 @@ describe('lazy()', () => {
     const LazyComp = lazy(factory);
 
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(jsx(LazyComp, {}), container);
     });
 
@@ -40,7 +40,7 @@ describe('lazy()', () => {
     const LazyComp = lazy(factory);
 
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(jsx(LazyComp, {}), container);
     });
 
@@ -65,7 +65,7 @@ describe('lazy()', () => {
 
     // First mount — starts loading
     const c1 = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(jsx(LazyComp, {}), c1);
     });
     resolveLoad({ default: RealComp });
@@ -75,7 +75,7 @@ describe('lazy()', () => {
 
     // Second mount — component is already loaded, renders immediately
     const c2 = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(jsx(LazyComp, {}), c2);
     });
     // No await needed — should already show content
@@ -91,7 +91,7 @@ describe('lazy()', () => {
     const LazyComp = lazy(factory);
 
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(jsx(LazyComp, {}), container);
     });
 

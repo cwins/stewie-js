@@ -427,7 +427,7 @@ describe('generateFiles — new feature coverage', () => {
   it('home page (router) uses resource() for async data', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true });
     const home = files.find((f) => f.path === 'src/pages/home.tsx')!;
-    expect(home.content).toContain("import { signal, createRoot, Show, For, resource } from '@stewie-js/core'");
+    expect(home.content).toContain("import { signal, reactiveScope, Show, For, resource } from '@stewie-js/core'");
     expect(home.content).toContain('resource(loadWelcomeTip)');
     expect(home.content).toContain('tipResource.loading()');
     expect(home.content).toContain('tipResource.data()');

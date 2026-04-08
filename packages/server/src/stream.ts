@@ -30,7 +30,7 @@ import {
   ClientOnly,
   runWithContext,
   withRenderIsolation,
-  createRoot,
+  reactiveScope,
   _LazyBoundary
 } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot, _LazyBoundaryProps } from '@stewie-js/core';
@@ -257,7 +257,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
   // Component function
   if (typeof type === 'function') {
     let result: JSXElement | null = null;
-    createRoot(() => {
+    reactiveScope(() => {
       runWithContext(opts.contextSnapshot, () => {
         result = (type as (props: Record<string, unknown>) => JSXElement | null)(props);
       });

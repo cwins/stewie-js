@@ -8,7 +8,7 @@ import {
   onCleanup,
   getOwner,
   runInOwner,
-  createRoot,
+  reactiveScope,
   createScope,
   withRenderIsolation
 } from './reactive.js';
@@ -461,14 +461,14 @@ describe('signal.update tracking', () => {
 });
 
 // ---------------------------------------------------------------------------
-// createRoot
+// reactiveScope
 // ---------------------------------------------------------------------------
 
-describe('createRoot', () => {
+describe('reactiveScope', () => {
   it('allows signal creation without module-scope warning', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     let sig: ReturnType<typeof signal<number>> | undefined;
-    createRoot(() => {
+    reactiveScope(() => {
       sig = signal(5);
     });
     expect(sig!()).toBe(5);
@@ -477,7 +477,7 @@ describe('createRoot', () => {
   });
 
   it('returns the value from fn', () => {
-    const result = createRoot(() => {
+    const result = reactiveScope(() => {
       const s = signal(99);
       return s();
     });
@@ -485,9 +485,9 @@ describe('createRoot', () => {
   });
 
   it('restores previous _allowReactiveCreation state after fn', () => {
-    // After createRoot finishes, creating signals outside should warn again
+    // After reactiveScope finishes, creating signals outside should warn again
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    createRoot(() => signal(1));
+    reactiveScope(() => signal(1));
     signal(2); // should warn (module scope)
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
@@ -495,7 +495,7 @@ describe('createRoot', () => {
 
   it('passes a dispose function to fn', () => {
     let capturedDispose: (() => void) | null = null;
-    createRoot((dispose) => {
+    reactiveScope((dispose) => {
       capturedDispose = dispose;
     });
     expect(typeof capturedDispose).toBe('function');
@@ -505,7 +505,7 @@ describe('createRoot', () => {
     let runCount = 0;
     let capturedDispose: () => void = () => {};
 
-    createRoot((dispose) => {
+    reactiveScope((dispose) => {
       capturedDispose = dispose;
       const s = signal(0);
       effect(() => {
@@ -520,7 +520,7 @@ describe('createRoot', () => {
     capturedDispose();
 
     // Now advance the signal — effect must NOT re-run
-    createRoot(() => {
+    reactiveScope(() => {
       // We need a signal from outside to advance it — but we already have it captured
       // above. This test verifies the effect is gone.
     });
@@ -535,7 +535,7 @@ describe('createRoot', () => {
     let capturedDispose: () => void = () => {};
     let capturedSig: ReturnType<typeof signal<number>> = signal(0);
 
-    createRoot((dispose) => {
+    reactiveScope((dispose) => {
       capturedDispose = dispose;
       capturedSig = signal(0);
       effect(() => {
@@ -562,7 +562,7 @@ describe('createRoot', () => {
     let capturedComputed: ReturnType<typeof computed<number>> = computed(() => 0);
     let effectRuns = 0;
 
-    createRoot((dispose) => {
+    reactiveScope((dispose) => {
       capturedDispose = dispose;
       capturedSig = signal(0);
       capturedComputed = computed(() => capturedSig() * 2);
@@ -595,7 +595,7 @@ describe('onCleanup', () => {
   it('calls the cleanup function when the owning root is disposed', () => {
     let cleaned = false;
     let dispose!: () => void;
-    createRoot((d) => {
+    reactiveScope((d) => {
       dispose = d;
       onCleanup(() => {
         cleaned = true;
@@ -609,7 +609,7 @@ describe('onCleanup', () => {
   it('calls multiple cleanup functions in registration order', () => {
     const order: number[] = [];
     let dispose!: () => void;
-    createRoot((d) => {
+    reactiveScope((d) => {
       dispose = d;
       onCleanup(() => order.push(1));
       onCleanup(() => order.push(2));
@@ -619,7 +619,7 @@ describe('onCleanup', () => {
     expect(order).toEqual([1, 2, 3]);
   });
 
-  it('is a no-op when called outside any createRoot', () => {
+  it('is a no-op when called outside any reactiveScope', () => {
     // Should not throw and should not affect anything
     expect(() => onCleanup(() => {})).not.toThrow();
   });
@@ -627,7 +627,7 @@ describe('onCleanup', () => {
   it('cleanup does not run before dispose is called', () => {
     let cleaned = false;
     let dispose!: () => void;
-    createRoot((d) => {
+    reactiveScope((d) => {
       dispose = d;
       onCleanup(() => {
         cleaned = true;
@@ -645,12 +645,12 @@ describe('onCleanup', () => {
 // ---------------------------------------------------------------------------
 
 describe('getOwner / runInOwner', () => {
-  it('getOwner() returns null outside any createRoot', () => {
+  it('getOwner() returns null outside any reactiveScope', () => {
     expect(getOwner()).toBeNull();
   });
 
-  it('getOwner() returns a non-null owner inside createRoot', () => {
-    createRoot(() => {
+  it('getOwner() returns a non-null owner inside reactiveScope', () => {
+    reactiveScope(() => {
       expect(getOwner()).not.toBeNull();
     });
   });
@@ -664,9 +664,9 @@ describe('getOwner / runInOwner', () => {
     let dispose!: () => void;
     let capturedSig!: ReturnType<typeof signal<number>>;
 
-    // Capture the owner synchronously inside createRoot
+    // Capture the owner synchronously inside reactiveScope
     let capturedOwner: ReturnType<typeof getOwner> = null;
-    createRoot((d) => {
+    reactiveScope((d) => {
       dispose = d;
       capturedSig = signal(0);
       capturedOwner = getOwner();
@@ -697,7 +697,7 @@ describe('getOwner / runInOwner', () => {
     let dispose!: () => void;
     let capturedOwner: ReturnType<typeof getOwner> = null;
 
-    createRoot((d) => {
+    reactiveScope((d) => {
       dispose = d;
       capturedOwner = getOwner();
     });
@@ -753,7 +753,7 @@ describe('withRenderIsolation', () => {
 
   it('isolates nested renders — inner does not affect outer scope stack', () => {
     let innerScopeSize = -1;
-    createRoot(() => {
+    reactiveScope(() => {
       const s = signal(0);
       // Simulate: an outer scope is active during rendering
       createScope(() => {

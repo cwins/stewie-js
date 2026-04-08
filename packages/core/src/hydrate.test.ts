@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { jsx } from './jsx-runtime.js';
-import { createRoot } from './reactive.js';
+import { reactiveScope } from './reactive.js';
 import { inject } from './context.js';
 import { useHydrationRegistry, HydrationRegistryContext } from './hydration.js';
 import { hydrate } from './hydrate.js';
@@ -59,7 +59,7 @@ describe('hydrate', () => {
     }
 
     const c = container();
-    createRoot(() => {
+    reactiveScope(() => {
       hydrate(jsx(App as unknown as () => ReturnType<typeof jsx>, {}), c);
     });
     expect(capturedValue).toBe('hi from server');
@@ -73,7 +73,7 @@ describe('hydrate', () => {
     }
 
     const c = container();
-    createRoot(() => {
+    reactiveScope(() => {
       hydrate(jsx(App as unknown as () => ReturnType<typeof jsx>, {}), c);
     });
     expect(capturedRegistry).not.toBeNull();

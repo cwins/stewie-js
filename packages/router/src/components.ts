@@ -1,6 +1,6 @@
 // components.ts — route components
 
-import { jsx, inject, effect, signal, createRoot } from '@stewie-js/core';
+import { jsx, inject, effect, signal, reactiveScope } from '@stewie-js/core';
 import type { JSXElement, Component } from '@stewie-js/core';
 import { createRouter, RouterContext, RedirectError } from './router.js';
 import type { Router, RouteGuard } from './router.js';
@@ -131,7 +131,7 @@ export function Router(props: RouterProps): JSXElement {
 
   // Wire router teardown into component lifecycle. This effect has no reactive
   // dependencies so it runs once; its cleanup fires when the Router component
-  // is unmounted (the dom-renderer disposes createRoot effects on unmount).
+  // is unmounted (the dom-renderer disposes reactiveScope effects on unmount).
   effect(() => () => router._dispose());
 
   // Determine whether the initial URL's matching route needs async resolution
@@ -147,7 +147,7 @@ export function Router(props: RouterProps): JSXElement {
   let _ready!: ReturnType<typeof signal<boolean>>;
   // If a pre-configured SSR router was provided, guards already ran — start ready.
   const alreadyResolved = !!props.router;
-  createRoot(() => {
+  reactiveScope(() => {
     _ready = signal(!initialRouteNeedsAsync || alreadyResolved);
   });
 

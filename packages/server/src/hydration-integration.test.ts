@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { jsx, signal, computed, createRoot, Show, For } from '@stewie-js/core';
+import { jsx, signal, computed, reactiveScope, Show, For } from '@stewie-js/core';
 import type { JSXElement } from '@stewie-js/core';
 import { hydrate } from '@stewie-js/core';
 import { renderToString } from './renderer.js';
@@ -45,7 +45,7 @@ async function ssrThenHydrate(factory: () => JSXElement, container: HTMLElement)
   container.innerHTML = html;
   window.__STEWIE_STATE__ = extractState(stateScript);
   let dispose!: () => void;
-  createRoot(() => {
+  reactiveScope(() => {
     dispose = hydrate(factory(), container);
   });
   return dispose;
@@ -86,7 +86,7 @@ describe('SSR → hydrate: basic round-trip', () => {
     container.innerHTML = html;
     // Deliberately do not set window.__STEWIE_STATE__
     expect(() => {
-      createRoot(() => {
+      reactiveScope(() => {
         hydrate(jsx('p', { children: 'hello' }), container);
       });
     }).not.toThrow();
@@ -96,7 +96,7 @@ describe('SSR → hydrate: basic round-trip', () => {
   it('hydrates cleanly into an empty container (fresh client mount, no SSR)', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       hydrate(jsx('div', { children: 'fresh' }), container);
     });
     expect(container.textContent).toBe('fresh');
@@ -167,7 +167,7 @@ describe('SSR → hydrate: reactive updates', () => {
     let sig!: ReturnType<typeof signal<number>>;
 
     function Counter(): JSXElement {
-      createRoot(() => {
+      reactiveScope(() => {
         sig = signal(0);
       });
       return jsx('span', { children: sig });
@@ -186,7 +186,7 @@ describe('SSR → hydrate: reactive updates', () => {
     let doubled!: ReturnType<typeof computed<number>>;
 
     function DoubleCounter(): JSXElement {
-      createRoot(() => {
+      reactiveScope(() => {
         count = signal(3);
         doubled = computed(() => count() * 2);
       });
@@ -223,7 +223,7 @@ describe('SSR → hydrate: reactive updates', () => {
     let active!: ReturnType<typeof signal<boolean>>;
 
     function Toggler(): JSXElement {
-      createRoot(() => {
+      reactiveScope(() => {
         active = signal(false);
       });
       return jsx('div', { class: () => (active() ? 'on' : 'off') });
@@ -276,7 +276,7 @@ describe('SSR → hydrate: control flow', () => {
     let visible!: ReturnType<typeof signal<boolean>>;
 
     function Conditional(): JSXElement {
-      createRoot(() => {
+      reactiveScope(() => {
         visible = signal(true);
       });
       return jsx('div', {
@@ -317,7 +317,7 @@ describe('SSR → hydrate: control flow', () => {
     let items!: ReturnType<typeof signal<string[]>>;
 
     function ReactiveList(): JSXElement {
-      createRoot(() => {
+      reactiveScope(() => {
         items = signal(['a', 'b']);
       });
       return jsx('ul', {
@@ -349,7 +349,7 @@ describe('SSR → hydrate: mismatch detection', () => {
 
     // Inject server HTML manually with different content than what the client renders
     container.innerHTML = '<p>server text</p>';
-    createRoot(() => {
+    reactiveScope(() => {
       hydrate(jsx('p', { children: 'client text' }), container);
     });
 

@@ -12,7 +12,7 @@ export {
   onCleanup,
   getOwner,
   runInOwner,
-  createRoot,
+  reactiveScope,
   withRenderIsolation,
   getCurrentScope,
   createScope

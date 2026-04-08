@@ -167,14 +167,14 @@ export function _warnModuleScope(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Ownership stack — tracks which reactive nodes belong to a createRoot() call
+// Ownership stack — tracks which reactive nodes belong to a reactiveScope() call
 // ---------------------------------------------------------------------------
 
 interface Disposable {
   dispose(): void;
 }
 
-// Each entry is the list of owned nodes for one createRoot() invocation.
+// Each entry is the list of owned nodes for one reactiveScope() invocation.
 // Effects and computed nodes register themselves here on creation so the root
 // can dispose them all when it tears down (e.g. on component / For-item unmount).
 const _ownerStack: Disposable[][] = [];
@@ -298,7 +298,7 @@ class SignalNode<T> extends ReactiveNode<T> {
     if (isDev && __devHooks.onNodeCreate) {
       __devHooks.onNodeCreate(this._devId, 'signal', label);
     }
-    // Register with the nearest enclosing createRoot() so this signal is
+    // Register with the nearest enclosing reactiveScope() so this signal is
     // disposed when the owning component unmounts — same as EffectNode and
     // ComputedNode. Module-scope signals have no owner and are never disposed.
     if (_ownerStack.length > 0) {
@@ -364,7 +364,7 @@ export class ComputedNode<T> extends ReactiveNode<T> implements Subscriber {
     if (isDev && __devHooks.onNodeCreate) {
       __devHooks.onNodeCreate(this._devId, 'computed');
     }
-    // Register with the nearest enclosing createRoot() so this computed is
+    // Register with the nearest enclosing reactiveScope() so this computed is
     // disposed automatically when the owning scope tears down (component
     // unmount, For-item removal, etc.).
     if (_ownerStack.length > 0) {
@@ -479,7 +479,7 @@ export class EffectNode implements Subscriber {
         __devHooks.onNodeCreate(this._devId, 'effect');
       }
     }
-    // Register with the nearest enclosing createRoot() owner so it can
+    // Register with the nearest enclosing reactiveScope() owner so it can
     // dispose this effect when the root is torn down (e.g. on component unmount).
     if (_ownerStack.length > 0) {
       _ownerStack[_ownerStack.length - 1].push(this);
@@ -608,12 +608,12 @@ export function effect(fn: () => void | (() => void)): Dispose {
 /**
  * Register a cleanup function that runs when the current reactive root is disposed.
  *
- * Call inside a `createRoot()` body (or inside a component, which runs inside a root).
+ * Call inside a `reactiveScope()` body (or inside a component, which runs inside a root).
  * If called outside any root, the cleanup is silently ignored — there is no scope to
  * attach it to.
  *
  * ```ts
- * createRoot(() => {
+ * reactiveScope(() => {
  *   const ctrl = new AbortController()
  *   onCleanup(() => ctrl.abort())
  *   fetch('/api/data', { signal: ctrl.signal })
@@ -629,7 +629,7 @@ export function onCleanup(fn: () => void): void {
 
 /**
  * Returns the current reactive ownership scope, or `null` if called outside
- * any `createRoot()`.
+ * any `reactiveScope()`.
  *
  * Capture the owner before the first `await` in an async function, then use
  * `runInOwner(owner, fn)` to restore ownership for async continuations so that
@@ -637,7 +637,7 @@ export function onCleanup(fn: () => void): void {
  * with the root.
  *
  * ```ts
- * createRoot(async (dispose) => {
+ * reactiveScope(async (dispose) => {
  *   const owner = getOwner()   // capture before first await
  *
  *   const data = await loadData()
@@ -694,9 +694,9 @@ export function untrack<T>(fn: () => T): T {
  *   (e.g. when the component that created this root unmounts).
  *
  * The `dispose` parameter is optional from TypeScript's perspective — existing
- * callers that use `createRoot(() => { ... })` continue to work unchanged.
+ * callers that use `reactiveScope(() => { ... })` continue to work unchanged.
  */
-export function createRoot<T>(fn: (dispose: () => void) => T): T {
+export function reactiveScope<T>(fn: (dispose: () => void) => T): T {
   const prev = _allowReactiveCreation;
   _allowReactiveCreation = true;
 

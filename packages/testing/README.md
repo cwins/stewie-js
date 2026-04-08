@@ -45,12 +45,12 @@ pnpm add -D @stewie-js/testing
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest'
 import { mount } from '@stewie-js/testing'
-import { jsx, signal, createRoot } from '@stewie-js/core'
+import { jsx, signal, reactiveScope } from '@stewie-js/core'
 
 describe('Counter', () => {
   it('increments when clicked', () => {
     let count: ReturnType<typeof signal<number>>
-    createRoot(() => { count = signal(0) })
+    reactiveScope(() => { count = signal(0) })
 
     const result = mount(
       jsx('div', { children: [
@@ -87,9 +87,9 @@ result.unmount()   // clean up
 
 ```ts
 import { assertSignal, assertStore } from '@stewie-js/testing'
-import { signal, store, createRoot } from '@stewie-js/core'
+import { signal, store, reactiveScope } from '@stewie-js/core'
 
-createRoot(() => {
+reactiveScope(() => {
   const count = signal(42)
   assertSignal(count, 42)   // passes
   assertSignal(count, 0)    // throws

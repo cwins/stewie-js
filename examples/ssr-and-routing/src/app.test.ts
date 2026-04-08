@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderApp, App } from './app.js';
 import type { AppData } from './app.js';
-import { hydrate, mount, jsx, createRoot } from '@stewie-js/core';
+import { hydrate, mount, jsx, reactiveScope } from '@stewie-js/core';
 import type { Component, Disposer } from '@stewie-js/core';
 
 // ---------------------------------------------------------------------------
@@ -236,7 +236,7 @@ describe('App — client-side DOM rendering (mount)', () => {
 
   beforeEach(() => {
     container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       dispose = mount(jsx(App as unknown as Component, {}), container);
     });
   });

@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { jsx } from '@stewie-js/core';
 import { mount } from '@stewie-js/core';
-import { createRoot } from '@stewie-js/core';
+import { reactiveScope } from '@stewie-js/core';
 import { renderToString } from '@stewie-js/server';
 import { Router, Route, Link, createSsrRouter } from './components.js';
 import { RedirectError } from './router.js';
@@ -98,7 +98,7 @@ describe('Router DOM rendering', () => {
 
   it('mounts the matched route in the DOM', () => {
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Router as any, {
           initialUrl: '/',
@@ -126,7 +126,7 @@ describe('Router DOM rendering', () => {
       return jsx('div', { children: 'About' });
     }
 
-    createRoot(() => {
+    reactiveScope(() => {
       // Provide router context manually and render a reactive child
       const routes = [
         { path: '/', component: HomeComp },
@@ -229,7 +229,7 @@ describe('Link DOM', () => {
       { path: '/about', component: null as any }
     ];
 
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(RouterContext.Provider as any, {
           value: router,
@@ -259,7 +259,7 @@ describe('Link DOM', () => {
     const container = document.createElement('div');
     const router = createRouter('/');
 
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(RouterContext.Provider as any, {
           value: router,
@@ -312,7 +312,7 @@ describe('Router initial render: beforeEnter guard', () => {
       });
 
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Router as any, {
           initialUrl: '/protected',
@@ -339,7 +339,7 @@ describe('Router initial render: beforeEnter guard', () => {
 
     const container = document.createElement('div');
     const fallback = jsx('span', { children: 'Loading…' });
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Router as any, {
           initialUrl: '/protected',
@@ -359,7 +359,7 @@ describe('Router initial render: beforeEnter guard', () => {
 
   it('redirects to login when initial guard returns a redirect URL', async () => {
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Router as any, {
           initialUrl: '/protected',
@@ -386,7 +386,7 @@ describe('Router initial render: beforeEnter guard', () => {
 
   it('routes without guards render immediately', () => {
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Router as any, {
           initialUrl: '/',
@@ -411,7 +411,7 @@ describe('Router initial render: load function', () => {
     }
 
     const container = document.createElement('div');
-    createRoot(() => {
+    reactiveScope(() => {
       mount(
         jsx(Router as any, {
           initialUrl: '/data',

@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { signal, batch, createRoot } from '@stewie-js/core';
+import { signal, batch, reactiveScope } from '@stewie-js/core';
 import type { Signal } from '@stewie-js/core';
 import { mount, For } from '@stewie-js/core';
 
@@ -64,7 +64,7 @@ function rnd(arr: readonly string[]): string {
 
 let nextId = 1;
 
-// Build `count` rows. Each call is wrapped in createRoot() at the call site
+// Build `count` rows. Each call is wrapped in reactiveScope() at the call site
 // so that signal() creation is allowed (Stewie's creation guard only warns
 // when signals are created at module scope without a reactive root).
 function buildData(count: number): Row[] {
@@ -82,15 +82,15 @@ function buildData(count: number): Row[] {
 // App
 // ---------------------------------------------------------------------------
 
-createRoot(() => {
+reactiveScope(() => {
   const rows = signal<Row[]>([]);
   const selected = signal<number>(0);
 
-  // Wrap data-building operations in createRoot so signal() is allowed.
+  // Wrap data-building operations in reactiveScope so signal() is allowed.
   // (Signals are data — not effects — so the root disposes nothing on them.)
   function run(): void {
     let data!: Row[];
-    createRoot(() => {
+    reactiveScope(() => {
       data = buildData(1_000);
     });
     rows.set(data);
@@ -98,7 +98,7 @@ createRoot(() => {
 
   function runLots(): void {
     let data!: Row[];
-    createRoot(() => {
+    reactiveScope(() => {
       data = buildData(10_000);
     });
     rows.set(data);
@@ -106,7 +106,7 @@ createRoot(() => {
 
   function add(): void {
     let extra!: Row[];
-    createRoot(() => {
+    reactiveScope(() => {
       extra = buildData(1_000);
     });
     rows.set([...rows(), ...extra]);

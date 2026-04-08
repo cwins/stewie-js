@@ -58,7 +58,7 @@ export function lazy<T extends Component>(factory: () => Promise<T | { default: 
   function LazyComponent(props: Record<string, unknown>) {
     // Per-instance signal — starts true if already loaded (e.g. second
     // navigation to the same route). Signal creation is allowed here because
-    // the dom-renderer calls component functions inside createRoot().
+    // the dom-renderer calls component functions inside reactiveScope().
     const loaded = signal(loadedComponent !== null);
 
     if (!loadedComponent) {

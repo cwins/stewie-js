@@ -512,7 +512,7 @@ export async function renderApp(_url: string = '/'): Promise<RenderResult> {
 
     files.push({
       path: 'src/app.tsx',
-      content: `import { signal, store, computed, batch, createRoot, resource } from '@stewie-js/core'
+      content: `import { signal, store, computed, batch, reactiveScope, resource } from '@stewie-js/core'
 import { Show, For, Switch, Match } from '@stewie-js/core'
 import type { Resource, JSXElement } from '@stewie-js/core'
 import './styles.css'
@@ -540,7 +540,7 @@ export function App(): JSXElement {
   let filter!: ReturnType<typeof signal<string>>
   let todos!: TodoItem[]
   let tipResource!: Resource<{ tip: string }>
-  createRoot(() => {
+  reactiveScope(() => {
     count = signal(0)
     doubled = computed(() => count() * 2)
     resets = signal(0)
@@ -733,7 +733,7 @@ export function Shell({ children }: { children: JSXElement }): JSXElement {
 
     files.push({
       path: 'src/pages/home.tsx',
-      content: `import { signal, createRoot, Show, For, resource } from '@stewie-js/core'
+      content: `import { signal, reactiveScope, Show, For, resource } from '@stewie-js/core'
 import type { Resource, JSXElement } from '@stewie-js/core'
 import { useRouter } from '@stewie-js/router'
 import { Shell } from '../shell.js'
@@ -760,7 +760,7 @@ export function HomePage(): JSXElement {
 
   let showFeatures!: ReturnType<typeof signal<boolean>>
   let tipResource!: Resource<{ tip: string }>
-  createRoot(() => {
+  reactiveScope(() => {
     showFeatures = signal(false)
     // resource() wraps any async function — exposes .loading, .data, .error signals
     tipResource = resource(loadWelcomeTip)
@@ -818,7 +818,7 @@ export function HomePage(): JSXElement {
 
     files.push({
       path: 'src/pages/counter.tsx',
-      content: `import { signal, computed, batch, createRoot, Show, Switch, Match } from '@stewie-js/core'
+      content: `import { signal, computed, batch, reactiveScope, Show, Switch, Match } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
 import { Shell } from '../shell.js'
 
@@ -826,7 +826,7 @@ export function CounterPage(): JSXElement {
   let count!: ReturnType<typeof signal<number>>
   let doubled!: ReturnType<typeof computed<number>>
   let resets!: ReturnType<typeof signal<number>>
-  createRoot(() => {
+  reactiveScope(() => {
     count = signal(0)
     doubled = computed(() => count() * 2)
     resets = signal(0)

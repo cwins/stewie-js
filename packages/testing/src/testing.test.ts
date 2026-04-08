@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 import { mount, assertSignal, assertStore, renderToString, withContext, flushEffects } from './index.js';
-import { jsx, signal, store, createContext, inject, createRoot, effect, Show } from '@stewie-js/core';
+import { jsx, signal, store, createContext, inject, reactiveScope, effect, Show } from '@stewie-js/core';
 import type { Component, JSXElement } from '@stewie-js/core';
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ describe('mount', () => {
 describe('mount — reactive updates', () => {
   it('re-renders when a signal changes', () => {
     let count!: ReturnType<typeof signal<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       count = signal(0);
     });
 
@@ -92,7 +92,7 @@ describe('mount — reactive updates', () => {
 
   it('Show mounts and unmounts based on a signal', () => {
     let visible!: ReturnType<typeof signal<boolean>>;
-    createRoot(() => {
+    reactiveScope(() => {
       visible = signal(true);
     });
 
@@ -119,7 +119,7 @@ describe('mount — reactive updates', () => {
   it('flushEffects resolves after reactive side-effects settle', async () => {
     let count!: ReturnType<typeof signal<number>>;
     const log: number[] = [];
-    createRoot(() => {
+    reactiveScope(() => {
       count = signal(0);
       effect(() => {
         log.push(count());
@@ -168,7 +168,7 @@ describe('mount — context injection', () => {
 describe('assertSignal', () => {
   it('passes when value matches', () => {
     let sig!: ReturnType<typeof signal<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       sig = signal(42);
     });
     expect(() => assertSignal(sig, 42)).not.toThrow();
@@ -176,7 +176,7 @@ describe('assertSignal', () => {
 
   it('throws when value does not match', () => {
     let sig!: ReturnType<typeof signal<number>>;
-    createRoot(() => {
+    reactiveScope(() => {
       sig = signal(42);
     });
     expect(() => assertSignal(sig, 0)).toThrow();
@@ -190,7 +190,7 @@ describe('assertSignal', () => {
 describe('assertStore', () => {
   it('passes when path value matches', () => {
     let s!: ReturnType<typeof store<{ x: number; nested: { y: number } }>>;
-    createRoot(() => {
+    reactiveScope(() => {
       s = store({ x: 10, nested: { y: 20 } });
     });
     expect(() => assertStore(s, 'x', 10)).not.toThrow();
@@ -199,7 +199,7 @@ describe('assertStore', () => {
 
   it('uses deep equality for object comparison', () => {
     let s!: ReturnType<typeof store<{ arr: number[] }>>;
-    createRoot(() => {
+    reactiveScope(() => {
       s = store({ arr: [1, 2, 3] });
     });
     expect(() => assertStore(s, 'arr', [1, 2, 3])).not.toThrow();
@@ -208,7 +208,7 @@ describe('assertStore', () => {
 
   it('throws when path value does not match', () => {
     let s!: ReturnType<typeof store<{ x: number }>>;
-    createRoot(() => {
+    reactiveScope(() => {
       s = store({ x: 10 });
     });
     expect(() => assertStore(s, 'x', 99)).toThrow();

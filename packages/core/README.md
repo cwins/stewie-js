@@ -131,7 +131,7 @@ function Page() {
 | `createContext(default)` | Create a typed context token |
 | `inject(ctx)` | Read the nearest provided context value |
 | `provide(ctx, value, fn)` | Run `fn` with a context value provided |
-| `createRoot(fn)` | Create an isolated reactive scope |
+| `reactiveScope(fn)` | Create an isolated reactive scope |
 | `mount(element, container)` | Render a JSX element into a DOM node |
 | `hydrate(element, container)` | Mount with server state from `window.__STEWIE_STATE__` |
 | `Show` | Conditional rendering component |

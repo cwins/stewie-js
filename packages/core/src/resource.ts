@@ -84,7 +84,7 @@ export interface Resource<T> {
  */
 export function resource<T>(fetcher: (signal: AbortSignal) => Promise<T>): Resource<T> {
   // Signals are created in the enclosing reactive scope (e.g. a component's
-  // createRoot) — no need for a wrapper createRoot here.
+  // reactiveScope) — no need for a wrapper reactiveScope here.
   const _loading = signal<boolean>(true);
   const _data = signal<T | undefined>(undefined);
   const _error = signal<unknown>(null);

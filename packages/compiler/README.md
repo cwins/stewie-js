@@ -48,7 +48,7 @@ The compiler expands `$value={sig}` into a value binding plus the corresponding 
 ## Validation
 
 The compiler emits hard errors for:
-- `signal()` / `store()` / `effect()` called at module scope (must be inside a component or `createRoot`)
+- `signal()` / `store()` / `effect()` called at module scope (must be inside a component or `reactiveScope`)
 - Conflicting `$prop` bindings (e.g. `$value` and `value` on the same element)
 
 And warnings for:
