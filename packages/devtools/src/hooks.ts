@@ -12,14 +12,14 @@ import {
 } from './panel.js';
 
 export function installHooks(): void {
-  __devHooks.onSignalWrite = (value, label) => {
-    setCurrentTrigger({ kind: 'signal', value, label });
-    notifySignalWrite(value, label);
+  __devHooks.onSignalWrite = (oldValue, newValue, label, caller) => {
+    setCurrentTrigger({ kind: 'signal', oldValue, value: newValue, label, caller });
+    notifySignalWrite(oldValue, newValue, label, caller);
   };
 
-  __devHooks.onStoreWrite = (path, value) => {
-    setCurrentTrigger({ kind: 'store', path, value });
-    notifyStoreWrite(path, value);
+  __devHooks.onStoreWrite = (path, oldValue, newValue, caller) => {
+    setCurrentTrigger({ kind: 'store', path, oldValue, value: newValue, caller });
+    notifyStoreWrite(path, oldValue, newValue, caller);
   };
 
   __devHooks.onEffectRun = notifyEffectRun;

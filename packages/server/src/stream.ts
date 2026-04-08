@@ -80,9 +80,13 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
   }
 
   if (typeof node === 'function') {
-    await streamNode((node as () => unknown)(), opts);
-    // Emit the same anchor the DOM renderer inserts after function-child output
-    // so HydrationCursor.collectUntilComment('') can bound the region correctly.
+    // One level of folding matches the dom-renderer's Signal child folding: if the
+    // outer function returns another function (e.g. () => item().label where .label
+    // is a Signal<string>), call through once more in the same slot so both paths
+    // emit exactly one <!----> anchor for this child position.
+    let value = (node as () => unknown)();
+    if (typeof value === 'function') value = (value as () => unknown)();
+    await streamNode(value, opts);
     opts.flush('<!---->');
     return;
   }

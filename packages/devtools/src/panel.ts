@@ -14,9 +14,11 @@ import type { DevEffectMeta } from '@stewie-js/core';
 
 export interface Trigger {
   kind: 'signal' | 'store';
+  oldValue?: unknown;
   value: unknown;
   label?: string; // signal label (if set)
   path?: string; // store path
+  caller?: string; // best-effort source location of the write
 }
 
 // The most recently observed reactive write — used to attribute effect re-runs
@@ -147,13 +149,13 @@ export function notifyEffectRun(meta: DevEffectMeta | undefined): void {
 }
 
 // Called by hooks.ts when a signal is written
-export function notifySignalWrite(value: unknown, label?: string): void {
-  addSignalEntry(value, label);
+export function notifySignalWrite(oldValue: unknown, newValue: unknown, label?: string, caller?: string): void {
+  addSignalEntry(oldValue, newValue, label, caller);
 }
 
 // Called by hooks.ts when a store property is written
-export function notifyStoreWrite(path: string, value: unknown): void {
-  addStoreEntry(path, value);
+export function notifyStoreWrite(path: string, oldValue: unknown, newValue: unknown, caller?: string): void {
+  addStoreEntry(path, oldValue, newValue, caller);
 }
 
 // Called by routes tab when navigation happens

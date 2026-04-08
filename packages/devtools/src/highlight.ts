@@ -10,6 +10,12 @@ export function isHighlightEnabled(): boolean {
   return highlightEnabled;
 }
 
+export function flashAnchorParent(anchor: Comment): void {
+  const parent = anchor.parentElement;
+  if (!parent) return;
+  flashElement(parent);
+}
+
 export function flashElement(el: Element): void {
   if (!highlightEnabled) return;
   if (!document.body.contains(el)) return;

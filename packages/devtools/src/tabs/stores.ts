@@ -6,7 +6,9 @@ interface WriteEntry {
   kind: 'signal' | 'store';
   path?: string; // store writes only
   label?: string; // signal label (if set via signal(value, 'name'))
+  oldValue?: unknown;
   value: unknown;
+  caller?: string; // best-effort source location of the write
   time: number;
 }
 
@@ -40,7 +42,7 @@ function createEntry(entry: WriteEntry): HTMLElement {
   const label = document.createElement('span');
   label.className = '__sdt-entry-label';
   if (entry.kind === 'store') {
-    label.textContent = `store: ${entry.path}`;
+    label.textContent = `store.${entry.path}`;
   } else if (entry.label) {
     label.textContent = `signal(${entry.label})`;
   } else {
@@ -49,8 +51,15 @@ function createEntry(entry: WriteEntry): HTMLElement {
 
   const value = document.createElement('span');
   value.className = '__sdt-entry-value';
-  value.textContent = formatValue(entry.value);
-  value.title = formatValue(entry.value);
+  if (entry.oldValue !== undefined) {
+    const oldStr = formatValue(entry.oldValue);
+    const newStr = formatValue(entry.value);
+    value.textContent = `${oldStr} → ${newStr}`;
+    value.title = `${oldStr} → ${newStr}`;
+  } else {
+    value.textContent = formatValue(entry.value);
+    value.title = formatValue(entry.value);
+  }
 
   const time = document.createElement('span');
   time.className = '__sdt-entry-time';
@@ -59,6 +68,15 @@ function createEntry(entry: WriteEntry): HTMLElement {
   el.appendChild(label);
   el.appendChild(value);
   el.appendChild(time);
+
+  if (entry.caller) {
+    const caller = document.createElement('span');
+    caller.className = '__sdt-entry-caller';
+    caller.textContent = entry.caller;
+    caller.title = `Written from ${entry.caller}`;
+    el.appendChild(caller);
+  }
+
   return el;
 }
 
@@ -79,12 +97,12 @@ function push(entry: WriteEntry): void {
   }
 }
 
-export function addSignalEntry(value: unknown, label?: string): void {
-  push({ kind: 'signal', label, value, time: Date.now() });
+export function addSignalEntry(oldValue: unknown, newValue: unknown, label?: string, caller?: string): void {
+  push({ kind: 'signal', label, oldValue, value: newValue, caller, time: Date.now() });
 }
 
-export function addStoreEntry(path: string, value: unknown): void {
-  push({ kind: 'store', path, value, time: Date.now() });
+export function addStoreEntry(path: string, oldValue: unknown, newValue: unknown, caller?: string): void {
+  push({ kind: 'store', path, oldValue, value: newValue, caller, time: Date.now() });
 }
 
 export function buildStoresTab(container: HTMLElement): void {

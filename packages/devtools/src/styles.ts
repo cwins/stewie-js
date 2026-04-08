@@ -21,7 +21,7 @@ export function injectStyles(): void {
 /* Panel */
 .__sdt-panel {
   position: fixed; bottom: 68px; right: 16px; z-index: 999997;
-  width: 400px; height: 480px;
+  width: 480px; height: 480px;
   background: #0f172a; border: 1px solid #1e3a5f;
   border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
   display: flex; flex-direction: column; overflow: hidden;
@@ -57,14 +57,15 @@ export function injectStyles(): void {
 
 /* Log entries */
 .__sdt-entry {
-  display: flex; justify-content: space-between; align-items: baseline;
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline;
   padding: 4px 8px; border-radius: 4px; background: #1e293b;
   font-size: 12px; gap: 8px;
 }
-.__sdt-entry-label { color: #e2e8f0; font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.__sdt-entry-trigger { color: #64748b; font-family: monospace; font-size: 11px; flex-shrink: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 6px; }
+.__sdt-entry-label { color: #e2e8f0; font-family: monospace; flex: 1; min-width: 0; word-break: break-all; }
+.__sdt-entry-trigger { color: #64748b; font-family: monospace; font-size: 11px; flex-shrink: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 6px; }
 .__sdt-entry-time { color: #64748b; font-size: 11px; flex-shrink: 0; }
-.__sdt-entry-value { color: #94a3b8; font-family: monospace; font-size: 11px; flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.__sdt-entry-value { color: #94a3b8; font-family: monospace; font-size: 11px; flex-shrink: 0; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.__sdt-entry-caller { width: 100%; color: #475569; font-family: monospace; font-size: 10px; margin-top: 1px; }
 
 /* Toggle row */
 .__sdt-toggle-row {

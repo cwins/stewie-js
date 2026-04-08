@@ -1,6 +1,6 @@
 // renders.ts — renders tab content: highlight toggle + effect run log
 
-import { flashElement, setHighlightEnabled, isHighlightEnabled } from '../highlight.js';
+import { flashElement, flashAnchorParent, setHighlightEnabled, isHighlightEnabled } from '../highlight.js';
 import type { DevEffectMeta } from '@stewie-js/core';
 import type { Trigger } from '../panel.js';
 
@@ -9,6 +9,7 @@ const MAX_ENTRIES = 100;
 interface RenderEntry {
   label: string;
   element?: Element;
+  anchor?: Comment;
   trigger?: Trigger;
   time: number;
 }
@@ -17,25 +18,41 @@ const entries: RenderEntry[] = [];
 let listEl: HTMLElement | null = null;
 let emptyEl: HTMLElement | null = null;
 
+function describeElement(el: Element): string {
+  const tag = el.tagName.toLowerCase();
+  const id = el.id ? `#${el.id}` : '';
+  const cls = el.classList.length > 0 ? `.${el.classList[0]}` : '';
+  return `<${tag}${id || cls}>`;
+}
+
 function formatLabel(meta: DevEffectMeta | undefined): string {
   if (!meta) return 'effect';
+  const comp = meta.component ? `${meta.component} > ` : '';
   if (meta.element) {
-    const tag = meta.element.tagName.toLowerCase();
-    const id = meta.element.id ? `#${meta.element.id}` : '';
-    const cls = meta.element.classList.length > 0 ? `.${meta.element.classList[0]}` : '';
-    return `<${tag}${id || cls}>.${meta.attr ?? '?'}`;
+    return `${comp}${describeElement(meta.element)}.${meta.attr ?? '?'}`;
   }
-  return meta.type;
+  if (meta.anchor) {
+    const parent = meta.anchor.parentElement;
+    if (parent) {
+      return `${comp}${meta.type} in ${describeElement(parent)}`;
+    }
+  }
+  return `${comp}${meta.type}`;
 }
 
 function formatTrigger(trigger: Trigger): string {
   if (trigger.kind === 'signal') {
     const name = trigger.label ? `signal(${trigger.label})` : 'signal';
-    const val = formatValue(trigger.value);
-    return `${name} = ${val}`;
+    if (trigger.oldValue !== undefined) {
+      return `${name}: ${formatValue(trigger.oldValue)} → ${formatValue(trigger.value)}`;
+    }
+    return `${name} = ${formatValue(trigger.value)}`;
   }
-  const val = formatValue(trigger.value);
-  return `store.${trigger.path} = ${val}`;
+  const name = `store.${trigger.path}`;
+  if (trigger.oldValue !== undefined) {
+    return `${name}: ${formatValue(trigger.oldValue)} → ${formatValue(trigger.value)}`;
+  }
+  return `${name} = ${formatValue(trigger.value)}`;
 }
 
 function formatValue(v: unknown): string {
@@ -62,6 +79,10 @@ function createEntry(entry: RenderEntry): HTMLElement {
     el.style.cursor = 'pointer';
     el.title = 'Click to highlight element';
     el.addEventListener('click', () => flashElement(entry.element!));
+  } else if (entry.anchor) {
+    el.style.cursor = 'pointer';
+    el.title = 'Click to highlight parent container';
+    el.addEventListener('click', () => flashAnchorParent(entry.anchor!));
   }
 
   const labelSpan = document.createElement('span');
@@ -93,6 +114,7 @@ export function addRenderEntry(meta: DevEffectMeta | undefined, trigger?: Trigge
   const entry: RenderEntry = {
     label: formatLabel(meta),
     element: meta.element,
+    anchor: meta.anchor,
     trigger: trigger ?? undefined,
     time: Date.now()
   };
@@ -109,9 +131,10 @@ export function addRenderEntry(meta: DevEffectMeta | undefined, trigger?: Trigge
     }
   }
 
-  // Flash the element only for prop effects (we have a concrete DOM node)
   if (meta.element) {
     flashElement(meta.element);
+  } else if (meta.anchor) {
+    flashAnchorParent(meta.anchor);
   }
 }
 

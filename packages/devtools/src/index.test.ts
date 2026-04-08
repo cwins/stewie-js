@@ -85,17 +85,17 @@ describe('stores tab', () => {
   it('addSignalEntry adds to the stores log without throwing', () => {
     initDevtools();
     expect(() => {
-      addSignalEntry(42);
-      addSignalEntry('hello');
-      addSignalEntry({ nested: true });
+      addSignalEntry(0, 42);
+      addSignalEntry('', 'hello');
+      addSignalEntry(null, { nested: true });
     }).not.toThrow();
   });
 
   it('addStoreEntry adds store writes to the log without throwing', () => {
     initDevtools();
     expect(() => {
-      addStoreEntry('tasks', [{ id: 't1', title: 'Test' }]);
-      addStoreEntry('user.name', 'Alice');
+      addStoreEntry('tasks', [], [{ id: 't1', title: 'Test' }]);
+      addStoreEntry('user.name', 'Bob', 'Alice');
     }).not.toThrow();
   });
 
@@ -103,11 +103,11 @@ describe('stores tab', () => {
     initDevtools();
     const writes: Array<{ path: string; value: unknown }> = [];
     const orig = __devHooks.onStoreWrite;
-    __devHooks.onStoreWrite = (path, value) => {
-      writes.push({ path, value });
-      orig?.(path, value);
+    __devHooks.onStoreWrite = (path, _oldValue, newValue) => {
+      writes.push({ path, value: newValue });
+      orig?.(path, _oldValue, newValue);
     };
-    __devHooks.onStoreWrite('tasks', ['a', 'b']);
+    __devHooks.onStoreWrite('tasks', [], ['a', 'b']);
     expect(writes).toHaveLength(1);
     expect(writes[0].path).toBe('tasks');
     __devHooks.onStoreWrite = orig;

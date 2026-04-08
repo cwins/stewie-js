@@ -2,7 +2,18 @@
 // Takes JSXElement descriptors (or DOM Nodes from the DOM JSX runtime) and
 // renders them into real DOM nodes with fine-grained reactive subscriptions.
 
-import { effect, createRoot, untrack, _setNextEffectMeta, isDev, ComputedNode, signal, batch } from './reactive.js';
+import {
+  effect,
+  createRoot,
+  untrack,
+  _setNextEffectMeta,
+  _pushComponent,
+  _popComponent,
+  isDev,
+  ComputedNode,
+  signal,
+  batch
+} from './reactive.js';
 import { Fragment } from './jsx-runtime.js';
 import type { JSXElement, Component } from './jsx-runtime.js';
 import { _pushContext, _popContext } from './context.js';
@@ -212,7 +223,7 @@ function renderShow(props: Record<string, unknown>, parent: Node, before: Node |
     firstRun = true;
   }
 
-  if (isDev) _setNextEffectMeta({ type: 'show' });
+  if (isDev) _setNextEffectMeta({ type: 'show', anchor });
   const disposeEffect = effect(() => {
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when;
     const shouldShow = Boolean(when);
@@ -360,7 +371,7 @@ function renderFor(props: Record<string, unknown>, parent: Node, before: Node | 
     let prevKeys: unknown[] = [];
     let firstRun = !!claimed;
 
-    if (isDev) _setNextEffectMeta({ type: 'for' });
+    if (isDev) _setNextEffectMeta({ type: 'for', anchor });
     const disposeEffect = effect(() => {
       const each = typeof props.each === 'function' ? (props.each as () => unknown[])() : (props.each as unknown[]);
 
@@ -610,7 +621,7 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
   let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
   let firstRun = !!claimed;
 
-  if (isDev) _setNextEffectMeta({ type: 'switch' });
+  if (isDev) _setNextEffectMeta({ type: 'switch', anchor });
   const disposeEffect = effect(() => {
     const children = Array.isArray(props.children) ? props.children : [props.children];
 
@@ -896,22 +907,30 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
   if (typeof type === 'function') {
     let rootDispose: Disposer = () => {};
     let result: unknown;
-    untrack(() => {
-      createRoot((dispose) => {
-        rootDispose = dispose;
-        try {
-          result = (type as Component)(props);
-        } catch (err) {
-          dispose(); // clean up effects created before the throw
-          throw err;
-        }
+    if (isDev) _pushComponent((type as { name?: string }).name || 'Anonymous');
+    try {
+      untrack(() => {
+        createRoot((dispose) => {
+          rootDispose = dispose;
+          try {
+            result = (type as Component)(props);
+          } catch (err) {
+            dispose(); // clean up effects created before the throw
+            throw err;
+          }
+        });
       });
-    });
-    const childDisposer = renderChildren(result, parent, before);
-    return () => {
-      rootDispose();
-      childDisposer();
-    };
+      // Keep the component name on the stack through renderChildren so that
+      // Show/For/Switch effects created while processing this component's
+      // returned JSX pick up the correct component name in their devMeta.
+      const childDisposer = renderChildren(result, parent, before);
+      return () => {
+        rootDispose();
+        childDisposer();
+      };
+    } finally {
+      if (isDev) _popComponent();
+    }
   }
 
   // Native DOM element — during hydration, try to claim the existing SSR node.

@@ -49,17 +49,23 @@ export interface DevEffectMeta {
   element?: Element;
   attr?: string;
   type: 'prop' | 'children' | 'show' | 'for' | 'switch';
+  /** Name of the component that owns this effect, if known. */
+  component?: string;
+  /** Anchor comment node for Show/For/Switch effects — used to locate and highlight the parent container. */
+  anchor?: Comment;
 }
 
 export const __devHooks: {
   onEffectRun?: (meta: DevEffectMeta | undefined) => void;
   /**
    * Called when a signal is written.
-   * @param value - The new value.
+   * @param oldValue - The previous value.
+   * @param newValue - The new value.
    * @param label - The optional label passed as the second argument to `signal()`.
+   * @param caller - Best-effort source location of the write call site.
    */
-  onSignalWrite?: (value: unknown, label?: string) => void;
-  onStoreWrite?: (path: string, value: unknown) => void;
+  onSignalWrite?: (oldValue: unknown, newValue: unknown, label?: string, caller?: string) => void;
+  onStoreWrite?: (path: string, oldValue: unknown, newValue: unknown, caller?: string) => void;
   /**
    * Called when a reactive node (signal, computed, effect) is created.
    * id is a unique numeric ID assigned to the node in dev mode.
@@ -80,6 +86,60 @@ let _pendingEffectMeta: DevEffectMeta | undefined;
 
 export function _setNextEffectMeta(meta: DevEffectMeta): void {
   _pendingEffectMeta = meta;
+}
+
+// ---------------------------------------------------------------------------
+// Component name stack — pushed/popped by the DOM renderer around each
+// component function call so effects created inside know their component.
+// Never part of the public API; exported only for dom-renderer.ts access.
+// ---------------------------------------------------------------------------
+
+const _componentStack: string[] = [];
+
+export function _pushComponent(name: string): void {
+  _componentStack.push(name);
+}
+
+export function _popComponent(): void {
+  _componentStack.pop();
+}
+
+// ---------------------------------------------------------------------------
+// Caller frame — best-effort source location for dev-mode write attribution.
+// Parses the V8 call stack, skipping framework frames. Returns "file:line"
+// of the first user-code frame, or undefined if unparseable.
+// ---------------------------------------------------------------------------
+
+export function _callerFrame(): string | undefined {
+  if (!isDev) return undefined;
+  try {
+    const lines = (new Error().stack ?? '').split('\n');
+    for (const line of lines) {
+      const l = line.trim();
+      if (!l.startsWith('at ')) continue;
+      // Skip framework-internal frames
+      if (
+        l.includes('stewie') ||
+        l.includes('reactive') ||
+        l.includes('store.') ||
+        l.includes('dom-renderer') ||
+        l.includes('<anonymous>') ||
+        l.includes('node:') ||
+        l.includes('node_modules')
+      )
+        continue;
+      // V8: "at fn (path/file.ts:42:10)" or "at path/file.ts:42:10"
+      const match = l.match(/\((.+?):(\d+):\d+\)$/) ?? l.match(/at\s+(.+?):(\d+):\d+$/);
+      if (match) {
+        const cleanPath = match[1].split('?')[0]; // strip Vite HMR query strings
+        const parts = cleanPath.split('/');
+        return `${parts[parts.length - 1]}:${match[2]}`;
+      }
+    }
+  } catch {
+    // stack capture is best-effort
+  }
+  return undefined;
 }
 
 // Dev-mode unique node ID counter
@@ -227,6 +287,7 @@ export class ReactiveNode<T> implements Subscribable {
 
 class SignalNode<T> extends ReactiveNode<T> {
   private _label: string | undefined;
+  private _disposed = false;
   readonly _devId: number;
 
   constructor(initial: T, label?: string) {
@@ -237,9 +298,16 @@ class SignalNode<T> extends ReactiveNode<T> {
     if (isDev && __devHooks.onNodeCreate) {
       __devHooks.onNodeCreate(this._devId, 'signal', label);
     }
+    // Register with the nearest enclosing createRoot() so this signal is
+    // disposed when the owning component unmounts — same as EffectNode and
+    // ComputedNode. Module-scope signals have no owner and are never disposed.
+    if (_ownerStack.length > 0) {
+      _ownerStack[_ownerStack.length - 1].push(this);
+    }
   }
 
   read(): T {
+    if (this._disposed) return this._value;
     this._trackInScope();
     return this._value;
   }
@@ -249,12 +317,22 @@ class SignalNode<T> extends ReactiveNode<T> {
   }
 
   write(value: T): void {
-    if (value === this._value) return;
+    if (this._disposed || value === this._value) return;
+    const oldValue = this._value;
     this._value = value;
     if (isDev && __devHooks.onSignalWrite) {
-      __devHooks.onSignalWrite(value, this._label);
+      __devHooks.onSignalWrite(oldValue, value, this._label, _callerFrame());
     }
     this._notifySubscribers();
+  }
+
+  dispose(): void {
+    if (this._disposed) return;
+    this._disposed = true;
+    if (isDev && __devHooks.onNodeDispose) {
+      __devHooks.onNodeDispose(this._devId);
+    }
+    this._subscribers.clear();
   }
 }
 
@@ -394,6 +472,9 @@ export class EffectNode implements Subscriber {
     if (isDev) {
       this._devMeta = _pendingEffectMeta;
       _pendingEffectMeta = undefined;
+      if (this._devMeta && _componentStack.length > 0) {
+        this._devMeta.component = _componentStack[_componentStack.length - 1];
+      }
       if (__devHooks.onNodeCreate) {
         __devHooks.onNodeCreate(this._devId, 'effect');
       }

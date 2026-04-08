@@ -4,6 +4,7 @@ import {
   isDev,
   __devHooks,
   _allowReactiveCreation,
+  _callerFrame,
   getCurrentScope,
   Subscribable,
   Subscriber,
@@ -180,7 +181,7 @@ function makeProxy<T extends object>(
       (obj as Record<string, unknown>)[key] = value;
 
       if (isDev && __devHooks.onStoreWrite) {
-        __devHooks.onStoreWrite(fullPath, value);
+        __devHooks.onStoreWrite(fullPath, oldValue, value, _callerFrame());
       }
 
       // Notify subscribers of this exact path only

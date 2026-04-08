@@ -64,8 +64,15 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
   // like Router's matchedContent, and reactive Show/For props that are functions).
   // The DOM renderer inserts an empty comment anchor after function-child output (<!---->)
   // so we emit one here to keep server and client HTML in sync.
+  //
+  // One level of folding matches the dom-renderer's Signal child folding: if the
+  // outer function returns another function (e.g. () => item().label where .label
+  // is a Signal<string>), call through once more in the same slot so both paths
+  // emit exactly one <!----> anchor for this child position.
   if (typeof node === 'function') {
-    const inner = await renderNode((node as () => unknown)(), opts);
+    let value = (node as () => unknown)();
+    if (typeof value === 'function') value = (value as () => unknown)();
+    const inner = await renderNode(value, opts);
     return `${inner}<!---->`;
   }
 
