@@ -51,6 +51,11 @@ These are the reasons Stewie exists rather than "just use X":
 **Decision:** `signal()`, `computed()`, `effect()`, and `store()` must be called inside a component or lifecycle hook — never at module scope.
 **Why:** Module-scope reactive primitives become accidental singletons shared across requests in SSR environments. The compiler enforces this as a hard error; the runtime warns in dev mode.
 
+### Minimal API surface
+**Decision:** Every public export must earn its place. Before adding a new exported function, check whether an existing one can cover the use case. Prefer one powerful primitive over two slightly different ones.
+**Why:** Reactive and data libraries that export 30+ functions for overlapping concerns become exhausting to learn and easy to misuse. Users should be able to hold the entire API in their head. The gut check: if a new export does "almost the same thing" as an existing one, that's a signal to extend the existing one or find a different design — not to add another name.
+**In practice:** When considering a new export, ask: (1) Can an existing API handle this with a small composition? (2) Is this needed by most users or only edge cases? (3) Does adding it make the docs page longer in a way that would intimidate a new user?
+
 ### Compiler is optional
 **Decision:** The Vite compiler plugin (`@stewie-js/vite`) improves output but is not required. Plain JSX via `jsxImportSource` produces a fully working app.
 **Why:** Not every project uses Vite. The runtime must work correctly without compiler transforms. Compiler improvements that only apply when the compiler is present are fine, but improvements that benefit both paths are always preferred.
