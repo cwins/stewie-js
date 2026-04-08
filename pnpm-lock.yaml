@@ -43,20 +43,20 @@ importers:
   examples/rick-and-morty-example:
     dependencies:
       '@stewie-js/core':
-        specifier: ^0.5.0
+        specifier: ^0.6.0
         version: link:../../packages/core
       '@stewie-js/router':
-        specifier: ^0.5.0
+        specifier: ^0.6.0
         version: link:../../packages/router
       '@stewie-js/vite':
-        specifier: ^0.5.0
+        specifier: ^0.6.0
         version: link:../../packages/vite
     devDependencies:
       '@stewie-js/devtools':
-        specifier: ^0.5.0
+        specifier: ^0.6.0
         version: link:../../packages/devtools
       '@stewie-js/testing':
-        specifier: ^0.5.0
+        specifier: ^0.6.0
         version: link:../../packages/testing
       typescript:
         specifier: ^5.8.0
