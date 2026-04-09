@@ -1,7 +1,8 @@
-// hooks.ts — router hooks
+// hooks.ts — router utility functions
 
 import { useRouter } from './router.js';
 import type { RouterStore } from './location.js';
+import type { NavigationStatus } from '@stewie-js/router-spi';
 
 export function useLocation(): RouterStore {
   return useRouter().location as RouterStore;
@@ -21,4 +22,12 @@ export function useQuery<T extends Record<string, string>>(): T {
  */
 export function useRouteData<T = unknown>(): T {
   return useRouter()._routeData() as T;
+}
+
+/**
+ * Returns the reactive navigation status object.
+ * Subscribe to `status.phase` to show a progress indicator during navigation.
+ */
+export function useNavigationStatus(): NavigationStatus {
+  return useRouter().status;
 }

@@ -38,6 +38,7 @@ const STEWIE_PATHS: Record<string, string[]> = {
   '@stewie-js/core': [resolve(WORKSPACE_ROOT, 'packages/core/src/index.ts')],
   '@stewie-js/core/jsx-runtime': [resolve(WORKSPACE_ROOT, 'packages/core/src/jsx-runtime.ts')],
   '@stewie-js/router': [resolve(WORKSPACE_ROOT, 'packages/router/src/index.ts')],
+  '@stewie-js/router-spi': [resolve(WORKSPACE_ROOT, 'packages/router-spi/src/index.ts')],
   '@stewie-js/server': [resolve(WORKSPACE_ROOT, 'packages/server/src/index.ts')],
   '@stewie-js/adapter-node': [resolve(WORKSPACE_ROOT, 'packages/adapter-node/src/index.ts')],
   '@stewie-js/adapter-bun': [resolve(WORKSPACE_ROOT, 'packages/adapter-bun/src/index.ts')],

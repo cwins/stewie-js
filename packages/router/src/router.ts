@@ -1,11 +1,11 @@
 // router.ts — router context + navigation
 
-import { signal, reactiveScope } from '@stewie-js/core';
+import { signal, reactiveScope, store } from '@stewie-js/core';
 import type { Signal } from '@stewie-js/core';
 import { createContext, consume } from '@stewie-js/core';
 import { createLocationStore, parseUrl } from './location.js';
 import type { RouterStore } from './location.js';
-import type { StewieRouterSPI, NavigateOptions, RouteMatch } from '@stewie-js/router-spi';
+import type { StewieRouterSPI, NavigateOptions, RouteMatch, NavigationStatus } from '@stewie-js/router-spi';
 import { matchRoute } from './matcher.js';
 
 // ---------------------------------------------------------------------------
@@ -101,6 +101,8 @@ export function createRouter(initialUrl?: string): Router {
 
   const location: RouterStore = createLocationStore(initialUrl ?? '/');
 
+  const status: NavigationStatus = store<NavigationStatus>({ phase: 'idle' });
+
   /** Compute params for a URL against the registered routes. */
   function resolveParams(pathname: string): Record<string, string> {
     let params: Record<string, string> = {};
@@ -128,8 +130,15 @@ export function createRouter(initialUrl?: string): Router {
    * Find the best-matching route for a URL and run its guard + load fn.
    * Returns the redirect URL if a guard blocks, or null to proceed.
    */
-  async function runGuardsAndLoad(url: string): Promise<string | null> {
+  async function runGuardsAndLoad(url: string, updateStatus = true): Promise<string | null> {
     const parsed = parseUrl(url);
+
+    if (updateStatus) {
+      status.phase = 'matching';
+      status.from = location.pathname;
+      status.to = parsed.pathname;
+    }
+
     let bestRoute: RouterRouteConfig | null = null;
     let bestScore = -1;
     for (const route of router._routes) {
@@ -140,21 +149,31 @@ export function createRouter(initialUrl?: string): Router {
       }
     }
 
-    if (!bestRoute) return null;
+    if (!bestRoute) {
+      if (updateStatus) status.phase = 'idle';
+      return null;
+    }
 
     // Run beforeEnter guard
     if (bestRoute.beforeEnter) {
+      if (updateStatus) status.phase = 'guarding';
       const result = await bestRoute.beforeEnter(url, location.pathname);
-      if (result !== true) return result as string;
+      if (result !== true) {
+        if (updateStatus) status.phase = 'idle';
+        return result as string;
+      }
     }
 
     // Run route-level data loader.
     // Always reset _routeData on route change: if the incoming route has no
     // loader the previous route's data should not bleed through.
-    _routeData.set(undefined);
+    if (updateStatus) {
+      status.phase = 'loading';
+      _routeData.set(undefined);
+    }
     if (bestRoute.load) {
       const data = await bestRoute.load();
-      _routeData.set(data);
+      if (updateStatus) _routeData.set(data);
     }
 
     return null;
@@ -179,6 +198,7 @@ export function createRouter(initialUrl?: string): Router {
 
   const router: Router = {
     location,
+    status,
     _routes: [],
     _routeData,
 
@@ -198,34 +218,52 @@ export function createRouter(initialUrl?: string): Router {
       // Keeps simple navigations fully synchronous and avoids microtask overhead.
       const hasGuardsOrLoaders = router._routes.some((r) => r.beforeEnter || r.load);
       if (!hasGuardsOrLoaders) {
+        status.phase = 'committing';
+        status.from = location.pathname;
+        status.to = url;
         if (hasNavigationApi()) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (globalThis as any).navigation.navigate(url, { history: replace ? 'replace' : 'push' });
         } else {
           applyLocationAndPush(url, replace);
         }
+        status.phase = 'idle';
         return Promise.resolve();
       }
 
       // Async path — run guards and loaders, then apply location.
       return (async () => {
-        const redirect = await runGuardsAndLoad(url);
-        if (redirect !== null) {
-          return router.navigate(redirect);
-        }
+        try {
+          const redirect = await runGuardsAndLoad(url);
+          if (redirect !== null) {
+            return router.navigate(redirect);
+          }
 
-        if (hasNavigationApi()) {
-          // Navigation API path: just issue the navigation. The 'navigate' event
-          // listener below will intercept it and call applyLocation inside a View
-          // Transition — so we must NOT call applyLocation or startViewTransition
-          // here, otherwise the transition fires twice and the browser logs
-          // "Transition was skipped".
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (globalThis as any).navigation.navigate(url, { history: replace ? 'replace' : 'push' });
-        } else {
-          applyLocationAndPush(url, replace);
+          status.phase = 'committing';
+          if (hasNavigationApi()) {
+            // Navigation API path: just issue the navigation. The 'navigate' event
+            // listener below will intercept it and call applyLocation inside a View
+            // Transition — so we must NOT call applyLocation or startViewTransition
+            // here, otherwise the transition fires twice and the browser logs
+            // "Transition was skipped".
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (globalThis as any).navigation.navigate(url, { history: replace ? 'replace' : 'push' });
+          } else {
+            applyLocationAndPush(url, replace);
+          }
+          status.phase = 'idle';
+        } catch (err) {
+          status.phase = 'error';
+          throw err;
         }
       })();
+    },
+
+    dismiss() {
+      // Dismiss the current overlay/dialog by going back in history.
+      // When a richer overlay routing model is in place this will pop the
+      // overlay stack rather than delegating to browser history.
+      router.back();
     },
 
     back() {
@@ -250,6 +288,13 @@ export function createRouter(initialUrl?: string): Router {
       const result = matchRoute(pattern, location.pathname);
       if (!result) return null;
       return { pattern, params: result.params, score: result.score };
+    },
+
+    async preload(to: string | NavigateOptions): Promise<void> {
+      const url = typeof to === 'string' ? to : to.to;
+      // Run guards and loader without committing — side effects on _routeData
+      // and status are suppressed so the current view is unaffected.
+      await runGuardsAndLoad(url, false);
     },
 
     _setLocation(url: string, params?: Record<string, string>) {

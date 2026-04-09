@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { StewieRouterSPI, ReactiveLocation, NavigateOptions, RouteMatch } from './index.js';
+import type { StewieRouterSPI, ReactiveLocation, NavigateOptions, RouteMatch, NavigationStatus } from './index.js';
 
 describe('@stewie-js/router-spi interface definitions', () => {
   it('NavigateOptions type works correctly', () => {
@@ -48,6 +48,8 @@ describe('@stewie-js/router-spi interface definitions', () => {
         hash: ''
       };
 
+      readonly status: NavigationStatus = { phase: 'idle' };
+
       navigateCalls: Array<string | NavigateOptions> = [];
       backCalls = 0;
       forwardCalls = 0;
@@ -60,6 +62,10 @@ describe('@stewie-js/router-spi interface definitions', () => {
           this.location.pathname = to.to;
         }
         return Promise.resolve();
+      }
+
+      dismiss(): void {
+        this.backCalls++;
       }
 
       back(): void {
@@ -75,6 +81,10 @@ describe('@stewie-js/router-spi interface definitions', () => {
           return { pattern, params: {}, score: 100 };
         }
         return null;
+      }
+
+      preload(_to: string | NavigateOptions): Promise<void> {
+        return Promise.resolve();
       }
     }
 
@@ -107,6 +117,16 @@ describe('@stewie-js/router-spi interface definitions', () => {
     expect(noMatch).toBeNull();
   });
 
+  it('NavigationStatus type works correctly', () => {
+    const idle: NavigationStatus = { phase: 'idle' };
+    expect(idle.phase).toBe('idle');
+
+    const loading: NavigationStatus = { phase: 'loading', from: '/home', to: '/about' };
+    expect(loading.phase).toBe('loading');
+    expect(loading.from).toBe('/home');
+    expect(loading.to).toBe('/about');
+  });
+
   it('StewieRouterSPI can be used as a type constraint', () => {
     function getPathname(router: StewieRouterSPI): string {
       return router.location.pathname;
@@ -119,10 +139,13 @@ describe('@stewie-js/router-spi interface definitions', () => {
         query: {},
         hash: ''
       },
+      status: { phase: 'idle' },
       navigate: () => Promise.resolve(),
+      dismiss: () => {},
       back: () => {},
       forward: () => {},
-      match: () => null
+      match: () => null,
+      preload: () => Promise.resolve()
     };
 
     expect(getPathname(mockRouter)).toBe('/test');
