@@ -151,4 +151,4 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 
 - **Compiler type awareness (Bug 1)** — the compiler's `containsNoArgIdentifierCall` heuristic is too broad: it wraps `{row().id}` as reactive even though `.id` returns a plain `number`. The correct fix requires a TypeScript type checker (`ts.createProgram`) in the compiler pipeline to distinguish `Signal<T>` return types. Currently deferred.
 - ~~**`inject` → `consume` rename**~~ — Done. `consume(Context)` pairs with `provide(Context, value)`: ancestor provides, descendant consumes.
-- **`use*` router utility functions are not hooks** — `useParams()`, `useQuery()` etc. follow the `use*` naming convention but are plain utility functions with no call-order rules. Docs must never call them "hooks".
+- **`use*` router utility functions are not hooks** — `useParams()`, `useQuery()`, `useNavigationStatus()` etc. follow the `use*` naming convention but are plain utility functions with no call-order rules. Docs must never call them "hooks".
