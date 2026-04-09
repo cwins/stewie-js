@@ -17,7 +17,7 @@ These exist and work — not listed as open items below.
 | `Portal`, `ErrorBoundary`, `Suspense`, `ClientOnly` | `@stewie-js/core` | DOM renderer and SSR renderer handle all |
 | `lazy()` | `@stewie-js/core` | Code-split components with signal-driven loading |
 | Context (`createContext`, `inject`, `provide`) | `@stewie-js/core` | Full implementation |
-| `createRoot()` effect ownership | `@stewie-js/core` | Synchronous effects and computed nodes tracked and disposed on unmount |
+| `reactiveScope()` effect ownership | `@stewie-js/core` | Synchronous effects and computed nodes tracked and disposed on unmount |
 | `renderToString` | `@stewie-js/server` | Working with hydration state injection |
 | `renderToStream` | `@stewie-js/server` | Progressive streaming with Suspense boundary flushing |
 | True hydration / DOM reuse | `@stewie-js/core` | `_hydrateInto()` walks existing SSR DOM via `HydrationCursor`; reactive subscriptions attach to existing nodes |
@@ -36,7 +36,7 @@ These exist and work — not listed as open items below.
 | Source maps | `@stewie-js/compiler` | Inline (dev) and external `.map` (prod) |
 | Node and Bun adapters | `@stewie-js/adapter-node/bun` | Thin HTTP adapter wrappers |
 | Vite plugin + HMR | `@stewie-js/vite` | TSX transform, devtools injection |
-| Devtools panel | `@stewie-js/devtools` | Renders, Stores, Routes tabs |
+| Devtools panel | `@stewie-js/devtools` | Renders tab (component names, old→new values, caller frames, anchor highlighting for Show/For/Switch), Stores tab, Routes tab, Graph tab (live signal dep visualization, disposal tracking) |
 | Testing utilities | `@stewie-js/testing` | `mount`, query helpers, signal assertions |
 | `create-stewie` CLI | `create-stewie` | Static and SSR scaffolding with router option |
 | `resource()` primitive | `@stewie-js/core` | Signals (`data`, `loading`, `error`), `read()` for Suspense, `refetch()` |
@@ -49,19 +49,28 @@ Genuine gaps in the current implementation.
 
 ### Foundational (High Priority)
 
-~~**`createRoot()` async ownership**~~
-`getOwner()` and `runInOwner(owner, fn)` are now public APIs. Capture the owner before the first `await` in an async `createRoot` body, then pass it to `runInOwner` in async continuations so effects and `onCleanup` calls are registered with the root. This is the manual equivalent of Solid's `AsyncLocalStorage`-based ownership; fully automatic async propagation requires `AsyncLocalStorage` which is not available in all WinterCG environments.
+~~**`reactiveScope()` async ownership**~~
+`getOwner()` and `runInOwner(owner, fn)` are now public APIs. Capture the owner before the first `await` in an async `reactiveScope` body, then pass it to `runInOwner` in async continuations so effects and `onCleanup` calls are registered with the root. This is the manual equivalent of Solid's `AsyncLocalStorage`-based ownership; fully automatic async propagation requires `AsyncLocalStorage` which is not available in all WinterCG environments.
 
 ~~**Route guards and data loading during SSR**~~
 `createSsrRouter(url, routes)` runs `beforeEnter` guards and `load` functions before `renderToString`. Throws `RedirectError` (catch it in the server handler, return HTTP 302) when a guard redirects. Pass the returned router via `<Router router={ssrRouter}>` so the pre-loaded `_routeData` and correct location are available during the render.
 
-**SSR renderer consistency (`renderToString` / `renderToStream`)**
-`renderToString` and `renderToStream` are separate implementations with shared goals but diverging details. The string renderer and stream renderer must emit identical boundary/anchor comment semantics so that the `HydrationCursor` can claim nodes correctly regardless of which server path produced the HTML. Currently they are close but not provably identical — any divergence becomes a latent hydration bug. The fix is a shared serializer layer consumed by both paths.
+~~**SSR renderer consistency (`renderToString` / `renderToStream`)**~~
+Both renderers now emit identical boundary/anchor comment semantics (`<!---->`, `<!--Show-->`, `<!--For-->`, `<!--Switch-->`, `<!--Lazy-->`), including Signal child folding. Verified by `packages/server/src/renderer-consistency.test.ts` (26 tests).
 
 ~~**`resource()` cancellation / abort lifecycle**~~
 `AbortController` integrated: fetcher receives an `AbortSignal`; signal is cancelled on `refetch()` and on owning scope disposal (via `onCleanup`). Stale results are silently dropped. `onCleanup()` is now a public API usable by application code as well.
 
 ### Router
+
+**Router SPI enhancements**
+Expand `@stewie-js/router-spi` beyond the current minimal navigation primitives (`location`, `navigate`, `back`, `forward`, `match`) to include:
+- `NavigationPhase` — `'idle' | 'matching' | 'guarding' | 'loading' | 'committing' | 'error'`
+- `NavigationStatus` — `{ phase, from?, to? }`
+- `dismiss()` — pop the current overlay destination
+- `preload(to)` — prefetch a route
+
+These are low-risk additions that improve the SPI without committing to a larger destination-stack model.
 
 **Typed params and query**
 `useParams<{ id: string }>()` and `useQuery<{ tab: string }>()` with types inferred from route definitions rather than requiring manual annotation.
@@ -87,10 +96,20 @@ Things not strictly missing but that would meaningfully improve the project.
 - **Time-travel debugging** — snapshot signal/store state at each write, step backwards through history
 - **Browser extension** — move the overlay panel into a proper Chrome/Firefox DevTools extension to eliminate z-index and layout interference
 
+### API Naming
+
+- **`inject` → `consume`** — `inject(Context)` is a context lookup, not injection in any meaningful sense (not Angular DI, not MobX HOC prop injection). Rename to `consume(Context)` to pair honestly with `provide(Context, value)`: ancestor provides, descendant consumes.
+- **Don't call `use*` functions "hooks"** — `useParams()`, `useQuery()` etc. are utility functions that follow a `use*` naming convention for discoverability. They are not hooks in the React sense: no call-order dependency, no linter rules, can be called conditionally. Docs should say "utility functions" or just "functions", never "hooks". Using "hooks" would mislead React developers into applying rules that don't exist in Stewie.
+
+### Compiler
+
+- **Compiler Bug 1 — over-eager reactive wrapping** — `containsNoArgIdentifierCall` is too broad: `{row().id}` gets wrapped as reactive even though `.id` returns a plain `number`. The correct fix requires `ts.createProgram` in the compiler pipeline to distinguish `Signal<T>` return types from plain values. Currently deferred; impacts generated code size and effect count but not correctness.
+
 ### Developer Experience
 
+- **`_appMounted` flag** — once `mount()` has been called, allow `signal()`/`store()`/`computed()` at module scope or in event handlers without triggering the "created outside reactive scope" warning. Currently, event handlers require a `reactiveScope()` wrapper to avoid the warning, which is surprising. The flag would suppress the warning after mount while preserving it for true SSR-leaking mistakes.
 - **VS Code extension** — syntax highlighting for `$prop` bindings, signal/computed/store autocomplete, inline compiler diagnostics
-- **ESLint plugin** — rules for signals read outside reactive scope, missing `createRoot`, module-scope reactive primitive creation
+- **ESLint plugin** — rules for signals read outside reactive scope, module-scope reactive primitive creation
 - **`stewie upgrade` CLI** — automates `@stewie-js/*` version bumps across a project's `package.json`
 - **More `create-stewie` templates** — full-stack template with API routes, minimal no-router template, SSR+auth example demonstrating route guards
 
@@ -103,7 +122,7 @@ Things not strictly missing but that would meaningfully improve the project.
 ### Infrastructure
 
 - **`@stewie-js/webpack`** — Webpack 5 plugin wrapping the compiler
-- **Benchmark suite** — automated benchmarks against React, Vue, Solid, and Svelte on the js-framework-benchmark table to give a factual basis for performance claims
+- **Benchmark results** — the js-framework-benchmark implementation exists (`examples/js-framework-benchmark`) but no results have been run and published; needed to back performance claims with actual numbers
 - **Documentation site** — API reference, guides (SSR setup, routing, reactivity deep-dive), and interactive examples
 - **Conformance CI** — example apps that must pass `build`, `typecheck`, `test`, and SSR/hydration verification on every PR
 
@@ -127,10 +146,13 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 4. ~~`_routeData` stickiness / redirect-on-back guard bypass~~ — done
 5. ~~Fine-grained compiler output~~ — done
 6. ~~`ComputedNode` ownership and reactive prop memoization~~ — done
-7. ~~SSR renderer consistency (`renderToString` / `renderToStream`)~~ — done
+7. ~~SSR renderer consistency (`renderToString` / `renderToStream`)~~ — done (26-test consistency suite)
 8. ~~`resource()` cancellation / abort lifecycle~~ — done
 9. ~~Route guards and data loading during SSR~~ — done
-10. ~~`createRoot()` async ownership~~ — done (getOwner / runInOwner)
-11. ~~DevTools improvements~~ — done (signal labels, causality attribution, Graph tab with live dep visualization)
-12. Form primitives — highest-value DX enhancement
-13. Documentation site — needed before recommending Stewie to others
+10. ~~`reactiveScope()` async ownership~~ — done (getOwner / runInOwner; renamed from createRoot)
+11. ~~DevTools improvements~~ — done (Graph tab, signal disposal, component names on render entries, old→new values, caller frames, anchor highlighting for Show/For/Switch)
+12. Router SPI enhancements — NavigationPhase, dismiss, preload
+13. `_appMounted` flag + benchmark cleanup — unblocks removing unnecessary reactiveScope() wrappers in event handlers
+14. Compiler Bug 1 — over-eager reactive wrapping (needs ts.createProgram)
+15. Form primitives — highest-value DX enhancement
+16. Documentation site — needed before recommending Stewie to others

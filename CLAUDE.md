@@ -48,7 +48,7 @@ These are the reasons Stewie exists rather than "just use X":
 **Why:** A reactive slot can render zero, one, or many nodes, and those nodes can change. Without a stable marker, the effect has no DOM reference to insert against when the previous render was empty or when siblings are also dynamic. The comment is inert to layout, invisible to users, and costs essentially nothing.
 
 ### Signals are scoped, not global
-**Decision:** `signal()`, `computed()`, `effect()`, and `store()` must be called inside a component or lifecycle hook — never at module scope.
+**Decision:** `signal()`, `computed()`, `effect()`, and `store()` must be called inside a component or `reactiveScope()` — never at module scope.
 **Why:** Module-scope reactive primitives become accidental singletons shared across requests in SSR environments. The compiler enforces this as a hard error; the runtime warns in dev mode.
 
 ### Minimal API surface
@@ -149,5 +149,6 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 
 ## Decisions Still Open
 
-- **SSR renderer consistency** — `renderToString` and `renderToStream` must emit provably identical anchor/boundary comment semantics so `HydrationCursor` works regardless of which path produced the HTML. They are close but not yet verified identical.
 - **Compiler type awareness (Bug 1)** — the compiler's `containsNoArgIdentifierCall` heuristic is too broad: it wraps `{row().id}` as reactive even though `.id` returns a plain `number`. The correct fix requires a TypeScript type checker (`ts.createProgram`) in the compiler pipeline to distinguish `Signal<T>` return types. Currently deferred.
+- **`inject` → `consume` rename** — `inject(Context)` is a context lookup, not injection. Planned rename to `consume(Context)` to pair honestly with `provide(Context, value)`. Not yet done.
+- **`use*` router utility functions are not hooks** — `useParams()`, `useQuery()` etc. follow the `use*` naming convention but are plain utility functions with no call-order rules. Docs must never call them "hooks".
