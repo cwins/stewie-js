@@ -3,7 +3,7 @@
 import {
   isDev,
   __devHooks,
-  _allowReactiveCreation,
+  _warnModuleScope,
   _callerFrame,
   getCurrentScope,
   Subscribable,
@@ -211,11 +211,7 @@ function makeProxy<T extends object>(
 // ---------------------------------------------------------------------------
 
 export function store<T extends object>(initial: T): T {
-  if (isDev && !_allowReactiveCreation && getCurrentScope() === null) {
-    console.warn(
-      '[stewie] signal()/store() called at module scope. Reactive primitives must be created inside components or lifecycle hooks.'
-    );
-  }
+  _warnModuleScope();
 
   const nodeMap: PathNodeMap = new Map();
   const proxyCache: ProxyCache = new WeakMap();

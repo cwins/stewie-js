@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import { signal, batch, reactiveScope } from '@stewie-js/core';
+import { signal, batch } from '@stewie-js/core';
 import type { Signal } from '@stewie-js/core';
 import { mount, For } from '@stewie-js/core';
 
@@ -64,9 +64,6 @@ function rnd(arr: readonly string[]): string {
 
 let nextId = 1;
 
-// Build `count` rows. Each call is wrapped in reactiveScope() at the call site
-// so that signal() creation is allowed (Stewie's creation guard only warns
-// when signals are created at module scope without a reactive root).
 function buildData(count: number): Row[] {
   const rows: Row[] = Array.from({ length: count });
   for (let i = 0; i < count; i++) {
@@ -79,41 +76,27 @@ function buildData(count: number): Row[] {
 }
 
 // ---------------------------------------------------------------------------
-// App
+// App — signals created inside the component scope, no reactiveScope() needed
 // ---------------------------------------------------------------------------
 
-reactiveScope(() => {
+function App() {
   const rows = signal<Row[]>([]);
   const selected = signal<number>(0);
 
-  // Wrap data-building operations in reactiveScope so signal() is allowed.
-  // (Signals are data — not effects — so the root disposes nothing on them.)
   function run(): void {
-    let data!: Row[];
-    reactiveScope(() => {
-      data = buildData(1_000);
-    });
-    rows.set(data);
+    rows.set(buildData(1_000));
   }
 
   function runLots(): void {
-    let data!: Row[];
-    reactiveScope(() => {
-      data = buildData(10_000);
-    });
-    rows.set(data);
+    rows.set(buildData(10_000));
   }
 
   function add(): void {
-    let extra!: Row[];
-    reactiveScope(() => {
-      extra = buildData(1_000);
-    });
-    rows.set([...rows(), ...extra]);
+    rows.set([...rows(), ...buildData(1_000)]);
   }
 
   function update(): void {
-    // Fine-grained update: only the 100 affected label signals fire,
+    // Fine-grained update: only the affected label signals fire,
     // touching only those DOM text nodes. No row re-renders.
     batch(() => {
       const current = rows();
@@ -147,7 +130,7 @@ reactiveScope(() => {
     rows.set(rows().filter((r) => r.id !== id));
   }
 
-  mount(
+  return (
     <div class="container">
       <div class="jumbotron">
         <div class="row">
@@ -213,7 +196,8 @@ reactiveScope(() => {
         </tbody>
       </table>
       <span class="preloadicon glyphicon glyphicon-remove" aria-hidden="true" />
-    </div>,
-    document.getElementById('main')!
+    </div>
   );
-});
+}
+
+mount(<App />, document.getElementById('main')!);

@@ -158,10 +158,20 @@ export function _setAllowReactiveCreation(v: boolean): void {
   _allowReactiveCreation = v;
 }
 
+// Set to true once mount() is called. After the app is mounted it is safe to
+// create reactive primitives in event handlers and other callbacks without a
+// reactiveScope() wrapper — there is no SSR singleton-leak risk at that point.
+// The module-scope warning is suppressed once this flag is set.
+let _appMounted = false;
+
+export function _setAppMounted(): void {
+  _appMounted = true;
+}
+
 export function _warnModuleScope(): void {
-  if (isDev && !_allowReactiveCreation && _scopeStack.length === 0) {
+  if (isDev && !_allowReactiveCreation && !_appMounted && _scopeStack.length === 0) {
     console.warn(
-      '[stewie] signal()/store() called at module scope. Reactive primitives must be created inside components or lifecycle hooks.'
+      '[stewie] signal()/store() called outside a reactive scope. Reactive primitives must be created inside components or reactiveScope(). Before mount() is called this can cause SSR singleton leaks.'
     );
   }
 }

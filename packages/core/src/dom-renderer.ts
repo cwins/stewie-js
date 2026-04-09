@@ -9,6 +9,7 @@ import {
   _setNextEffectMeta,
   _pushComponent,
   _popComponent,
+  _setAppMounted,
   isDev,
   ComputedNode,
   signal,
@@ -1025,6 +1026,11 @@ export function _createNode(type: ElementType, props: Record<string, unknown>): 
  * Returns a dispose function that unmounts and cleans up all reactive effects.
  */
 export function mount(root: JSXElement | Node | (() => JSXElement | Node | null) | null, container: Element): Disposer {
+  // Suppress the module-scope reactive creation warning from this point on.
+  // Event handlers and other post-mount callbacks are safe to create reactive
+  // primitives without a reactiveScope() wrapper — no SSR singleton-leak risk.
+  _setAppMounted();
+
   // Clear the container
   while (container.firstChild) container.removeChild(container.firstChild);
 
