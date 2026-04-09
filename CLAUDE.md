@@ -97,7 +97,7 @@ These are the reasons Stewie exists rather than "just use X":
 - `signal`, `computed`, `effect`, `store`, `batch`, `untrack`, `onCleanup`, `getOwner`, `runInOwner`
 - `resource()` with `AbortController` cancellation
 - `Show`, `For` (keyed, LIS-based), `Switch`/`Match`, `Portal`, `ErrorBoundary`, `Suspense`, `ClientOnly`, `lazy()`
-- Context (`createContext`, `inject`, `provide`)
+- Context (`createContext`, `provide`, `consume`)
 - `renderToString` and `renderToStream` (streaming with progressive Suspense flushing)
 - True DOM-claiming hydration via `HydrationCursor`
 - Client router with guards, data loading, lazy routes, View Transitions, Navigation API, History API fallback
@@ -150,5 +150,5 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 ## Decisions Still Open
 
 - **Compiler type awareness (Bug 1)** — the compiler's `containsNoArgIdentifierCall` heuristic is too broad: it wraps `{row().id}` as reactive even though `.id` returns a plain `number`. The correct fix requires a TypeScript type checker (`ts.createProgram`) in the compiler pipeline to distinguish `Signal<T>` return types. Currently deferred.
-- **`inject` → `consume` rename** — `inject(Context)` is a context lookup, not injection. Planned rename to `consume(Context)` to pair honestly with `provide(Context, value)`. Not yet done.
+- ~~**`inject` → `consume` rename**~~ — Done. `consume(Context)` pairs with `provide(Context, value)`: ancestor provides, descendant consumes.
 - **`use*` router utility functions are not hooks** — `useParams()`, `useQuery()` etc. follow the `use*` naming convention but are plain utility functions with no call-order rules. Docs must never call them "hooks".
