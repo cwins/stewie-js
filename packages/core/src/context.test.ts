@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createContext, provide, inject, captureContext, runWithContext, type ContextSnapshot } from './context.js';
+import { createContext, provide, consume, captureContext, runWithContext, type ContextSnapshot } from './context.js';
 
 describe('createContext', () => {
   it('returns a context token with the default value', () => {
@@ -14,24 +14,24 @@ describe('createContext', () => {
   });
 });
 
-describe('inject', () => {
+describe('consume', () => {
   it('returns the default value when no provider', () => {
     const ctx = createContext(42);
-    expect(inject(ctx)).toBe(42);
+    expect(consume(ctx)).toBe(42);
   });
 
   it('throws when no provider and no default', () => {
     const ctx = createContext<string>();
-    expect(() => inject(ctx)).toThrow('[stewie] inject() called with no matching provider and no default value');
+    expect(() => consume(ctx)).toThrow('[stewie] consume() called with no matching provider and no default value');
   });
 });
 
-describe('provide + inject', () => {
+describe('provide + consume', () => {
   it('returns the provided value inside the callback', () => {
     const ctx = createContext('default');
     let result: string | undefined;
     provide(ctx, 'provided', () => {
-      result = inject(ctx);
+      result = consume(ctx);
     });
     expect(result).toBe('provided');
   });
@@ -41,9 +41,9 @@ describe('provide + inject', () => {
     let inner: string | undefined;
     let outer: string | undefined;
     provide(ctx, 'outer', () => {
-      outer = inject(ctx);
+      outer = consume(ctx);
       provide(ctx, 'inner', () => {
-        inner = inject(ctx);
+        inner = consume(ctx);
       });
     });
     expect(outer).toBe('outer');
@@ -56,7 +56,7 @@ describe('provide + inject', () => {
       // inside the provider
     });
     // After the provider, falls back to default
-    expect(inject(ctx)).toBe('default');
+    expect(consume(ctx)).toBe('default');
   });
 
   it('restores even if fn throws', () => {
@@ -68,14 +68,14 @@ describe('provide + inject', () => {
     } catch {
       // expected
     }
-    // Should have restored: inject returns default, not throw
-    expect(inject(ctx)).toBe('default');
+    // Should have restored: consume returns default, not throw
+    expect(consume(ctx)).toBe('default');
   });
 
   it('returns value from provide', () => {
     const ctx = createContext(0);
     const result = provide(ctx, 10, () => {
-      return inject(ctx) * 2;
+      return consume(ctx) * 2;
     });
     expect(result).toBe(20);
   });
@@ -112,15 +112,15 @@ describe('captureContext + runWithContext', () => {
       snap = captureContext() as Map<symbol, unknown>;
     });
     // Outside the provide, context is gone
-    expect(inject(ctx)).toBe('default');
+    expect(consume(ctx)).toBe('default');
     // runWithContext restores it
     let result: string | undefined;
     runWithContext(snap, () => {
-      result = inject(ctx);
+      result = consume(ctx);
     });
     expect(result).toBe('captured');
     // After runWithContext, context is gone again
-    expect(inject(ctx)).toBe('default');
+    expect(consume(ctx)).toBe('default');
   });
 
   it('runWithContext does not leak context after fn completes', () => {
@@ -129,7 +129,7 @@ describe('captureContext + runWithContext', () => {
     runWithContext(snap, () => {
       /* no-op */
     });
-    expect(inject(ctx)).toBe('default');
+    expect(consume(ctx)).toBe('default');
   });
 
   it('runWithContext restores even if fn throws', () => {
@@ -142,7 +142,7 @@ describe('captureContext + runWithContext', () => {
     } catch {
       /* expected */
     }
-    expect(inject(ctx)).toBe('default');
+    expect(consume(ctx)).toBe('default');
   });
 
   it('runWithContext works with multiple contexts', () => {
@@ -155,8 +155,8 @@ describe('captureContext + runWithContext', () => {
     let a: string | undefined;
     let b: string | undefined;
     runWithContext(snap, () => {
-      a = inject(ctxA);
-      b = inject(ctxB);
+      a = consume(ctxA);
+      b = consume(ctxB);
     });
     expect(a).toBe('a-value');
     expect(b).toBe('b-value');

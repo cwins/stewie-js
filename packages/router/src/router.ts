@@ -2,7 +2,7 @@
 
 import { signal, reactiveScope } from '@stewie-js/core';
 import type { Signal } from '@stewie-js/core';
-import { createContext, inject } from '@stewie-js/core';
+import { createContext, consume } from '@stewie-js/core';
 import { createLocationStore, parseUrl } from './location.js';
 import type { RouterStore } from './location.js';
 import type { StewieRouterSPI, NavigateOptions, RouteMatch } from '@stewie-js/router-spi';
@@ -337,7 +337,7 @@ export function createRouter(initialUrl?: string): Router {
 }
 
 export function useRouter(): Router {
-  const router = inject(RouterContext);
+  const router = consume(RouterContext);
   if (!router) throw new Error('useRouter() called outside of <Router> provider');
   return router;
 }

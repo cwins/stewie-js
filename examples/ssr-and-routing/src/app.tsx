@@ -5,7 +5,7 @@
 // Server flow: renderApp(url) → renderToString(<App initialUrl={url} />) → HTML
 // Client flow: hydrate(<App />, container) reads window.__STEWIE_STATE__
 
-import { store, createContext, inject, signal, computed } from '@stewie-js/core';
+import { store, createContext, consume, signal, computed } from '@stewie-js/core';
 import { For, Show } from '@stewie-js/core';
 import { useHydrationRegistry } from '@stewie-js/core';
 import type { JSXElement } from '@stewie-js/core';
@@ -93,7 +93,7 @@ function formatDueDate(dueDate: string | null): string {
 
 function DashboardView(): JSXElement {
   const router = useRouter();
-  const app = inject(AppContext)!;
+  const app = consume(AppContext)!;
 
   return (
     <div class="container" data-testid="dashboard">
@@ -130,7 +130,7 @@ function DashboardView(): JSXElement {
 
 function CreateProjectView(): JSXElement {
   const router = useRouter();
-  const app = inject(AppContext)!;
+  const app = consume(AppContext)!;
 
   const $name = signal<string>('');
 
@@ -180,7 +180,7 @@ function CreateProjectView(): JSXElement {
 // ---------------------------------------------------------------------------
 
 function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): JSXElement {
-  const app = inject(AppContext)!;
+  const app = consume(AppContext)!;
 
   const $title = signal<string>(task.title);
   const $description = signal<string>(task.description);
@@ -286,7 +286,7 @@ function TaskEditSheet({ task, onClose }: { task: Task; onClose: () => void }): 
 
 function ProjectDetailView(): JSXElement {
   const router = useRouter();
-  const app = inject(AppContext)!;
+  const app = consume(AppContext)!;
   const { projectId, taskId: urlTaskId } = router.location.params;
 
   const project = () => app.projects.find((p) => p.id === projectId);
@@ -397,7 +397,7 @@ function ProjectDetailView(): JSXElement {
 
 function CreateTaskView(): JSXElement {
   const router = useRouter();
-  const app = inject(AppContext)!;
+  const app = consume(AppContext)!;
   const projectId = router.location.params.projectId;
 
   const $title = signal<string>('');

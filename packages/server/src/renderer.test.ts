@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToString } from './renderer.js';
 // Import JSX runtime to construct test elements
-import { jsx, Fragment, Show, For, ClientOnly, ErrorBoundary, createContext, inject } from '@stewie-js/core';
+import { jsx, Fragment, Show, For, ClientOnly, ErrorBoundary, createContext, consume } from '@stewie-js/core';
 import { useHydrationRegistry } from './hydration.js';
 
 describe('renderToString', () => {
@@ -121,7 +121,7 @@ describe('renderToString', () => {
   it('Context.Provider threads context to child components', async () => {
     const ThemeCtx = createContext('light');
     function Child() {
-      const theme = inject(ThemeCtx);
+      const theme = consume(ThemeCtx);
       return jsx('div', { children: theme });
     }
     const el = jsx(ThemeCtx.Provider as any, {
@@ -135,7 +135,7 @@ describe('renderToString', () => {
   it('nested Context.Provider — innermost wins', async () => {
     const Ctx = createContext('outer');
     function Inner() {
-      return jsx('span', { children: inject(Ctx) });
+      return jsx('span', { children: consume(Ctx) });
     }
     const el = jsx(Ctx.Provider as any, {
       value: 'outer',
@@ -158,11 +158,11 @@ describe('renderToString', () => {
     expect(capturedRegistry).not.toBeNull();
   });
 
-  it('async component can call inject() before first await', async () => {
+  it('async component can call consume() before first await', async () => {
     const Ctx = createContext('default');
     async function AsyncComp() {
-      // inject() before any await — must work
-      const val = inject(Ctx);
+      // consume() before any await — must work
+      const val = consume(Ctx);
       await Promise.resolve();
       return jsx('span', { children: val });
     }

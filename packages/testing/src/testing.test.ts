@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 import { mount, assertSignal, assertStore, renderToString, withContext, flushEffects } from './index.js';
-import { jsx, signal, store, createContext, inject, reactiveScope, effect, Show } from '@stewie-js/core';
+import { jsx, signal, store, createContext, consume, reactiveScope, effect, Show } from '@stewie-js/core';
 import type { Component, JSXElement } from '@stewie-js/core';
 
 // ---------------------------------------------------------------------------
@@ -143,7 +143,7 @@ describe('mount — context injection', () => {
     const ThemeCtx = createContext<string>('light');
 
     function ThemeDisplay(): JSXElement {
-      const theme = inject(ThemeCtx);
+      const theme = consume(ThemeCtx);
       return jsx('span', { 'data-testid': 'theme', children: theme });
     }
 
@@ -235,7 +235,7 @@ describe('withContext', () => {
     const ctx = createContext<number>(0);
     let captured = -1;
     withContext(ctx, 42, () => {
-      captured = inject(ctx);
+      captured = consume(ctx);
     });
     expect(captured).toBe(42);
   });

@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { jsx } from './jsx-runtime.js';
 import { reactiveScope } from './reactive.js';
-import { inject } from './context.js';
+import { consume } from './context.js';
 import { useHydrationRegistry, HydrationRegistryContext } from './hydration.js';
 import { hydrate } from './hydrate.js';
 import { provide } from './context.js';
@@ -17,7 +17,7 @@ function container(): HTMLDivElement {
 
 describe('useHydrationRegistry', () => {
   it('returns null when no registry is provided', () => {
-    const result = inject(HydrationRegistryContext);
+    const result = consume(HydrationRegistryContext);
     expect(result).toBeNull();
   });
 

@@ -78,7 +78,7 @@ export function provide<T, R>(context: Context<T>, value: T, fn: () => R): R {
   }
 }
 
-export function inject<T>(context: Context<T>): T {
+export function consume<T>(context: Context<T>): T {
   const { id, defaultValue } = context;
   const stack = _providerStack.get(id) as T[] | undefined;
   if (stack && stack.length > 0) {
@@ -93,7 +93,7 @@ export function inject<T>(context: Context<T>): T {
   // as "no default" since createContext() with no arg sets it to undefined.
   // To distinguish, we check if the context object has a default set at construction.
   // Since we store undefined for "no default", we throw here.
-  throw new Error('[stewie] inject() called with no matching provider and no default value');
+  throw new Error('[stewie] consume() called with no matching provider and no default value');
 }
 
 // ---------------------------------------------------------------------------

@@ -229,8 +229,8 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     return renderNode(props.children, { ...opts, contextSnapshot: newSnapshot });
   }
 
-  // Component function — restore context snapshot so inject() works throughout the
-  // component body, including synchronous inject() calls before any await.
+  // Component function — restore context snapshot so consume() works throughout the
+  // component body, including synchronous consume() calls before any await.
   // reactiveScope() allows signal/store/computed/effect creation inside components.
   if (typeof type === 'function') {
     let result: JSXElement | null = null;
@@ -275,7 +275,7 @@ export async function renderToString(
   return withRenderIsolation(async () => {
     const registry = createHydrationRegistry();
     // Seed the context snapshot with the hydration registry so any component can call
-    // useHydrationRegistry() / inject(HydrationRegistryContext) and get the registry.
+    // useHydrationRegistry() / consume(HydrationRegistryContext) and get the registry.
     const contextSnapshot: ContextSnapshot = new Map([[HydrationRegistryContext.id, registry]]);
     const opts: InternalRenderOptions = { nonce: options?.nonce, registry, contextSnapshot };
 

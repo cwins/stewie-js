@@ -1,6 +1,6 @@
 // components.ts — route components
 
-import { jsx, inject, effect, signal, reactiveScope } from '@stewie-js/core';
+import { jsx, consume, effect, signal, reactiveScope } from '@stewie-js/core';
 import type { JSXElement, Component } from '@stewie-js/core';
 import { createRouter, RouterContext, RedirectError } from './router.js';
 import type { Router, RouteGuard } from './router.js';
@@ -214,10 +214,10 @@ export function Route(_props: RouteProps): JSXElement {
  * normally (open in new tab, etc.).
  */
 export function Link(props: LinkProps): JSXElement {
-  // Capture router synchronously during component render (inject works here).
+  // Capture router synchronously during component render (consume works here).
   let router: Router | null = null;
   try {
-    router = inject(RouterContext);
+    router = consume(RouterContext);
   } catch {
     // No RouterContext — fall through, renders as plain anchor
   }

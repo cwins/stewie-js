@@ -110,11 +110,11 @@ const { html } = await renderToString(jsx(MyComponent, {}))
 expect(html).toContain('<h1>Hello</h1>')
 ```
 
-## Context injection
+## Context
 
 ```ts
 import { mount, withContext } from '@stewie-js/testing'
-import { createContext, inject } from '@stewie-js/core'
+import { createContext, consume } from '@stewie-js/core'
 
 const ThemeCtx = createContext('light')
 
@@ -125,7 +125,7 @@ const result = mount(jsx(MyComponent, {}), {
 
 // Or run a callback with a context value
 withContext(ThemeCtx, 'dark', () => {
-  const theme = inject(ThemeCtx) // 'dark'
+  const theme = consume(ThemeCtx) // 'dark'
 })
 ```
 

@@ -100,7 +100,7 @@ import { Show, For, Switch, Match } from '@stewie-js/core'
 ## Context
 
 ```tsx
-import { createContext, inject } from '@stewie-js/core'
+import { createContext, consume } from '@stewie-js/core'
 
 const ThemeContext = createContext('light')
 
@@ -113,7 +113,7 @@ function App() {
 }
 
 function Page() {
-  const theme = inject(ThemeContext) // 'dark'
+  const theme = consume(ThemeContext) // 'dark'
   return <div class={`theme-${theme}`}>...</div>
 }
 ```
@@ -129,7 +129,7 @@ function Page() {
 | `untrack(fn)` | Read reactive values without subscribing |
 | `store(obj)` | Proxy-wrapped reactive object with path-level subscriptions |
 | `createContext(default)` | Create a typed context token |
-| `inject(ctx)` | Read the nearest provided context value |
+| `consume(ctx)` | Read the nearest provided context value |
 | `provide(ctx, value, fn)` | Run `fn` with a context value provided |
 | `reactiveScope(fn)` | Create an isolated reactive scope |
 | `mount(element, container)` | Render a JSX element into a DOM node |
