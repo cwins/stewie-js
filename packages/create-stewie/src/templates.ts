@@ -155,6 +155,10 @@ export default defineConfig({
     content: `import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  esbuild: {
+    // Use @stewie-js/core's jsx-runtime for TSX test files.
+    jsxImportSource: '@stewie-js/core',
+  },
   test: {
     environment: 'happy-dom',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
@@ -918,6 +922,53 @@ export function AboutPage(): JSXElement {
     </Shell>
   )
 }
+`
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // src/app.test.tsx — smoke tests shipped with the scaffold
+  // -------------------------------------------------------------------------
+
+  if (ctx.includeRouter) {
+    files.push({
+      path: 'src/app.test.tsx',
+      content: `// @vitest-environment happy-dom
+import { describe, it, expect } from 'vitest'
+import { mount } from '@stewie-js/testing'
+import { App } from './app.js'
+
+describe('App', () => {
+  it('renders without error', () => {
+    // Router renders into a reactive context — verify mount/unmount is clean.
+    const result = mount(<App />)
+    expect(result.html).not.toBe('')
+    result.unmount()
+  })
+})
+`
+    });
+  } else {
+    files.push({
+      path: 'src/app.test.tsx',
+      content: `// @vitest-environment happy-dom
+import { describe, it, expect } from 'vitest'
+import { mount } from '@stewie-js/testing'
+import { App } from './app.js'
+
+describe('App', () => {
+  it('renders without error', () => {
+    const result = mount(<App />)
+    expect(result.html).not.toBe('')
+    result.unmount()
+  })
+
+  it('renders the counter section', () => {
+    const result = mount(<App />)
+    expect(result.queryByRole('heading', { name: 'Counter' })).not.toBeNull()
+    result.unmount()
+  })
+})
 `
     });
   }

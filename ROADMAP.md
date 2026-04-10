@@ -63,14 +63,8 @@ Both renderers now emit identical boundary/anchor comment semantics (`<!---->`, 
 
 ### Router
 
-**Router SPI enhancements**
-Expand `@stewie-js/router-spi` beyond the current minimal navigation primitives (`location`, `navigate`, `back`, `forward`, `match`) to include:
-- `NavigationPhase` — `'idle' | 'matching' | 'guarding' | 'loading' | 'committing' | 'error'`
-- `NavigationStatus` — `{ phase, from?, to? }`
-- `dismiss()` — pop the current overlay destination
-- `preload(to)` — prefetch a route
-
-These are low-risk additions that improve the SPI without committing to a larger destination-stack model.
+~~**Router SPI enhancements**~~
+`NavigationPhase`, `NavigationStatus`, `dismiss()`, and `preload()` added to `@stewie-js/router-spi` and implemented in `@stewie-js/router`. `useNavigationStatus()` exported from the router.
 
 **Typed params and query**
 `useParams<{ id: string }>()` and `useQuery<{ tab: string }>()` with types inferred from route definitions rather than requiring manual annotation.
@@ -98,7 +92,7 @@ Things not strictly missing but that would meaningfully improve the project.
 
 ### API Naming
 
-- **`inject` → `consume`** — `inject(Context)` is a context lookup, not injection in any meaningful sense (not Angular DI, not MobX HOC prop injection). Rename to `consume(Context)` to pair honestly with `provide(Context, value)`: ancestor provides, descendant consumes.
+- ~~**`inject` → `consume`**~~ — Renamed. `consume(Context)` pairs with `provide(Context, value)`.
 - **Don't call `use*` functions "hooks"** — `useParams()`, `useQuery()` etc. are utility functions that follow a `use*` naming convention for discoverability. They are not hooks in the React sense: no call-order dependency, no linter rules, can be called conditionally. Docs should say "utility functions" or just "functions", never "hooks". Using "hooks" would mislead React developers into applying rules that don't exist in Stewie.
 
 ### Compiler
@@ -107,7 +101,7 @@ Things not strictly missing but that would meaningfully improve the project.
 
 ### Developer Experience
 
-- **`_appMounted` flag** — once `mount()` has been called, allow `signal()`/`store()`/`computed()` at module scope or in event handlers without triggering the "created outside reactive scope" warning. Currently, event handlers require a `reactiveScope()` wrapper to avoid the warning, which is surprising. The flag would suppress the warning after mount while preserving it for true SSR-leaking mistakes.
+- ~~**`_appMounted` flag**~~ — `mount()` now calls `_setAppMounted()` which suppresses the "outside reactive scope" warning after mount. SSR-safety is preserved (warning still fires on server before any mount).
 - **VS Code extension** — syntax highlighting for `$prop` bindings, signal/computed/store autocomplete, inline compiler diagnostics
 - **ESLint plugin** — rules for signals read outside reactive scope, module-scope reactive primitive creation
 - **`stewie upgrade` CLI** — automates `@stewie-js/*` version bumps across a project's `package.json`
@@ -151,8 +145,14 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 9. ~~Route guards and data loading during SSR~~ — done
 10. ~~`reactiveScope()` async ownership~~ — done (getOwner / runInOwner; renamed from createRoot)
 11. ~~DevTools improvements~~ — done (Graph tab, signal disposal, component names on render entries, old→new values, caller frames, anchor highlighting for Show/For/Switch)
-12. Router SPI enhancements — NavigationPhase, dismiss, preload
-13. `_appMounted` flag + benchmark cleanup — unblocks removing unnecessary reactiveScope() wrappers in event handlers
-14. Compiler Bug 1 — over-eager reactive wrapping (needs ts.createProgram)
-15. Form primitives — highest-value DX enhancement
-16. Documentation site — needed before recommending Stewie to others
+12. ~~Router SPI enhancements~~ — done (NavigationPhase, NavigationStatus, dismiss, preload, useNavigationStatus)
+13. ~~`_appMounted` flag~~ — done (`mount()` calls `_setAppMounted()`, suppresses scope warnings post-mount)
+14. **Conformance CI — layers 2 and 3** — scaffold ships with test files; conformance suite now runs vitest (layer 2) and vite build (layer 3) for all six combinations
+15. **Compiler Bug 1** — over-eager reactive wrapping (needs ts.createProgram)
+16. **Scaffold — Vitest browser mode tests** — dev and prod browser test passes for all scaffold variants (Vitest browser mode + Playwright provider)
+17. **Canonical reference app (Work Queue) — Phase 1** — SSR app shell, route table, local data repo, dashboard + projects list
+18. **Form primitives** — highest-value DX enhancement
+19. **Documentation site** — needed before recommending Stewie to others
+20. Edge-first testing phases 2–4
+21. Cloudflare adapter
+22. Typed route params and query
