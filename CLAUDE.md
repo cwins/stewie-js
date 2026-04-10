@@ -8,7 +8,7 @@ This file is the canonical reference for the Stewie framework. Read it at the st
 
 A small, coherent TypeScript web framework for modern runtimes. It covers reactivity, rendering, SSR, routing, a compiler, testing utilities, devtools, and scaffolding — all designed together as a whole rather than assembled from third-party pieces.
 
-**Current version:** 0.6.0
+**Current version:** 0.7.0
 **Package scope:** `@stewie-js/*`
 **Monorepo manager:** pnpm workspaces
 

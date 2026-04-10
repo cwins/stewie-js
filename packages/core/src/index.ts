@@ -1,6 +1,6 @@
 // @stewie-js/core — reactivity primitives, JSX runtime, context
 
-export const version = '0.6.0';
+export const version = '0.7.0';
 
 export type { Signal, Computed, Dispose, Scope, Subscribable, Subscriber, Owner } from './reactive.js';
 export {

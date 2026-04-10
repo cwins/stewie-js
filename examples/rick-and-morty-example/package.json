@@ -11,13 +11,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@stewie-js/core": "^0.6.0",
-    "@stewie-js/router": "^0.6.0",
-    "@stewie-js/vite": "^0.6.0"
+    "@stewie-js/core": "^0.7.0",
+    "@stewie-js/router": "^0.7.0",
+    "@stewie-js/vite": "^0.7.0"
   },
   "devDependencies": {
-    "@stewie-js/devtools": "^0.6.0",
-    "@stewie-js/testing": "^0.6.0",
+    "@stewie-js/devtools": "^0.7.0",
+    "@stewie-js/testing": "^0.7.0",
     "typescript": "^5.8.0",
     "vite": "^7.0.0",
     "vitest": "^4.0.0"
