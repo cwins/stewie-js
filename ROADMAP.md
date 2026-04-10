@@ -122,7 +122,7 @@ Things not strictly missing but that would meaningfully improve the project.
 ### Infrastructure
 
 - **`@stewie-js/webpack`** — Webpack 5 plugin wrapping the compiler
-- **Benchmark results** — the js-framework-benchmark implementation exists (`examples/js-framework-benchmark`) but no results have been run and published; needed to back performance claims with actual numbers
+- **Benchmark results** — the js-framework-benchmark implementation exists (`examples/js-framework-benchmark`). Self-reported local numbers aren't credible; the right path is submitting a PR to the js-framework-benchmark repo to get included in their published results table. Defer until Stewie is stable enough to want the public visibility.
 - **Documentation site** — API reference, guides (SSR setup, routing, reactivity deep-dive), and interactive examples
 - **Conformance CI** — example apps that must pass `build`, `typecheck`, `test`, and SSR/hydration verification on every PR
 
