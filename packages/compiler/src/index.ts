@@ -1,6 +1,8 @@
 // @stewie-js/compiler — TSX to fine-grained reactive output
 export const version = '0.7.0';
 
+import ts from 'typescript';
+import { dirname } from 'node:path';
 import { parseFile } from './parser.js';
 import { analyzeFile } from './analyzer.js';
 import { validateFile } from './validator.js';
@@ -9,6 +11,7 @@ import { generateIdentitySourceMap, toInlineSourceMap } from './sourcemap.js';
 import type { CompileOptions, CompileResult } from './types.js';
 
 export type { CompileOptions, CompileResult, CompilerDiagnostic, DiagnosticSeverity } from './types.js';
+export type { Program as TsProgram } from 'typescript';
 export type { ParsedFile } from './parser.js';
 export type { AnalysisResult, ReactiveAttribute, TwoWayBinding, ModuleScopeCall, BindingConflict, AutoWrapCandidate } from './analyzer.js';
 export { parseFile } from './parser.js';
@@ -20,16 +23,56 @@ export type { SourceMapEntry } from './sourcemap.js';
 export { canTransformJsx, emitJsxToDom, findJsxReplacements } from './dom-emitter.js';
 export type { JsxReplacement } from './dom-emitter.js';
 
+/**
+ * Create a TypeScript program from the tsconfig found at or above `root`.
+ * Returns undefined if no tsconfig is found or program creation fails.
+ * The caller is responsible for caching the result — program creation is
+ * expensive (~200-500 ms for a typical project).
+ */
+export function createProjectProgram(root: string): ts.Program | undefined {
+  try {
+    const configPath = ts.findConfigFile(root, ts.sys.fileExists, 'tsconfig.json');
+    if (!configPath) return undefined;
+
+    const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+    if (configFile.error) return undefined;
+
+    const parsedConfig = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      dirname(configPath)
+    );
+
+    return ts.createProgram(parsedConfig.fileNames, parsedConfig.options);
+  } catch {
+    return undefined;
+  }
+}
+
 export function compile(source: string, options: CompileOptions): CompileResult {
   const dev = options.dev ?? true;
   const sourcemap = options.sourcemap ?? dev;
   const inlineSourcemap = options.inlineSourcemap ?? (dev ? true : false);
 
-  // 1. Parse
-  const parsed = parseFile(source, options.filename);
+  // 1. Parse — use program's source file when content matches, which gives
+  //    the type checker access to type information for this file.
+  let checker: ts.TypeChecker | undefined;
+  let parsed = parseFile(source, options.filename);
+
+  if (options.program) {
+    const programSF = options.program.getSourceFile(options.filename);
+    // Only use the program's AST when the on-disk content matches the source
+    // being compiled. During HMR the content may diverge; in that case we fall
+    // back to heuristic-only analysis (no regression — still correct, may
+    // over-wrap slightly until the next full rebuild).
+    if (programSF && programSF.text === source) {
+      parsed = { sourceFile: programSF, source, filename: options.filename };
+      checker = options.program.getTypeChecker();
+    }
+  }
 
   // 2. Analyze
-  const analysis = analyzeFile(parsed);
+  const analysis = analyzeFile(parsed, checker);
 
   // 3. Validate
   const diagnostics = validateFile(parsed, analysis);

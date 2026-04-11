@@ -149,6 +149,6 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 
 ## Decisions Still Open
 
-- **Compiler type awareness (Bug 1)** — the compiler's `containsNoArgIdentifierCall` heuristic is too broad: it wraps `{row().id}` as reactive even though `.id` returns a plain `number`. The correct fix requires a TypeScript type checker (`ts.createProgram`) in the compiler pipeline to distinguish `Signal<T>` return types. Currently deferred.
+- ~~**Compiler type awareness (Bug 1)**~~ — Fixed. `analyzeFile` now accepts an optional `ts.TypeChecker`. When provided, `containsSignalRead` checks whether the callee of each no-arg call has a `Signal<T>`/`Computed<T>` type (callable + `.peek()`) before marking it as a wrap candidate. Falls back to the old syntax heuristic for plain JS or when the file isn't in the program. The Vite plugin creates a lazily-initialized `ts.Program` via `createProjectProgram(root)` and passes it through `CompileOptions.program`.
 - ~~**`inject` → `consume` rename**~~ — Done. `consume(Context)` pairs with `provide(Context, value)`: ancestor provides, descendant consumes.
 - **`use*` router utility functions are not hooks** — `useParams()`, `useQuery()`, `useNavigationStatus()` etc. follow the `use*` naming convention but are plain utility functions with no call-order rules. Docs must never call them "hooks".

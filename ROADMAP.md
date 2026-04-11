@@ -97,7 +97,7 @@ Things not strictly missing but that would meaningfully improve the project.
 
 ### Compiler
 
-- **Compiler Bug 1 — over-eager reactive wrapping** — `containsNoArgIdentifierCall` is too broad: `{row().id}` gets wrapped as reactive even though `.id` returns a plain `number`. The correct fix requires `ts.createProgram` in the compiler pipeline to distinguish `Signal<T>` return types from plain values. Currently deferred; impacts generated code size and effect count but not correctness.
+- ~~**Compiler Bug 1 — over-eager reactive wrapping**~~ — Fixed. `analyzeFile` accepts an optional `ts.TypeChecker`; the new `containsSignalRead` function checks callee types (callable + `.peek()` = Signal/Computed) rather than relying on syntax alone. `{row().id}` no longer wraps when `id: number`; `{row().label()}` still wraps when `label: Signal<string>`. Heuristic fallback preserved for plain JS. Vite plugin lazily creates a `ts.Program` from the project tsconfig and passes it to `compile()`.
 
 ### Developer Experience
 
@@ -148,7 +148,7 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 12. ~~Router SPI enhancements~~ — done (NavigationPhase, NavigationStatus, dismiss, preload, useNavigationStatus)
 13. ~~`_appMounted` flag~~ — done (`mount()` calls `_setAppMounted()`, suppresses scope warnings post-mount)
 14. **Conformance CI — layers 2 and 3** — scaffold ships with test files; conformance suite now runs vitest (layer 2) and vite build (layer 3) for all six combinations
-15. **Compiler Bug 1** — over-eager reactive wrapping (needs ts.createProgram)
+15. ~~**Compiler Bug 1**~~ — done (type-aware auto-wrap via ts.TypeChecker, heuristic fallback for plain JS)
 16. **Scaffold — Vitest browser mode tests** — dev and prod browser test passes for all scaffold variants (Vitest browser mode + Playwright provider)
 17. **Canonical reference app (Work Queue) — Phase 1** — SSR app shell, route table, local data repo, dashboard + projects list
 18. **Form primitives** — highest-value DX enhancement

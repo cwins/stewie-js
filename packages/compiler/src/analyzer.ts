@@ -55,15 +55,56 @@ export interface AnalysisResult {
 const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect']);
 
 /**
- * Returns true if `node` or any descendant is a no-arg call to a simple
- * identifier — i.e. the `sig()` pattern that reads a Stewie signal.
- * Method calls (`obj.method()`) and calls with arguments are excluded.
+ * Syntax-only heuristic (no type info): returns true if `node` or any
+ * descendant contains a no-arg call to a plain identifier — the `sig()`
+ * pattern that reads a Stewie signal. This over-wraps `{row().id}` when
+ * `row` is a plain `() => Row` getter, but is always safe (wrong wraps add
+ * an unnecessary effect but never break reactivity). Used as a fallback when
+ * no TypeChecker is available (plain JS, file not in program, etc.).
  */
 function containsNoArgIdentifierCall(node: ts.Node): boolean {
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length === 0) {
     return true;
   }
-  return ts.forEachChild(node, (child): true | undefined => (containsNoArgIdentifierCall(child) ? true : undefined)) === true;
+  return (
+    ts.forEachChild(node, (child): true | undefined =>
+      containsNoArgIdentifierCall(child) ? true : undefined
+    ) === true
+  );
+}
+
+/**
+ * Returns true if `type` is a Stewie Signal<T> or Computed<T>.
+ * Both are callable and expose a `.peek()` method — that pair is the
+ * distinguishing characteristic vs a plain `() => T` arrow function.
+ */
+function isSignalType(type: ts.Type): boolean {
+  return type.getCallSignatures().length > 0 && type.getProperty('peek') !== undefined;
+}
+
+/**
+ * Type-aware reactive read detector. Returns true if `node` or any descendant
+ * calls a value whose type is Signal<T> or Computed<T>.
+ *
+ * Handles the three real patterns:
+ *   count()           — callee `count: Signal<number>` → true
+ *   count() + 1       — binary expr containing count() → true
+ *   row().id          — callee `row: () => Row` (no peek) → false ✓
+ *   row().label()     — callee of outer call is `row().label: Signal<string>` → true ✓
+ */
+function containsSignalRead(node: ts.Node, checker: ts.TypeChecker): boolean {
+  if (ts.isCallExpression(node) && node.arguments.length === 0) {
+    // Check whether the thing being called has a Signal/Computed type.
+    const calleeType = checker.getTypeAtLocation(node.expression);
+    if (isSignalType(calleeType)) return true;
+    // Callee is not a signal itself — recurse in case there are signal reads
+    // deeper in the expression (e.g. row().label() where label: Signal<string>).
+  }
+  return (
+    ts.forEachChild(node, (child): true | undefined =>
+      containsSignalRead(child, checker) ? true : undefined
+    ) === true
+  );
 }
 
 function isIntrinsicElement(name: string): boolean {
@@ -92,7 +133,7 @@ function getJsxElementName(node: ts.JsxOpeningLikeElement): string {
   return tagName.getText();
 }
 
-export function analyzeFile(parsed: ParsedFile): AnalysisResult {
+export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): AnalysisResult {
   const { sourceFile } = parsed;
 
   const reactiveAttributes: ReactiveAttribute[] = [];
@@ -142,7 +183,10 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
       if (!ts.isJsxExpression(child) || !child.expression) continue;
       const expr = child.expression;
       if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) continue;
-      if (!containsNoArgIdentifierCall(expr)) continue;
+      const hasReactiveRead = checker
+        ? containsSignalRead(expr, checker)
+        : containsNoArgIdentifierCall(expr);
+      if (!hasReactiveRead) continue;
 
       autoWrapCandidates.push({
         start: child.getStart(sourceFile),
@@ -240,7 +284,10 @@ export function analyzeFile(parsed: ParsedFile): AnalysisResult {
         // Auto-wrap: if this is an intrinsic element, the attribute is not an
         // event handler, the expression is not already a function, but it
         // contains a no-arg identifier call (signal read pattern) → wrap in () =>
-        if (isIntrinsic && !attrName.startsWith('on') && !isReactive && containsNoArgIdentifierCall(expr)) {
+        const attrHasReactiveRead = checker
+          ? containsSignalRead(expr, checker)
+          : containsNoArgIdentifierCall(expr);
+        if (isIntrinsic && !attrName.startsWith('on') && !isReactive && attrHasReactiveRead) {
           autoWrapCandidates.push({
             start: attr.initializer.getStart(sourceFile),
             end: attr.initializer.getEnd(),

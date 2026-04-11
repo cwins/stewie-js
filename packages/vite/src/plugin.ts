@@ -1,5 +1,6 @@
 import type { Plugin } from 'vite';
-import { compile } from '@stewie-js/compiler';
+import { compile, createProjectProgram } from '@stewie-js/compiler';
+import type { TsProgram } from '@stewie-js/compiler';
 
 export interface StewiePluginOptions {
   /**
@@ -13,11 +14,29 @@ export interface StewiePluginOptions {
 }
 
 export function stewie(options?: StewiePluginOptions): Plugin {
+  let viteRoot = process.cwd();
+  // Lazily-initialized TypeScript program — created on the first .tsx transform
+  // so it doesn't block Vite's startup. Cached for the session; stale during
+  // HMR (compile() falls back to heuristic when content doesn't match).
+  let tsProgram: TsProgram | undefined;
+  let tsProgramInitialized = false;
+
+  function getProgram(): TsProgram | undefined {
+    if (tsProgramInitialized) return tsProgram;
+    tsProgramInitialized = true;
+    tsProgram = createProjectProgram(viteRoot);
+    return tsProgram;
+  }
+
   return {
     name: 'stewie',
     // Run before Vite's internal esbuild plugin so the Stewie compiler sees
     // the raw .tsx source (with JSX) rather than already-transpiled jsxDEV calls.
     enforce: 'pre' as const,
+
+    configResolved(config) {
+      viteRoot = config.root;
+    },
 
     // Configure esbuild's jsxImportSource so JSX in .tsx files compiles to
     // @stewie-js/core's descriptor runtime without relying on per-file pragma comments.
@@ -43,7 +62,8 @@ export function stewie(options?: StewiePluginOptions): Plugin {
         dev: isDev,
         sourcemap: true,
         inlineSourcemap: isDev,
-        jsxToDom
+        jsxToDom,
+        program: getProgram()
       });
 
       // Surface compiler errors to Vite's error overlay

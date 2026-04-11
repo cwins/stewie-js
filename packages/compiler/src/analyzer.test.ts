@@ -1,6 +1,64 @@
 import { describe, it, expect } from 'vitest';
+import ts from 'typescript';
 import { parseFile } from './parser.js';
 import { analyzeFile } from './analyzer.js';
+import type { ParsedFile } from './parser.js';
+
+// ---------------------------------------------------------------------------
+// In-memory TypeScript program helper for type-aware tests.
+// Builds a real ts.Program from an in-memory source string so that
+// TypeChecker.getTypeAtLocation() works correctly on the AST nodes.
+// ---------------------------------------------------------------------------
+
+function createInMemoryProgram(filename: string, source: string): {
+  program: ts.Program;
+  parsed: ParsedFile;
+} {
+  // Create the source file once — shared between the program and the parsed result.
+  const sourceFile = ts.createSourceFile(
+    filename,
+    source,
+    ts.ScriptTarget.ES2022,
+    /* setParentNodes */ true,
+    ts.ScriptKind.TSX
+  );
+
+  const defaultHost = ts.createCompilerHost({});
+  const host: ts.CompilerHost = {
+    ...defaultHost,
+    getSourceFile(name, target) {
+      if (name === filename) return sourceFile;
+      return defaultHost.getSourceFile(name, target);
+    },
+    fileExists(name) {
+      return name === filename || defaultHost.fileExists(name);
+    },
+    readFile(name) {
+      if (name === filename) return source;
+      return defaultHost.readFile(name);
+    }
+  };
+
+  const program = ts.createProgram(
+    [filename],
+    {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      jsx: ts.JsxEmit.ReactJSX,
+      jsxImportSource: '@stewie-js/core',
+      strict: true,
+      noEmit: true,
+      // Skip lib checks to avoid noise from missing @stewie-js/core types
+      skipLibCheck: true
+    },
+    host
+  );
+
+  // The program re-uses the same sourceFile object we passed via the host,
+  // so nodes from `parsed.sourceFile` are the same as those in the program.
+  const parsed: ParsedFile = { sourceFile, source, filename };
+  return { program, parsed };
+}
 
 describe('analyzeFile()', () => {
   it('detects module-scope signal() call', () => {
@@ -145,5 +203,93 @@ function App() {
     const result = analyzeFile(parsed);
     // No module-scope calls (store is inside App)
     expect(result.moduleScopeReactiveCalls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Type-aware auto-wrap tests (Compiler Bug 1)
+//
+// The heuristic wraps any expression containing a no-arg identifier call,
+// which over-wraps `{row().id}` when `id` is a plain number.  When a
+// TypeChecker is supplied, analyzeFile() only wraps expressions that
+// actually call a Signal<T>/Computed<T> value.
+// ---------------------------------------------------------------------------
+
+// Minimal Signal/Computed type declarations used in the in-memory test source.
+const SIGNAL_DECLS = `
+interface Signal<T> { (): T; peek(): T; set(v: T): void; update(fn: (p: T) => T): void; }
+interface Computed<T> { (): T; peek(): T; }
+`;
+
+describe('analyzeFile() — type-aware auto-wrap (with TypeChecker)', () => {
+  it('does NOT wrap {getRow().id} when id is a plain number', () => {
+    const source = `${SIGNAL_DECLS}
+declare function getRow(): { id: number; label: Signal<string>; };
+function App() { return <span>{getRow().id}</span> }
+`;
+    const { program, parsed } = createInMemoryProgram('test.tsx', source);
+    const checker = program.getTypeChecker();
+    const result = analyzeFile(parsed, checker);
+    expect(result.autoWrapCandidates).toHaveLength(0);
+  });
+
+  it('DOES wrap {getRow().label()} when label is a Signal<string>', () => {
+    const source = `${SIGNAL_DECLS}
+declare function getRow(): { id: number; label: Signal<string>; };
+function App() { return <span>{getRow().label()}</span> }
+`;
+    const { program, parsed } = createInMemoryProgram('test.tsx', source);
+    const checker = program.getTypeChecker();
+    const result = analyzeFile(parsed, checker);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('getRow().label()');
+  });
+
+  it('DOES wrap {count()} when count is a Signal<number>', () => {
+    const source = `${SIGNAL_DECLS}
+declare const count: Signal<number>;
+function App() { return <span>{count()}</span> }
+`;
+    const { program, parsed } = createInMemoryProgram('test.tsx', source);
+    const checker = program.getTypeChecker();
+    const result = analyzeFile(parsed, checker);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('count()');
+  });
+
+  it('DOES wrap {count() + 1} when count is a Signal<number>', () => {
+    const source = `${SIGNAL_DECLS}
+declare const count: Signal<number>;
+function App() { return <span>{count() + 1}</span> }
+`;
+    const { program, parsed } = createInMemoryProgram('test.tsx', source);
+    const checker = program.getTypeChecker();
+    const result = analyzeFile(parsed, checker);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('count() + 1');
+  });
+
+  it('does NOT wrap {getItem().done} on a plain getter (benchmark pattern)', () => {
+    const source = `${SIGNAL_DECLS}
+interface Row { id: number; done: boolean; text: string; }
+declare function getItem(): Row;
+function App() { return <li class={getItem().done ? 'done' : ''}>{getItem().text}</li> }
+`;
+    const { program, parsed } = createInMemoryProgram('test.tsx', source);
+    const checker = program.getTypeChecker();
+    const result = analyzeFile(parsed, checker);
+    // Neither getItem().done nor getItem().text read a signal — should not wrap.
+    expect(result.autoWrapCandidates).toHaveLength(0);
+  });
+
+  it('heuristic fallback — still wraps without TypeChecker (existing behavior preserved)', () => {
+    // Without a checker, the heuristic sees getRow() (no-arg identifier call) and wraps.
+    const source = `
+declare function getRow(): { id: number };
+function App() { return <span>{getRow().id}</span> }
+`;
+    const parsed = parseFile(source, 'test.tsx');
+    const result = analyzeFile(parsed); // no checker
+    expect(result.autoWrapCandidates).toHaveLength(1);
   });
 });
