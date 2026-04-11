@@ -152,8 +152,7 @@ async function pollFor(query: () => ElementHandle | null, timeout = 1000): Promi
 export function mount(component: JSXElement | (() => JSXElement | null), options?: MountOptions): MountResult {
   if (typeof document === 'undefined') {
     throw new Error(
-      '@stewie-js/testing mount() requires a DOM environment.\n' +
-        'Add // @vitest-environment happy-dom to the top of your test file.'
+      '@stewie-js/testing mount() requires a DOM environment.\n' + 'Add // @vitest-environment happy-dom to the top of your test file.'
     );
   }
 

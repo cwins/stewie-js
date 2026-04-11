@@ -146,12 +146,7 @@ export function EpisodesPage(): JSXElement {
           >
             <Show
               when={() => results().length > 0}
-              fallback={
-                <EmptyState
-                  title="No episodes found"
-                  message="Try removing the season filter or broadening the search query."
-                />
-              }
+              fallback={<EmptyState title="No episodes found" message="Try removing the season filter or broadening the search query." />}
             >
               {() => <EpisodeList episodes={results()} />}
             </Show>

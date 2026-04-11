@@ -48,10 +48,7 @@ export function initDevtools(): void {
   //   Both paths: also keep popstate for browser back/forward.
   if (hasNavigationApi()) {
     navigateSuccessHandler = () => onNavigation();
-    (globalThis as unknown as Record<string, EventTarget>)['navigation'].addEventListener(
-      'navigatesuccess',
-      navigateSuccessHandler
-    );
+    (globalThis as unknown as Record<string, EventTarget>)['navigation'].addEventListener('navigatesuccess', navigateSuccessHandler);
   } else {
     // Patch pushState
     _origPushState = history.pushState.bind(history);
@@ -87,10 +84,7 @@ export function destroyDevtools(): void {
     keyHandler = null;
   }
   if (navigateSuccessHandler) {
-    (globalThis as unknown as Record<string, EventTarget>)['navigation'].removeEventListener(
-      'navigatesuccess',
-      navigateSuccessHandler
-    );
+    (globalThis as unknown as Record<string, EventTarget>)['navigation'].removeEventListener('navigatesuccess', navigateSuccessHandler);
     navigateSuccessHandler = null;
   }
   if (_origPushState) {

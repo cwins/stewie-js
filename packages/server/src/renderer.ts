@@ -193,9 +193,7 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
       const when = typeof matchProps.when === 'function' ? (matchProps.when as () => unknown)() : matchProps.when;
       if (when) {
         const childContent =
-          typeof matchProps.children === 'function'
-            ? (matchProps.children as (v: unknown) => JSXElement)(when)
-            : matchProps.children;
+          typeof matchProps.children === 'function' ? (matchProps.children as (v: unknown) => JSXElement)(when) : matchProps.children;
         return `${await renderNode(childContent, opts)}<!--Switch-->`;
       }
     }
@@ -210,8 +208,7 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
     // Match rendered standalone (outside Switch) — treat like Show
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when;
     if (when) {
-      const childContent =
-        typeof props.children === 'function' ? (props.children as (v: unknown) => JSXElement)(when) : props.children;
+      const childContent = typeof props.children === 'function' ? (props.children as (v: unknown) => JSXElement)(when) : props.children;
       return renderNode(childContent, opts);
     }
     return '';
@@ -264,10 +261,7 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
 // Public renderToString
 // ---------------------------------------------------------------------------
 
-export async function renderToString(
-  root: JSXElement | (() => JSXElement | null),
-  options?: RenderToStringOptions
-): Promise<RenderResult> {
+export async function renderToString(root: JSXElement | (() => JSXElement | null), options?: RenderToStringOptions): Promise<RenderResult> {
   // withRenderIsolation clears reactive module-level globals (scopeStack, batchDepth,
   // pendingEffects) and sets allowReactiveCreation=true for the synchronous setup phase,
   // then restores them when the async function returns its Promise. This prevents state

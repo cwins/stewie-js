@@ -10,8 +10,7 @@ export function HomeHero(): JSXElement {
         <div class="section-eyebrow">Stewie demo</div>
         <h1 class="hero-title">A field guide to the Rick and Morty multiverse.</h1>
         <p class="hero-body">
-          Browse characters, inspect episode casts, and move between pages with fine-grained updates and a small
-          reactive runtime.
+          Browse characters, inspect episode casts, and move between pages with fine-grained updates and a small reactive runtime.
         </p>
         <div class="hero-actions">
           <LinkButton to="/characters" variant="primary">

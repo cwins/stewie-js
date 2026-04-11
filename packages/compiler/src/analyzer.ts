@@ -63,9 +63,7 @@ function containsNoArgIdentifierCall(node: ts.Node): boolean {
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length === 0) {
     return true;
   }
-  return (
-    ts.forEachChild(node, (child): true | undefined => (containsNoArgIdentifierCall(child) ? true : undefined)) === true
-  );
+  return ts.forEachChild(node, (child): true | undefined => (containsNoArgIdentifierCall(child) ? true : undefined)) === true;
 }
 
 function isIntrinsicElement(name: string): boolean {

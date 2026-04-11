@@ -18,12 +18,7 @@ export default defineConfig({
     }
   },
   test: {
-    include: [
-      'packages/*/src/**/*.test.ts',
-      'packages/*/src/**/*.test.tsx',
-      'examples/*/src/**/*.test.ts',
-      'examples/*/src/**/*.test.tsx'
-    ],
+    include: ['packages/*/src/**/*.test.ts', 'packages/*/src/**/*.test.tsx', 'examples/*/src/**/*.test.ts', 'examples/*/src/**/*.test.tsx'],
     environment: 'node',
     globalSetup: ['examples/ssr-and-routing/vitest.setup.ts']
   }

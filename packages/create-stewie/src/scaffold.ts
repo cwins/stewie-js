@@ -1,10 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 
-export async function scaffoldProject(
-  targetDir: string,
-  files: Array<{ path: string; content: string }>
-): Promise<void> {
+export async function scaffoldProject(targetDir: string, files: Array<{ path: string; content: string }>): Promise<void> {
   await mkdir(targetDir, { recursive: true });
 
   for (const file of files) {

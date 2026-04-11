@@ -29,11 +29,5 @@
       "create-stewie": ["packages/create-stewie/src/index.ts"]
     }
   },
-  "include": [
-    "vitest.config.ts",
-    "packages/*/src/**/*.ts",
-    "packages/*/src/**/*.tsx",
-    "examples/*/src/**/*.ts",
-    "examples/*/src/**/*.tsx"
-  ]
+  "include": ["vitest.config.ts", "packages/*/src/**/*.ts", "packages/*/src/**/*.tsx", "examples/*/src/**/*.ts", "examples/*/src/**/*.tsx"]
 }

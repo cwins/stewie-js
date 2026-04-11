@@ -175,8 +175,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
       };
       const when = typeof mp.when === 'function' ? (mp.when as () => unknown)() : mp.when;
       if (when) {
-        const content =
-          typeof mp.children === 'function' ? (mp.children as (v: unknown) => JSXElement)(when) : mp.children;
+        const content = typeof mp.children === 'function' ? (mp.children as (v: unknown) => JSXElement)(when) : mp.children;
         await streamNode(content, opts);
         opts.flush('<!--Switch-->');
         return;
@@ -190,8 +189,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
   if (type === (Match as unknown)) {
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when;
     if (when) {
-      const content =
-        typeof props.children === 'function' ? (props.children as (v: unknown) => JSXElement)(when) : props.children;
+      const content = typeof props.children === 'function' ? (props.children as (v: unknown) => JSXElement)(when) : props.children;
       await streamNode(content, opts);
     }
     return;
@@ -285,10 +283,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
 // Public renderToStream
 // ---------------------------------------------------------------------------
 
-export function renderToStream(
-  root: JSXElement | (() => JSXElement | null),
-  options?: RenderToStreamOptions
-): ReadableStream<Uint8Array> {
+export function renderToStream(root: JSXElement | (() => JSXElement | null), options?: RenderToStreamOptions): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
 
   return new ReadableStream<Uint8Array>({

@@ -67,8 +67,7 @@ function _render(container: HTMLElement): void {
 
   // Header row
   const headerRow = document.createElement('div');
-  headerRow.style.cssText =
-    'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0';
+  headerRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-shrink:0';
 
   const info = document.createElement('span');
   info.style.cssText = 'font-size:11px;color:#64748b';

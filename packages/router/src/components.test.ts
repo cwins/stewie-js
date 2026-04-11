@@ -27,10 +27,7 @@ describe('Router SSR rendering', () => {
   it('renders the matched route component', async () => {
     const el = jsx(Router as any, {
       initialUrl: '/',
-      children: [
-        jsx(Route as any, { path: '/', component: Home }),
-        jsx(Route as any, { path: '/about', component: About })
-      ]
+      children: [jsx(Route as any, { path: '/', component: Home }), jsx(Route as any, { path: '/about', component: About })]
     });
     const { html } = await renderToString(el);
     expect(html).toContain('Home Page');
@@ -40,10 +37,7 @@ describe('Router SSR rendering', () => {
   it('renders the correct route for a non-root path', async () => {
     const el = jsx(Router as any, {
       initialUrl: '/about',
-      children: [
-        jsx(Route as any, { path: '/', component: Home }),
-        jsx(Route as any, { path: '/about', component: About })
-      ]
+      children: [jsx(Route as any, { path: '/', component: Home }), jsx(Route as any, { path: '/about', component: About })]
     });
     const { html } = await renderToString(el);
     expect(html).toContain('About Page');
@@ -102,10 +96,7 @@ describe('Router DOM rendering', () => {
       mount(
         jsx(Router as any, {
           initialUrl: '/',
-          children: [
-            jsx(Route as any, { path: '/', component: Home }),
-            jsx(Route as any, { path: '/about', component: About })
-          ]
+          children: [jsx(Route as any, { path: '/', component: Home }), jsx(Route as any, { path: '/about', component: About })]
         }),
         container
       );

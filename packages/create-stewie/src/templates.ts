@@ -46,9 +46,7 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
   };
   if (ctx.mode === 'ssr') {
     scripts['start'] =
-      ctx.ssrRuntime === 'bun'
-        ? 'NODE_ENV=production bun dist/server/server.js'
-        : 'NODE_ENV=production node dist/server/server.js';
+      ctx.ssrRuntime === 'bun' ? 'NODE_ENV=production bun dist/server/server.js' : 'NODE_ENV=production node dist/server/server.js';
   } else {
     scripts['preview'] = 'vite preview';
   }

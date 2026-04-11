@@ -103,10 +103,7 @@ function warnOnMismatch(serverHtml: string, clientHtml: string, container: Eleme
  *
  * Returns a dispose function that unmounts the app.
  */
-export function hydrate(
-  root: JSXElement | Node | (() => JSXElement | Node | null) | null,
-  container: Element
-): Disposer {
+export function hydrate(root: JSXElement | Node | (() => JSXElement | Node | null) | null, container: Element): Disposer {
   const initialState = typeof window !== 'undefined' ? (window.__STEWIE_STATE__ ?? {}) : {};
 
   // Capture server HTML before we overwrite it (dev only)

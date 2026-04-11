@@ -144,12 +144,7 @@ export function CharactersPage(): JSXElement {
           >
             <Show
               when={() => results().length > 0}
-              fallback={
-                <EmptyState
-                  title="No characters found"
-                  message="Try widening the search or clearing the active filters."
-                />
-              }
+              fallback={<EmptyState title="No characters found" message="Try widening the search or clearing the active filters." />}
             >
               {() => <CharacterGrid characters={results()} />}
             </Show>

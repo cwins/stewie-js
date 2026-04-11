@@ -3,13 +3,7 @@
 import { buildRendersTab, addRenderEntry, clearRendersTabRef } from './tabs/renders.js';
 import { buildStoresTab, addSignalEntry, addStoreEntry, clearStoresTabRef } from './tabs/stores.js';
 import { buildRoutesTab, clearRoutesTabRef, onNavigation } from './tabs/routes.js';
-import {
-  buildGraphTab,
-  clearGraphTabRef,
-  onGraphNodeCreate,
-  onGraphNodeDispose,
-  onGraphDepsUpdate
-} from './tabs/graph.js';
+import { buildGraphTab, clearGraphTabRef, onGraphNodeCreate, onGraphNodeDispose, onGraphDepsUpdate } from './tabs/graph.js';
 import type { DevEffectMeta } from '@stewie-js/core';
 
 export interface Trigger {

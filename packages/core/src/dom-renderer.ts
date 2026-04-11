@@ -637,9 +637,7 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
         if (when) {
           matched = true;
           const content =
-            typeof matchProps.children === 'function'
-              ? (matchProps.children as (v: unknown) => JSXElement)(when)
-              : matchProps.children;
+            typeof matchProps.children === 'function' ? (matchProps.children as (v: unknown) => JSXElement)(when) : matchProps.children;
           const subCursor = new HydrationCursor(claimed!.contentNodes);
           const frag = document.createDocumentFragment();
           childDisposer = _withCursor(subCursor, () => renderChildren(content, frag, null));
@@ -671,9 +669,7 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
         matched = true;
         const frag = document.createDocumentFragment();
         const content =
-          typeof matchProps.children === 'function'
-            ? (matchProps.children as (v: unknown) => JSXElement)(when)
-            : matchProps.children;
+          typeof matchProps.children === 'function' ? (matchProps.children as (v: unknown) => JSXElement)(when) : matchProps.children;
         childDisposer = renderChildren(content, frag, null);
         currentNodes = Array.from(frag.childNodes) as ChildNode[];
         anchor.parentNode?.insertBefore(frag, anchor);
@@ -841,8 +837,7 @@ function renderElement(el: JSXElement, parent: Node, before: Node | null): Dispo
     // Standalone Match (outside Switch) — treat like Show
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when;
     if (when) {
-      const content =
-        typeof props.children === 'function' ? (props.children as (v: unknown) => JSXElement)(when) : props.children;
+      const content = typeof props.children === 'function' ? (props.children as (v: unknown) => JSXElement)(when) : props.children;
       return renderChildren(content, parent, before);
     }
     return () => {};

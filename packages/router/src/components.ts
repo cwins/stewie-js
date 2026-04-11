@@ -78,10 +78,7 @@ function extractRoutes(children: JSXElement | JSXElement[] | undefined): RouteCo
 }
 
 /** Find the best-matching route for a given pathname. */
-function findBestMatch(
-  routes: RouteConfig[],
-  pathname: string
-): { component: Component; params: Record<string, string> } | null {
+function findBestMatch(routes: RouteConfig[], pathname: string): { component: Component; params: Record<string, string> } | null {
   let best: { component: Component; params: Record<string, string>; score: number } | null = null;
   for (const route of routes) {
     const result = matchRoute(route.path, pathname);

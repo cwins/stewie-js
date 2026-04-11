@@ -23,8 +23,7 @@ function parseAttributes(tagStr: string): Record<string, string> {
   while ((match = attrRegex.exec(withoutTag)) !== null) {
     const name = match[1];
     // The value is whichever capture group matched (double-quote, single-quote, unquoted)
-    const value =
-      match[2] !== undefined ? match[2] : match[3] !== undefined ? match[3] : match[4] !== undefined ? match[4] : '';
+    const value = match[2] !== undefined ? match[2] : match[3] !== undefined ? match[3] : match[4] !== undefined ? match[4] : '';
     attrs[name] = value;
   }
   return attrs;

@@ -10,14 +10,7 @@ import type { CompileOptions, CompileResult } from './types.js';
 
 export type { CompileOptions, CompileResult, CompilerDiagnostic, DiagnosticSeverity } from './types.js';
 export type { ParsedFile } from './parser.js';
-export type {
-  AnalysisResult,
-  ReactiveAttribute,
-  TwoWayBinding,
-  ModuleScopeCall,
-  BindingConflict,
-  AutoWrapCandidate
-} from './analyzer.js';
+export type { AnalysisResult, ReactiveAttribute, TwoWayBinding, ModuleScopeCall, BindingConflict, AutoWrapCandidate } from './analyzer.js';
 export { parseFile } from './parser.js';
 export { analyzeFile } from './analyzer.js';
 export { validateFile } from './validator.js';

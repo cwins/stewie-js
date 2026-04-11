@@ -349,11 +349,7 @@ function ProjectDetailView(): JSXElement {
                 {(getTask: () => Task) => {
                   const isSelected = computed(() => $selectedTask()?.id === getTask().id);
                   const cssClasses = computed(() => {
-                    return [
-                      'task-row',
-                      isSelected() && 'task-row-selected',
-                      getTask().isCompleted && 'task-row-completed'
-                    ]
+                    return ['task-row', isSelected() && 'task-row-selected', getTask().isCompleted && 'task-row-completed']
                       .filter(Boolean)
                       .join(' ');
                   });

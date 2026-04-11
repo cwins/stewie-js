@@ -24,12 +24,7 @@ export function FilterBar({
 }): JSXElement {
   return (
     <form class="filter-bar" onSubmit={onApply}>
-      <Input
-        value={searchValue}
-        placeholder={searchPlaceholder}
-        onInput={onSearchInput}
-        aria-label={searchPlaceholder}
-      />
+      <Input value={searchValue} placeholder={searchPlaceholder} onInput={onSearchInput} aria-label={searchPlaceholder} />
       <Select value={selectValue} onChange={onSelectChange} options={selectOptions} />
       <Button type="submit">Apply</Button>
       <Button type="button" variant="ghost" onClick={onClear}>

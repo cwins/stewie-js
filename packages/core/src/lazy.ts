@@ -48,8 +48,7 @@ export function lazy<T extends Component>(factory: () => Promise<T | { default: 
   function startLoad(): Promise<void> {
     if (!loadPromise) {
       loadPromise = factory().then((mod) => {
-        loadedComponent =
-          mod !== null && typeof mod === 'object' && 'default' in mod ? (mod as { default: T }).default : (mod as T);
+        loadedComponent = mod !== null && typeof mod === 'object' && 'default' in mod ? (mod as { default: T }).default : (mod as T);
       });
     }
     return loadPromise;

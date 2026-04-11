@@ -42,21 +42,7 @@ const adjectives = [
   'fancy'
 ];
 const colours = ['red', 'yellow', 'blue', 'green', 'pink', 'brown', 'purple', 'brown', 'white', 'black', 'orange'];
-const nouns = [
-  'table',
-  'chair',
-  'house',
-  'bbq',
-  'desk',
-  'car',
-  'pony',
-  'cookie',
-  'sandwich',
-  'burger',
-  'pizza',
-  'mouse',
-  'keyboard'
-];
+const nouns = ['table', 'chair', 'house', 'bbq', 'desk', 'car', 'pony', 'cookie', 'sandwich', 'burger', 'pizza', 'mouse', 'keyboard'];
 
 function rnd(arr: readonly string[]): string {
   return arr[Math.round(Math.random() * 1000) % arr.length];

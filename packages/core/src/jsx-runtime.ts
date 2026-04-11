@@ -80,11 +80,7 @@ export const Fragment: unique symbol = Symbol('Fragment');
 // JSX factory functions
 // ---------------------------------------------------------------------------
 
-export function jsx(
-  type: string | Component | typeof Fragment,
-  props: Record<string, unknown>,
-  key?: string
-): JSXElement {
+export function jsx(type: string | Component | typeof Fragment, props: Record<string, unknown>, key?: string): JSXElement {
   return {
     type,
     props: props ?? {},
@@ -92,11 +88,7 @@ export function jsx(
   };
 }
 
-export function jsxs(
-  type: string | Component | typeof Fragment,
-  props: Record<string, unknown>,
-  key?: string
-): JSXElement {
+export function jsxs(type: string | Component | typeof Fragment, props: Record<string, unknown>, key?: string): JSXElement {
   return jsx(type, props, key);
 }
 

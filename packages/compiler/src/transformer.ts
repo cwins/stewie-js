@@ -105,11 +105,7 @@ function buildTwoWayHandler(expr: string, elementName: string, propName: string)
   return `onInput={(e: InputEvent) => ${expr}.set((e.target as HTMLInputElement).value)}`;
 }
 
-export function transformFile(
-  parsed: ParsedFile,
-  analysis: AnalysisResult,
-  options: { jsxToDom?: boolean } = {}
-): string {
+export function transformFile(parsed: ParsedFile, analysis: AnalysisResult, options: { jsxToDom?: boolean } = {}): string {
   let source = parsed.source;
   const replacements: Replacement[] = [];
 

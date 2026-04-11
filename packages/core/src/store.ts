@@ -1,15 +1,6 @@
 // store.ts — reactive store using Proxy
 
-import {
-  isDev,
-  __devHooks,
-  _warnModuleScope,
-  _callerFrame,
-  getCurrentScope,
-  Subscribable,
-  Subscriber,
-  batch
-} from './reactive.js';
+import { isDev, __devHooks, _warnModuleScope, _callerFrame, getCurrentScope, Subscribable, Subscriber, batch } from './reactive.js';
 
 // ---------------------------------------------------------------------------
 // StoreNode — reactive node for a single store path
@@ -116,17 +107,7 @@ function makeProxy<T extends object>(
 
       // Handle array mutation methods — intercept to trigger notifications
       if (Array.isArray(obj) && typeof value === 'function') {
-        const mutatingMethods = new Set([
-          'push',
-          'pop',
-          'shift',
-          'unshift',
-          'splice',
-          'sort',
-          'reverse',
-          'fill',
-          'copyWithin'
-        ]);
+        const mutatingMethods = new Set(['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'fill', 'copyWithin']);
         if (mutatingMethods.has(key)) {
           return function (this: unknown, ...args: unknown[]) {
             let result: unknown;

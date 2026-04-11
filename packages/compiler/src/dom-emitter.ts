@@ -239,11 +239,7 @@ function emitFragment(children: ts.JsxChild[], sourceFile: ts.SourceFile, counte
   return { lines, varName: fragVar };
 }
 
-function emitElement(
-  node: ts.JsxElement | ts.JsxSelfClosingElement,
-  sourceFile: ts.SourceFile,
-  counter: Counter
-): EmitResult {
+function emitElement(node: ts.JsxElement | ts.JsxSelfClosingElement, sourceFile: ts.SourceFile, counter: Counter): EmitResult {
   const opening = ts.isJsxElement(node) ? node.openingElement : node;
   const tagName = opening.tagName.getText(sourceFile);
   const elVar = `__el${counter.n++}`;
@@ -381,10 +377,7 @@ function emitChild(child: ts.JsxChild, sourceFile: ts.SourceFile, counter: Count
       const tVar = `__t${counter.n++}`;
       const getter = asGetter(expr, sourceFile);
       return {
-        lines: [
-          `const ${tVar} = document.createTextNode('')`,
-          `effect(() => { ${tVar}.nodeValue = String(${getter}) })`
-        ],
+        lines: [`const ${tVar} = document.createTextNode('')`, `effect(() => { ${tVar}.nodeValue = String(${getter}) })`],
         varName: tVar
       };
     }
@@ -460,11 +453,7 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
         (ts.isJsxExpression(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)));
 
       if (!insideJsx && !insideReactiveFn && canTransformJsx(node, sourceFile)) {
-        const result = emitJsxToDom(
-          node as ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
-          sourceFile,
-          counter
-        );
+        const result = emitJsxToDom(node as ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment, sourceFile, counter);
 
         const setupCode = result.lines.join('\n    ');
         const iife = `(() => {\n    ${setupCode}\n    return ${result.varName}\n  })()`;

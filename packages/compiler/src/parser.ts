@@ -9,13 +9,7 @@ export interface ParsedFile {
 }
 
 export function parseFile(source: string, filename: string): ParsedFile {
-  const sourceFile = ts.createSourceFile(
-    filename,
-    source,
-    ts.ScriptTarget.ES2022,
-    /* setParentNodes */ true,
-    ts.ScriptKind.TSX
-  );
+  const sourceFile = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, /* setParentNodes */ true, ts.ScriptKind.TSX);
 
   return { sourceFile, source, filename };
 }
