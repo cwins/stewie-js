@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/testing",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Test utilities for the Stewie framework — mount, DOM queries, signal and store assertions",
   "keywords": [
     "dom",

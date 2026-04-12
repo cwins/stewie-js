@@ -1,7 +1,7 @@
 // @stewie-js/testing — test utilities for mounting components, querying the DOM,
 // and asserting reactive state.
 
-export const version = '0.7.0';
+export const version = '0.7.1';
 
 export { mount } from './mount.js';
 export type { MountResult, MountOptions, ElementHandle } from './mount.js';

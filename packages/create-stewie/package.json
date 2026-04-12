@@ -1,6 +1,6 @@
 {
   "name": "create-stewie",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Project scaffolding CLI for the Stewie framework",
   "keywords": [
     "cli",

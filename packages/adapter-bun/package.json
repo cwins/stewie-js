@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/adapter-bun",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Bun HTTP adapter for the Stewie framework",
   "keywords": [
     "adapter",

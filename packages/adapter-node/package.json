@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/adapter-node",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Node.js HTTP adapter for the Stewie framework",
   "keywords": [
     "adapter",

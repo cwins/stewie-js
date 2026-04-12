@@ -1,5 +1,5 @@
 // @stewie-js/server — WinterCG-compatible SSR renderer
-export const version = '0.7.0';
+export const version = '0.7.1';
 
 export { renderToString } from './renderer.js';
 export { renderToStream } from './stream.js';

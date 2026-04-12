@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/compiler",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "TSX compiler for the Stewie framework — transforms JSX into fine-grained reactive output",
   "keywords": [
     "compiler",

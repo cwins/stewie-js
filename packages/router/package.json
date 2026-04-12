@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/router",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Reactive URL-as-store routing for the Stewie framework",
   "keywords": [
     "reactive",
