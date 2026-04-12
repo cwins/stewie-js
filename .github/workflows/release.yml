@@ -3,6 +3,10 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      ref:
+        description: 'Commit SHA or tag to release (defaults to HEAD of main if blank)'
+        type: string
+        default: ''
       dry_run:
         description: 'Dry run — build and pack without publishing to npm'
         type: boolean
@@ -21,7 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ inputs.ref != '' && inputs.ref || 'main' }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
