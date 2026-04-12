@@ -16,7 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = resolve(__dirname, '../../..');
 const TSC = resolve(WORKSPACE_ROOT, 'node_modules/.bin/tsc');
 const VITEST = resolve(WORKSPACE_ROOT, 'node_modules/.bin/vitest');
-const VITE = resolve(WORKSPACE_ROOT, 'node_modules/.bin/vite');
+const VITE = resolve(WORKSPACE_ROOT, 'packages/vite/node_modules/.bin/vite');
 
 // Path mappings so tsc can resolve @stewie-js/* and third-party packages from
 // local source without running pnpm install in the temp directory.
