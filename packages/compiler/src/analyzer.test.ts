@@ -10,18 +10,15 @@ import type { ParsedFile } from './parser.js';
 // TypeChecker.getTypeAtLocation() works correctly on the AST nodes.
 // ---------------------------------------------------------------------------
 
-function createInMemoryProgram(filename: string, source: string): {
+function createInMemoryProgram(
+  filename: string,
+  source: string
+): {
   program: ts.Program;
   parsed: ParsedFile;
 } {
   // Create the source file once — shared between the program and the parsed result.
-  const sourceFile = ts.createSourceFile(
-    filename,
-    source,
-    ts.ScriptTarget.ES2022,
-    /* setParentNodes */ true,
-    ts.ScriptKind.TSX
-  );
+  const sourceFile = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, /* setParentNodes */ true, ts.ScriptKind.TSX);
 
   const defaultHost = ts.createCompilerHost({});
   const host: ts.CompilerHost = {

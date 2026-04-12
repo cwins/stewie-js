@@ -66,11 +66,7 @@ function containsNoArgIdentifierCall(node: ts.Node): boolean {
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length === 0) {
     return true;
   }
-  return (
-    ts.forEachChild(node, (child): true | undefined =>
-      containsNoArgIdentifierCall(child) ? true : undefined
-    ) === true
-  );
+  return ts.forEachChild(node, (child): true | undefined => (containsNoArgIdentifierCall(child) ? true : undefined)) === true;
 }
 
 /**
@@ -100,11 +96,7 @@ function containsSignalRead(node: ts.Node, checker: ts.TypeChecker): boolean {
     // Callee is not a signal itself — recurse in case there are signal reads
     // deeper in the expression (e.g. row().label() where label: Signal<string>).
   }
-  return (
-    ts.forEachChild(node, (child): true | undefined =>
-      containsSignalRead(child, checker) ? true : undefined
-    ) === true
-  );
+  return ts.forEachChild(node, (child): true | undefined => (containsSignalRead(child, checker) ? true : undefined)) === true;
 }
 
 function isIntrinsicElement(name: string): boolean {
@@ -183,9 +175,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
       if (!ts.isJsxExpression(child) || !child.expression) continue;
       const expr = child.expression;
       if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) continue;
-      const hasReactiveRead = checker
-        ? containsSignalRead(expr, checker)
-        : containsNoArgIdentifierCall(expr);
+      const hasReactiveRead = checker ? containsSignalRead(expr, checker) : containsNoArgIdentifierCall(expr);
       if (!hasReactiveRead) continue;
 
       autoWrapCandidates.push({
@@ -284,9 +274,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
         // Auto-wrap: if this is an intrinsic element, the attribute is not an
         // event handler, the expression is not already a function, but it
         // contains a no-arg identifier call (signal read pattern) → wrap in () =>
-        const attrHasReactiveRead = checker
-          ? containsSignalRead(expr, checker)
-          : containsNoArgIdentifierCall(expr);
+        const attrHasReactiveRead = checker ? containsSignalRead(expr, checker) : containsNoArgIdentifierCall(expr);
         if (isIntrinsic && !attrName.startsWith('on') && !isReactive && attrHasReactiveRead) {
           autoWrapCandidates.push({
             start: attr.initializer.getStart(sourceFile),

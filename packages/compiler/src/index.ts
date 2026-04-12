@@ -37,11 +37,7 @@ export function createProjectProgram(root: string): ts.Program | undefined {
     const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
     if (configFile.error) return undefined;
 
-    const parsedConfig = ts.parseJsonConfigFileContent(
-      configFile.config,
-      ts.sys,
-      dirname(configPath)
-    );
+    const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, dirname(configPath));
 
     return ts.createProgram(parsedConfig.fileNames, parsedConfig.options);
   } catch {
