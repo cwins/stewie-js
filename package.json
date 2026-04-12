@@ -14,11 +14,13 @@
     "lint:fix": "oxlint --fix packages/*/src examples/*/src --ignore-pattern '**/*.d.ts'",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "clean": "find packages -name dist -type d -prune -exec rm -rf {} + 2>/dev/null; find packages/*/src -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' 2>/dev/null | xargs rm -f; true"
+    "clean": "find packages -name dist -type d -prune -exec rm -rf {} + 2>/dev/null; find packages/*/src -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' 2>/dev/null | xargs rm -f; true",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "happy-dom": "^20.8.4",
+    "husky": "^9.1.7",
     "oxfmt": "^0.43.0",
     "oxlint": "^1.56.0",
     "typescript": "^5.8.0",
