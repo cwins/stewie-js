@@ -21,3 +21,4 @@ skills-lock.json
 
 .temp-mocks/
 __screenshots__/
+.vitest-attachments/
