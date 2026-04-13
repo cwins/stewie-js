@@ -16,7 +16,8 @@
     "preview": "NODE_ENV=production tsx src/server.ts",
     "start": "NODE_ENV=production node dist/server/server.js",
     "pretest": "pnpm run mock:create-empty",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
     "@stewie-js/adapter-node": "workspace:*",
@@ -30,8 +31,9 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.4.0",
+    "playwright": "^1.59.1",
     "tsx": "^4.0.0",
     "vite": "^7.0.0",
-    "vitest": "^4.0.0"
+    "vitest": "^4.1.4"
   }
 }
