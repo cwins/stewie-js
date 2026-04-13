@@ -105,8 +105,7 @@ describe('Create project', () => {
     await page.getByTestId('create-project-submit').click();
 
     await visible('dashboard');
-    // Scope to the project grid to avoid devtools panel text matches
-    await page.getByTestId('project-grid').getByText('Browser Test Project').waitFor({ state: 'visible' });
+    await page.getByText('Browser Test Project').waitFor({ state: 'visible' });
   });
 
   it('does not create a project with an empty name', async () => {
@@ -130,8 +129,7 @@ describe('Create task', () => {
     await page.getByTestId('create-task-submit').click();
 
     await visible('task-list');
-    // Scope to the task list to avoid devtools panel text matches
-    await page.getByTestId('task-list').getByText('Browser Test Task').waitFor({ state: 'visible' });
+    await page.getByText('Browser Test Task').waitFor({ state: 'visible' });
   });
 });
 
@@ -151,8 +149,7 @@ describe('Edit task', () => {
     await page.getByTestId('edit-task-submit').click();
 
     await hidden('edit-task');
-    // Scope to the task row to avoid devtools panel text matches
-    await page.getByTestId('task-row-p1-t1').getByText('Updated Title').waitFor({ state: 'visible' });
+    await page.getByText('Updated Title').waitFor({ state: 'visible' });
   });
 });
 

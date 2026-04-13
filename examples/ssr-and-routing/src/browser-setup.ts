@@ -1,8 +1,11 @@
 /**
- * Global setup for browser tests — starts the SSR dev server before the test
- * suite and shuts it down afterwards.
+ * Global setup for browser tests — builds the app for production, then starts
+ * the prod server before the test suite and shuts it down afterwards.
+ *
+ * Running against a production build means devtools are tree-shaken out,
+ * so test assertions aren't polluted by signal old→new value spans.
  */
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execSync, spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -15,13 +18,17 @@ const BASE_URL = `http://localhost:${PORT}`;
 let server: ChildProcess | undefined;
 
 export async function setup(): Promise<void> {
-  server = spawn('tsx', ['src/server.ts'], {
+  // Build client + SSR bundles. Output goes to dist/client and dist/server.
+  console.log('[browser-setup] building for production…');
+  execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
+
+  server = spawn('node', ['dist/server/server.js'], {
     cwd: ROOT,
-    env: { ...process.env, NODE_ENV: 'development', PORT: String(PORT) },
+    env: { ...process.env, NODE_ENV: 'production', PORT: String(PORT) },
     stdio: 'pipe'
   });
 
-  // Surface server stderr in test output so startup errors are visible
+  // Surface server stderr so startup errors are visible in test output
   server.stderr?.on('data', (chunk: Buffer) => process.stderr.write(chunk));
 
   await waitForServer(BASE_URL, 15_000);
