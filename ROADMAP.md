@@ -99,6 +99,24 @@ Things not strictly missing but that would meaningfully improve the project.
 
 - ~~**Compiler Bug 1 — over-eager reactive wrapping**~~ — Fixed. `analyzeFile` accepts an optional `ts.TypeChecker`; the new `containsSignalRead` function checks callee types (callable + `.peek()` = Signal/Computed) rather than relying on syntax alone. `{row().id}` no longer wraps when `id: number`; `{row().label()}` still wraps when `label: Signal<string>`. Heuristic fallback preserved for plain JS. Vite plugin lazily creates a `ts.Program` from the project tsconfig and passes it to `compile()`.
 
+### Actions / Mutations
+
+Route loaders cover the read side. The write side — a blessed way to express mutations, pending/error/success state, validation, and cache invalidation after a write — is still missing. This is a genuine gap: without it every team builds their own ad hoc pattern.
+
+This could live as an extension of `@stewie-js/router` / `@stewie-js/server` or as `@stewie-js/actions`. The design should be settled during the canonical Work Queue app, where real mutation use cases will surface the right shape before the API is committed.
+
+### Decision-Oriented Docs
+
+API reference is table stakes. What Stewie actually needs is "the Stewie way" — opinionated answers to questions like:
+
+- Use `signal` when... vs `store` when... vs `resource` when...
+- Use route `load` when... vs `resource()` inside a component when...
+- Use `Show` function children when...
+- Structure mutations this way...
+- Handle optimistic updates this way...
+
+These guides are more valuable than a complete API listing. They turn a technically capable framework into one that people can learn confidently and use consistently.
+
 ### Developer Experience
 
 - ~~**`_appMounted` flag**~~ — `mount()` now calls `_setAppMounted()` which suppresses the "outside reactive scope" warning after mount. SSR-safety is preserved (warning still fires on server before any mount).
@@ -112,6 +130,36 @@ Things not strictly missing but that would meaningfully improve the project.
 - **Form primitives** — `createForm({ fields, validate })` returning per-field signals, dirty/touched state, and a submit handler
 - **Animation utilities** — thin reactive wrappers over the Web Animations API driven by signal values
 - **Island architecture / partial hydration** — ship zero client JS by default, opt specific components into hydration at the boundary level
+
+### Head / Metadata
+
+Not a separate package — a runtime primitive in `@stewie-js/core` and an SSR extension in `@stewie-js/server`.
+
+**Client side:** `useTitle`, `useMeta`, and a `<Head>` component are signal-driven mutations to `document.head`. When the signal changes, only the affected `<title>` or `<meta>` element updates — no re-render, no framework coordination. A lazy component that fetches data and then updates the title is unremarkable: it's just a signal write that happens to target `document.head`. The update fires whenever the data resolves, not at any earlier "phase."
+
+**Server side (streaming):** Head content that is known before the stream starts (route-level title, canonical URL, OG tags from the loader) is emitted in `<head>` in the shell. Head content produced inside a Suspense boundary (a lazy component that derives its title from fetched data) travels inline with that boundary's HTML flush as a small `<script>document.title = '...'</script>`. No two-pass render, no pre-render collection step, no library wrapping `renderToString`.
+
+**Why not a separate package:** Head management is a direct expression of signal-driven DOM mutations. It belongs in core alongside `effect()` and `Portal`. A separate package would just re-export the same primitives with extra indirection.
+
+### Progressive Asset Streaming
+
+This is an enhancement to `@stewie-js/vite` (build time) and `@stewie-js/server` (render time), not a new package or a developer-facing API.
+
+**The problem it solves:** In the React ecosystem, CSS-in-JS libraries, icon libraries, and UI component packages each need to "collect" their stylesheets during SSR. Because React gives no participation point inside the render, they must wrap `renderToString` themselves — multiple libraries fight over render ownership, and the result is incompatible with streaming because collection requires completing the render before emitting anything. The same problem applies to JS bundles for lazy-loaded components: styles arrive late, causing flash of unstyled content on hydration.
+
+**The Stewie approach:**
+
+*Build time (Vite plugin):* Walk the import graph from each `lazy()` entry point. Collect all CSS modules and JS chunks in that component's dependency tree. Emit a static component-to-assets manifest alongside the SSR build:
+```json
+{ "ProductGallery": { "css": ["/s/carousel.abc.css"], "js": ["/s/gallery.xyz.js"] } }
+```
+No developer writes this. It is derived entirely from import relationships that already exist.
+
+*Render time (`renderToStream`):* When a Suspense boundary flushes, look up its lazy component in the manifest and prepend `<link rel="stylesheet">` tags before the boundary's HTML chunk. The browser receives styles exactly when it receives the HTML that needs them — not before (wasted preload), not after (FOUC).
+
+*Hydration gating:* Before the client hydrates a boundary, both the CSS links and the JS chunk must be loaded. The `lazy()` import promise already gates on JS. CSS load events gate on the `<link>` tags emitted with the boundary flush.
+
+**Why this is architecturally different:** Because `lazy()` is a first-class framework primitive and `renderToStream` already has a per-boundary flush hook, the asset manifest is a natural bridge between build-time import graph knowledge and runtime boundary ordering. Libraries participate by importing CSS normally — they do not wrap the renderer.
 
 ### Infrastructure
 
@@ -147,12 +195,14 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 11. ~~DevTools improvements~~ — done (Graph tab, signal disposal, component names on render entries, old→new values, caller frames, anchor highlighting for Show/For/Switch)
 12. ~~Router SPI enhancements~~ — done (NavigationPhase, NavigationStatus, dismiss, preload, useNavigationStatus)
 13. ~~`_appMounted` flag~~ — done (`mount()` calls `_setAppMounted()`, suppresses scope warnings post-mount)
-14. **Conformance CI — layers 2 and 3** — scaffold ships with test files; conformance suite now runs vitest (layer 2) and vite build (layer 3) for all six combinations
+14. ~~**Conformance CI — layers 2 and 3**~~ — done; scaffold ships with test files; conformance suite runs vitest (layer 2) and vite build (layer 3) for all six combinations
 15. ~~**Compiler Bug 1**~~ — done (type-aware auto-wrap via ts.TypeChecker, heuristic fallback for plain JS)
-16. **Scaffold — Vitest browser mode tests** — dev and prod browser test passes for all scaffold variants (Vitest browser mode + Playwright provider)
-17. **Canonical reference app (Work Queue) — Phase 1** — SSR app shell, route table, local data repo, dashboard + projects list
-18. **Form primitives** — highest-value DX enhancement
-19. **Documentation site** — needed before recommending Stewie to others
-20. Edge-first testing phases 2–4
-21. Cloudflare adapter
-22. Typed route params and query
+16. ~~**Browser tests — ssr-and-routing example**~~ — done; 11 Playwright tests run against prod build via `test:browser`; scaffold browser test story deferred pending CI solution
+17. **Canonical reference app (Work Queue) — Phase 1** — SSR app shell, route table, local data repo, dashboard + projects list; also the design testbed for actions/mutations and head/metadata patterns
+18. **Documentation site + decision-oriented guides** — API reference plus "the Stewie way" guides (signal vs store vs resource, route load vs resource, mutation patterns, etc.)
+19. **Form primitives** — `createForm()` with per-field signals, dirty/touched/valid/submitting state, field arrays, sync and async validation, server error integration
+20. **Actions / mutations** — design to emerge from Work Queue; blessed write-side counterpart to route loaders
+21. **Head / metadata + progressive asset streaming** — `useTitle`/`useMeta`/`<Head>` as signal-driven core primitives; Vite plugin component-to-assets manifest; per-boundary CSS emission in `renderToStream`; hydration gating on CSS + JS load
+22. Edge-first testing phases 2–4
+23. Cloudflare adapter
+24. Typed route params and query

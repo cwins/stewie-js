@@ -72,6 +72,14 @@ These are the reasons Stewie exists rather than "just use X":
 **Decision:** `hydrate()` walks the server-rendered DOM via `HydrationCursor`, attaches reactive effects to existing nodes, and does not wipe and re-render.
 **Why:** True hydration: ~0 DOM mutations on load, no layout thrash, faster TTI. Wipe-and-rerender throws away the server's work.
 
+### Head / metadata is a signal-driven primitive, not a package
+**Decision:** `useTitle`, `useMeta`, and `<Head>` will live in `@stewie-js/core`. On the client they are signal-driven mutations to `document.head` — an effect that writes `document.title` when a signal changes. On the server they register with the SSR render context and are emitted in `<head>` (if available before the shell closes) or inline as `<script>document.title = '...'</script>` alongside the Suspense boundary flush that produced them.
+**Why:** Head management is a direct expression of signal-driven DOM mutation — the same primitive as any other reactive DOM update, just targeting `document.head`. There is no "collection phase" and no two-pass render. A lazy component that derives a page title from fetched data updates `document.title` when its data resolves, the same way it would update any other DOM node. Treating this as a separate package would add indirection without adding capability.
+
+### Progressive asset streaming is automatic, not a developer API
+**Decision:** The Vite plugin walks the import graph from each `lazy()` entry point at build time and emits a component-to-assets manifest (CSS modules and JS chunks per lazy boundary). `renderToStream` uses this manifest to prepend `<link rel="stylesheet">` tags before each Suspense boundary's HTML flush. Client hydration gates on those CSS links being loaded before the boundary is hydrated.
+**Why:** The root cause of the React ecosystem's SSR asset pain (styled-components, Apollo, etc.) is that libraries must wrap `renderToString` to collect their assets — because React gives no participation point inside the render. This breaks streaming. Stewie avoids this entirely: `lazy()` is a first-class primitive, `renderToStream` already has a per-boundary flush hook, and the Vite plugin already sees the full import graph. These three things compose naturally into automatic asset emission with no developer ceremony. Libraries import CSS normally; the framework handles ordering and delivery.
+
 ---
 
 ## Package Map
@@ -113,7 +121,10 @@ These are the reasons Stewie exists rather than "just use X":
 ## What Is Not Yet Real
 
 - **Form primitives** — no `createForm()`, no per-field signal abstraction
-- **Documentation site** — no public docs
+- **Actions / mutations** — no blessed write-side counterpart to route loaders; each app currently builds its own ad hoc pattern
+- **Head / metadata primitives** — no `useTitle`, `useMeta`, or `<Head>`; managing `document.title` and meta tags requires raw DOM manipulation today
+- **Progressive asset streaming** — `renderToStream` does not yet emit per-boundary CSS `<link>` tags; no Vite plugin component-to-assets manifest; no hydration gating on CSS load
+- **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
 - **Typed route params/query** — `useParams` and `useQuery` return `Record<string, string>`, not inferred from route definition
 - **Cloudflare and Deno adapters** — not yet written
 - **Edge-first test phases 2–4** — streaming confidence tests, router edge-flow tests, adapter conformance suite
@@ -152,3 +163,6 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 - ~~**Compiler type awareness (Bug 1)**~~ — Fixed. `analyzeFile` now accepts an optional `ts.TypeChecker`. When provided, `containsSignalRead` checks whether the callee of each no-arg call has a `Signal<T>`/`Computed<T>` type (callable + `.peek()`) before marking it as a wrap candidate. Falls back to the old syntax heuristic for plain JS or when the file isn't in the program. The Vite plugin creates a lazily-initialized `ts.Program` via `createProjectProgram(root)` and passes it through `CompileOptions.program`.
 - ~~**`inject` → `consume` rename**~~ — Done. `consume(Context)` pairs with `provide(Context, value)`: ancestor provides, descendant consumes.
 - **`use*` router utility functions are not hooks** — `useParams()`, `useQuery()`, `useNavigationStatus()` etc. follow the `use*` naming convention but are plain utility functions with no call-order rules. Docs must never call them "hooks".
+- **Actions / mutations API shape** — The design should emerge from real use cases in the canonical Work Queue app before the API is committed. Could extend `@stewie-js/router` / `@stewie-js/server`, or become `@stewie-js/actions`. Key requirements: typed input, pending/error/success state, validation, and a clear story for what data gets invalidated/refreshed after a write.
+- **Data cache / query layer** — `resource()` plus route loaders covers the common case well. Do not rush toward a TanStack-Query-style cache. Revisit only if the canonical app hits concrete ceilings that `resource()` + loaders cannot address. A full cache layer risks making the API surface sprawling.
+- **Auth / session patterns** — Start with canonical patterns in the Work Queue app (where session loading happens, how guards work on SSR vs client navigation, how protected layouts are structured). Extract a package only if a clear reusable primitive emerges from real usage. Auth varies too much across adapters and providers to be a useful first-party package at this stage.
