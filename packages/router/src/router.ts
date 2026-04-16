@@ -74,7 +74,7 @@ export interface RouterRouteConfig {
   path: string;
   component: unknown;
   beforeEnter?: RouteGuard;
-  load?: () => Promise<unknown>;
+  load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
 }
 
 export interface Router extends StewieRouterSPI {
@@ -141,11 +141,13 @@ export function createRouter(initialUrl?: string): Router {
 
     let bestRoute: RouterRouteConfig | null = null;
     let bestScore = -1;
+    let matchedParams: Record<string, string> = {};
     for (const route of router._routes) {
       const result = matchRoute(route.path, parsed.pathname);
       if (result && result.score > bestScore) {
         bestRoute = route;
         bestScore = result.score;
+        matchedParams = result.params;
       }
     }
 
@@ -172,7 +174,7 @@ export function createRouter(initialUrl?: string): Router {
       _routeData.set(undefined);
     }
     if (bestRoute.load) {
-      const data = await bestRoute.load();
+      const data = await bestRoute.load(matchedParams, parsed.query);
       if (updateStatus) _routeData.set(data);
     }
 

@@ -147,19 +147,19 @@ This is an enhancement to `@stewie-js/vite` (build time) and `@stewie-js/server`
 
 **The problem it solves:** In the React ecosystem, CSS-in-JS libraries, icon libraries, and UI component packages each need to "collect" their stylesheets during SSR. Because React gives no participation point inside the render, they must wrap `renderToString` themselves — multiple libraries fight over render ownership, and the result is incompatible with streaming because collection requires completing the render before emitting anything. The same problem applies to JS bundles for lazy-loaded components: styles arrive late, causing flash of unstyled content on hydration.
 
+**Critical constraint — client and server bundles diverge:** The server bundle and client bundle have meaningfully different dependency graphs. The server bundle typically elides CSS entirely (reducing CSS module imports to class-name mappings only) and does not produce the same chunk boundaries as the client build. Walking the server bundle's import graph therefore cannot yield CSS file paths or correct JS chunk references — those come from the client build. Any asset manifest must be built from client build artifacts.
+
 **The Stewie approach:**
 
-*Build time (Vite plugin):* Walk the import graph from each `lazy()` entry point. Collect all CSS modules and JS chunks in that component's dependency tree. Emit a static component-to-assets manifest alongside the SSR build:
-```json
-{ "ProductGallery": { "css": ["/s/carousel.abc.css"], "js": ["/s/gallery.xyz.js"] } }
-```
-No developer writes this. It is derived entirely from import relationships that already exist.
+*Build order matters:* The client build runs first, producing CSS files, JS chunks, and `dist/client/manifest.json` with content-hashed filenames. The server build runs second with `ssrManifest: true`, cross-referencing the client manifest to produce `dist/server/ssr-manifest.json`. This file maps server-side module IDs to their corresponding client-side assets (CSS links, JS chunks, preload hints). This is Vite's existing mechanism — Stewie uses it rather than reimplementing it.
 
-*Render time (`renderToStream`):* When a Suspense boundary flushes, look up its lazy component in the manifest and prepend `<link rel="stylesheet">` tags before the boundary's HTML chunk. The browser receives styles exactly when it receives the HTML that needs them — not before (wasted preload), not after (FOUC).
+*Render time (`renderToStream`):* When a Suspense boundary for a `lazy()` component is about to flush, resolve the component's module ID against the ssr-manifest to find its client-side CSS and JS assets. Prepend `<link rel="stylesheet">` tags before the boundary's HTML chunk. The browser receives styles exactly when it receives the HTML that needs them — not before (wasted preload), not after (FOUC).
+
+*Vite plugin's actual job:* Ensure `lazy()` boundaries capture and expose their module ID in a form the server renderer can resolve at runtime, and load the ssr-manifest into the render context. The cross-referencing between client and server artifacts is Vite's responsibility via `ssrManifest` — the plugin's job is narrow: connect `lazy()` boundaries to the manifest lookup.
 
 *Hydration gating:* Before the client hydrates a boundary, both the CSS links and the JS chunk must be loaded. The `lazy()` import promise already gates on JS. CSS load events gate on the `<link>` tags emitted with the boundary flush.
 
-**Why this is architecturally different:** Because `lazy()` is a first-class framework primitive and `renderToStream` already has a per-boundary flush hook, the asset manifest is a natural bridge between build-time import graph knowledge and runtime boundary ordering. Libraries participate by importing CSS normally — they do not wrap the renderer.
+**Why this is architecturally different:** Because `lazy()` is a first-class framework primitive and `renderToStream` already has a per-boundary flush hook, the ssr-manifest is a natural bridge between Vite's build-time output and the render-time boundary ordering. Libraries participate by importing CSS normally — they do not wrap the renderer.
 
 ### Infrastructure
 

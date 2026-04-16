@@ -36,8 +36,9 @@ export interface RouteProps {
   /**
    * Async data loader. Called before the route component renders; result is
    * available via `useRouteData()` in the component tree.
+   * Receives the matched URL params and query string as arguments.
    */
-  load?: () => Promise<unknown>;
+  load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
 }
 
 export interface LinkProps {
@@ -55,7 +56,7 @@ interface RouteConfig {
   path: string;
   component: Component;
   beforeEnter?: RouteGuard;
-  load?: () => Promise<unknown>;
+  load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +74,7 @@ function extractRoutes(children: JSXElement | JSXElement[] | undefined): RouteCo
       path: c.props.path as string,
       component: c.props.component as Component,
       beforeEnter: c.props.beforeEnter as RouteGuard | undefined,
-      load: c.props.load as (() => Promise<unknown>) | undefined
+      load: c.props.load as ((params: Record<string, string>, query: Record<string, string>) => Promise<unknown>) | undefined
     }));
 }
 

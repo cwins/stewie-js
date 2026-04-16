@@ -1,0 +1,32 @@
+{
+  "name": "work-queue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "nuke": "rm -rf dist node_modules",
+    "dev": "tsx src/server.ts",
+    "build": "vite build && vite build --ssr",
+    "preview": "NODE_ENV=production tsx src/server.ts",
+    "start": "NODE_ENV=production node dist/server/server.js",
+    "test": "vitest run --config vitest.config.ts",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
+  },
+  "dependencies": {
+    "@stewie-js/adapter-node": "workspace:*",
+    "@stewie-js/compiler": "workspace:*",
+    "@stewie-js/core": "workspace:*",
+    "@stewie-js/devtools": "workspace:*",
+    "@stewie-js/router": "workspace:*",
+    "@stewie-js/server": "workspace:*",
+    "@stewie-js/testing": "workspace:*",
+    "@stewie-js/vite": "workspace:*"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1",
+    "tsx": "^4.0.0",
+    "vite": "^7.0.0",
+    "vitest": "^4.1.4"
+  }
+}

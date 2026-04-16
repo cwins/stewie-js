@@ -69,7 +69,7 @@ importers:
         version: 7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0)
       vitest:
         specifier: ^4.0.0
-        version: 4.1.2(@types/node@22.19.15)(@vitest/browser-playwright@4.1.4(playwright@1.59.1)(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0))(vitest@4.1.4))(happy-dom@20.8.4)(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0))
+        version: 4.1.2(@types/node@22.19.15)(@vitest/browser-playwright@4.1.4)(happy-dom@20.8.4)(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0))
 
   examples/ssr-and-routing:
     dependencies:
@@ -101,6 +101,46 @@ importers:
       '@faker-js/faker':
         specifier: ^10.4.0
         version: 10.4.0
+      playwright:
+        specifier: ^1.59.1
+        version: 1.59.1
+      tsx:
+        specifier: ^4.0.0
+        version: 4.21.0
+      vite:
+        specifier: ^7.0.0
+        version: 7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0)
+      vitest:
+        specifier: ^4.1.4
+        version: 4.1.4(@types/node@22.19.15)(@vitest/browser-playwright@4.1.4)(happy-dom@20.8.4)(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0))
+
+  examples/work-queue:
+    dependencies:
+      '@stewie-js/adapter-node':
+        specifier: workspace:*
+        version: link:../../packages/adapter-node
+      '@stewie-js/compiler':
+        specifier: workspace:*
+        version: link:../../packages/compiler
+      '@stewie-js/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@stewie-js/devtools':
+        specifier: workspace:*
+        version: link:../../packages/devtools
+      '@stewie-js/router':
+        specifier: workspace:*
+        version: link:../../packages/router
+      '@stewie-js/server':
+        specifier: workspace:*
+        version: link:../../packages/server
+      '@stewie-js/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@stewie-js/vite':
+        specifier: workspace:*
+        version: link:../../packages/vite
+    devDependencies:
       playwright:
         specifier: ^1.59.1
         version: 1.59.1
@@ -1881,7 +1921,7 @@ snapshots:
       terser: 5.46.1
       tsx: 4.21.0
 
-  vitest@4.1.2(@types/node@22.19.15)(@vitest/browser-playwright@4.1.4(playwright@1.59.1)(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0))(vitest@4.1.4))(happy-dom@20.8.4)(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0)):
+  vitest@4.1.2(@types/node@22.19.15)(@vitest/browser-playwright@4.1.4)(happy-dom@20.8.4)(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0)):
     dependencies:
       '@vitest/expect': 4.1.2
       '@vitest/mocker': 4.1.2(vite@7.3.1(@types/node@22.19.15)(terser@5.46.1)(tsx@4.21.0))
