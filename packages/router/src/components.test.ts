@@ -2,7 +2,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { jsx } from '@stewie-js/core';
 import { mount } from '@stewie-js/core';
-import { reactiveScope } from '@stewie-js/core';
+import { reactiveScope, provide } from '@stewie-js/core';
+import { HydrationRegistryContext } from '@stewie-js/core';
 import { renderToString } from '@stewie-js/server';
 import { Router, Route, Link, createSsrRouter } from './components.js';
 import { RedirectError } from './router.js';
@@ -519,5 +520,79 @@ describe('createSsrRouter', () => {
     const { html } = await renderToString(jsx(Router as any, { router: ssrRouter, children: routeChildren }));
     expect(html).toContain('Protected SSR');
     expect(html).not.toContain('Home SSR');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SSR → hydration: route data flows through __STEWIE_STATE__
+// ---------------------------------------------------------------------------
+
+describe('Router SSR hydration state', () => {
+  function DataPage() {
+    const data = useRouter()._routeData() as { count: number } | undefined;
+    return jsx('div', { children: data ? `count=${data.count}` : 'no-data' });
+  }
+
+  it('serializes route loader data into stateScript', async () => {
+    const routeChildren = [
+      jsx(Route as any, {
+        path: '/data',
+        component: DataPage,
+        load: async () => ({ count: 7 })
+      })
+    ];
+    const ssrRouter = await createSsrRouter('/data', routeChildren);
+    const { stateScript } = await renderToString(jsx(Router as any, { router: ssrRouter, children: routeChildren }));
+
+    // The route data must appear in the serialized state so the client can pick it up.
+    expect(stateScript).toContain('"__stewie_route_data__"');
+    expect(stateScript).toContain('"count":7');
+  });
+
+  it('Router renders synchronously when mounted with pre-loaded hydration state', () => {
+    // Simulate the client hydration scenario: a registry pre-populated with route data
+    // (as if read from window.__STEWIE_STATE__).
+    const preloadedData = { count: 42 };
+    const fakeRegistry = {
+      get: (key: string) => (key === '__stewie_route_data__' ? preloadedData : undefined),
+      set: () => {},
+      serialize: () => '{}'
+    };
+
+    const container = document.createElement('div');
+    provide(HydrationRegistryContext, fakeRegistry, () => {
+      reactiveScope(() => {
+        mount(
+          jsx(Router as any, {
+            initialUrl: '/data',
+            children: [
+              jsx(Route as any, {
+                path: '/data',
+                component: DataPage,
+                load: async () => ({ count: 99 }) // should NOT run — pre-loaded data is used
+              })
+            ]
+          }),
+          container
+        );
+      });
+    });
+
+    // Content should be rendered synchronously — no async wait needed.
+    // If _ready started as false (the bug), textContent would be empty.
+    expect(container.textContent).toContain('count=42');
+  });
+
+  it('createRouter does not warn about store() outside reactive scope', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      // createRouter is called from createSsrRouter (outside any reactive scope).
+      // The status store must be wrapped so this doesn't emit a dev-mode warning.
+      createRouter('/');
+      const scopeWarnings = warnSpy.mock.calls.filter(([msg]) => typeof msg === 'string' && msg.includes('outside a reactive scope'));
+      expect(scopeWarnings).toHaveLength(0);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

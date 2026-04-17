@@ -101,7 +101,7 @@ export function createRouter(initialUrl?: string): Router {
 
   const location: RouterStore = createLocationStore(initialUrl ?? '/');
 
-  const status: NavigationStatus = store<NavigationStatus>({ phase: 'idle' });
+  const status: NavigationStatus = reactiveScope(() => store<NavigationStatus>({ phase: 'idle' }));
 
   /** Compute params for a URL against the registered routes. */
   function resolveParams(pathname: string): Record<string, string> {

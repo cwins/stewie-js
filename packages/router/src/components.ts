@@ -1,6 +1,6 @@
 // components.ts — route components
 
-import { jsx, consume, effect, signal, reactiveScope } from '@stewie-js/core';
+import { jsx, consume, effect, signal, reactiveScope, useHydrationRegistry } from '@stewie-js/core';
 import type { JSXElement, Component } from '@stewie-js/core';
 import { createRouter, RouterContext, RedirectError } from './router.js';
 import type { Router, RouteGuard } from './router.js';
@@ -142,14 +142,54 @@ export function Router(props: RouterProps): JSXElement {
     return result !== null && (r.beforeEnter !== undefined || r.load !== undefined);
   });
 
-  let _ready!: ReturnType<typeof signal<boolean>>;
   // If a pre-configured SSR router was provided, guards already ran — start ready.
   const alreadyResolved = !!props.router;
+
+  // ---------------------------------------------------------------------------
+  // Hydration registry integration
+  //
+  // Route loader data must survive the SSR → client handoff so that:
+  //   1. The client renders the same content as the server (no hydration mismatch).
+  //   2. The client does not re-run the loader on initial load (data is already
+  //      serialized in window.__STEWIE_STATE__).
+  //
+  // SSR path (alreadyResolved=true): the loader already ran in createSsrRouter().
+  //   Write its result into the hydration registry under a well-known key so
+  //   renderToString() includes it in the stateScript.
+  //
+  // Client hydration path: the registry is populated from window.__STEWIE_STATE__.
+  //   Read the pre-loaded data, set it on _routeData synchronously, and start
+  //   _ready=true so matchedContent() renders the page — not the loading fallback.
+  //   This prevents the mismatch where server renders full content but client
+  //   renders the fallback while waiting for the async loader.
+  // ---------------------------------------------------------------------------
+  const ROUTE_DATA_KEY = '__stewie_route_data__';
+  const hydrationRegistry = useHydrationRegistry();
+
+  // SSR: serialize route loader data into the registry.
+  if (alreadyResolved && hydrationRegistry) {
+    const routeData = router._routeData();
+    if (routeData !== undefined) {
+      hydrationRegistry.set(ROUTE_DATA_KEY, routeData);
+    }
+  }
+
+  // Client hydration: restore route data from the registry and skip the async wait.
+  let clientHydrated = false;
+  if (!alreadyResolved && hydrationRegistry) {
+    const preloadedData = hydrationRegistry.get(ROUTE_DATA_KEY);
+    if (preloadedData !== undefined) {
+      router._routeData.set(preloadedData as unknown);
+      clientHydrated = true;
+    }
+  }
+
+  let _ready!: ReturnType<typeof signal<boolean>>;
   reactiveScope(() => {
-    _ready = signal(!initialRouteNeedsAsync || alreadyResolved);
+    _ready = signal(!initialRouteNeedsAsync || alreadyResolved || clientHydrated);
   });
 
-  if (initialRouteNeedsAsync && !alreadyResolved) {
+  if (initialRouteNeedsAsync && !alreadyResolved && !clientHydrated) {
     // Fire-and-forget: run the guard / loader for the initial URL in the
     // background. When they resolve, flip _ready which triggers matchedContent
     // to re-evaluate and render the (possibly redirected) route.
@@ -212,6 +252,7 @@ export function Route(_props: RouteProps): JSXElement {
  * normally (open in new tab, etc.).
  */
 export function Link(props: LinkProps): JSXElement {
+  const { to, replace, class: className, children, ...rest } = props;
   // Capture router synchronously during component render (consume works here).
   let router: Router | null = null;
   try {
@@ -231,6 +272,7 @@ export function Link(props: LinkProps): JSXElement {
     : undefined;
 
   return jsx('a', {
+    ...rest,
     href: props.to,
     class: props.class,
     children: props.children,
