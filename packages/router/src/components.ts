@@ -267,15 +267,15 @@ export function Link(props: LinkProps): JSXElement {
           return; // Let browser handle modifier+click
         }
         e.preventDefault();
-        router!.navigate({ to: props.to, replace: props.replace });
+        router!.navigate({ to, replace });
       }
     : undefined;
 
   return jsx('a', {
     ...rest,
-    href: props.to,
-    class: props.class,
-    children: props.children,
+    href: to,
+    class: className,
+    children,
     ...(handleClick ? { onClick: handleClick } : {})
   });
 }
