@@ -17,9 +17,10 @@ A small, coherent TypeScript web framework for modern runtimes. It covers reacti
 ## What Stewie Is NOT
 
 - Not a React replacement or anti-React project. Framing it that way is lazy and misleading.
-- Not trying to be "the next Solid". Solid is an inspiration, not a target.
+- Not trying to be "the next Solid". Solid is an inspiration, not a target. If an individual primitive-level decision converges with Solid, that's fine — but the framework-level story (coherent full framework, WinterCG, first-party data story, explanatory devtools) must remain distinct. Watch for this: each fix that makes the primitives more like Solid's should be accompanied by a check that the framework-level differentiation is still clear.
 - Not commodity signals with a branding coat. The differentiation is coherence + target environment, not primitive novelty.
 - Not Node-specific. WinterCG compatibility is a genuine design constraint, not a marketing claim.
+- Not another library with layers of bandaids. Stewie has the benefit of being new — get the API right from the start rather than evolving through accumulating complexity. MobX, RxJS, and similar libraries became hard to use because recipes had to be just right across many API layers. Stewie should never feel like that.
 
 ---
 
@@ -56,13 +57,18 @@ These are the reasons Stewie exists rather than "just use X":
 **Why:** Reactive and data libraries that export 30+ functions for overlapping concerns become exhausting to learn and easy to misuse. Users should be able to hold the entire API in their head. The gut check: if a new export does "almost the same thing" as an existing one, that's a signal to extend the existing one or find a different design — not to add another name.
 **In practice:** When considering a new export, ask: (1) Can an existing API handle this with a small composition? (2) Is this needed by most users or only edge cases? (3) Does adding it make the docs page longer in a way that would intimidate a new user?
 
-### Compiler is optional
+### Compiler is optional but is the complexity shield
 **Decision:** The Vite compiler plugin (`@stewie-js/vite`) improves output but is not required. Plain JSX via `jsxImportSource` produces a fully working app.
 **Why:** Not every project uses Vite. The runtime must work correctly without compiler transforms. Compiler improvements that only apply when the compiler is present are fine, but improvements that benefit both paths are always preferred.
+**Design principle:** The developer writes simple, obvious code. The compiler is responsible for transforming it into the optimal fine-grained reactive output. Developers should not need to understand the optimization layer — `$prop` two-way binding, auto-wrapping signal reads in JSX, and breaking components into granular reactive pieces are all compiler concerns, not developer concerns. If an optimization requires the developer to write their code differently, that's a design failure.
 
 ### Signal child folding (dom-renderer)
 **Decision:** When a function child returns a function (i.e., the compiler emits `() => item().label` where `label` is a `Signal<string>`), the dom-renderer calls through one level within the same effect rather than recursing into a nested `renderChildren` call.
 **Why:** Prevents double-nesting: without folding, each such child creates two comment anchors and two effects. With folding, it creates one. This halved the anchor count in compiler output from 3 per row to 2 per row in the benchmark.
+
+### Routing is built-in, not outsourced
+**Decision:** Routing is a first-party framework concern, not left to the community. Guards, loaders, data loading, view transitions, and SSR integration all live in `@stewie-js/router`. The Router SPI (`@stewie-js/router-spi`) allows swapping implementations, but the default router is complete and production-grade.
+**Why:** Routing is critical infrastructure for web apps. Leaving it to third parties creates ecosystem fragmentation (React's experience with react-router, TanStack Router, Next.js router, etc.) and forces users to verify compatibility between their router, their data layer, and their SSR setup. When the framework owns routing, the data loading → SSR → hydration pipeline can be a coherent contract. When a routing gap is found (e.g., layout routes), the answer is to build it into the router — not to suggest a workaround pattern.
 
 ### WinterCG boundary is hard
 **Decision:** `packages/core` and `packages/server` must never import Node.js APIs.
@@ -127,7 +133,20 @@ These are the reasons Stewie exists rather than "just use X":
 - **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
 - **Typed route params/query** — `useParams` and `useQuery` return `Record<string, string>`, not inferred from route definition
 - **Cloudflare and Deno adapters** — not yet written
+- **Layout routes** — no nested route layouts; the `<Router>` renders only the matched route component, so persistent chrome (nav bars, sidebars) must be repeated inside each page via a wrapper like `<AppShell>`
 - **Edge-first test phases 2–4** — streaming confidence tests, router edge-flow tests, adapter conformance suite
+
+---
+
+## Design Influences
+
+These are explicit inspirations from outside the web framework ecosystem that have shaped Stewie's design:
+
+- **SwiftUI** — Two-way binding syntax (`$prop`) draws from SwiftUI's `$` prefix convention for bindings
+- **Mobile native dialog patterns** — Snapshot isolation for dialogs (pass a `.peek()` snapshot, dialog works on a local copy, explicit commit boundary) comes from mobile native commit/dismiss patterns
+- **Kotlin coroutine scope** — The `reactiveScope()` naming and mental model (a bounded scope that owns and disposes its children) is analogous to Kotlin's `CoroutineScope`
+
+These are not aspirational comparisons — they are specific design decisions that were made with these influences in mind.
 
 ---
 
@@ -162,7 +181,7 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 
 - ~~**Compiler type awareness (Bug 1)**~~ — Fixed. `analyzeFile` now accepts an optional `ts.TypeChecker`. When provided, `containsSignalRead` checks whether the callee of each no-arg call has a `Signal<T>`/`Computed<T>` type (callable + `.peek()`) before marking it as a wrap candidate. Falls back to the old syntax heuristic for plain JS or when the file isn't in the program. The Vite plugin creates a lazily-initialized `ts.Program` via `createProjectProgram(root)` and passes it through `CompileOptions.program`.
 - ~~**`inject` → `consume` rename**~~ — Done. `consume(Context)` pairs with `provide(Context, value)`: ancestor provides, descendant consumes.
-- **`use*` router utility functions are not hooks** — `useParams()`, `useQuery()`, `useNavigationStatus()` etc. follow the `use*` naming convention but are plain utility functions with no call-order rules. Docs must never call them "hooks".
+- **`use*` functions are not hooks** — `useParams()`, `useQuery()`, `useNavigationStatus()` etc. follow the `use*` naming convention for discoverability but are plain utility functions with no call-order rules. The word "hooks" must never appear in docs, comments, commit messages, or conversation when referring to Stewie's `use*` functions. Say "utility functions" or just "functions". Using "hooks" would mislead React developers into applying mental models and rules (call-order dependency, linter rules, no conditional calls) that do not exist in Stewie.
 - **Actions / mutations API shape** — The design should emerge from real use cases in the canonical Work Queue app before the API is committed. Could extend `@stewie-js/router` / `@stewie-js/server`, or become `@stewie-js/actions`. Key requirements: typed input, pending/error/success state, validation, and a clear story for what data gets invalidated/refreshed after a write.
 - **Data cache / query layer** — `resource()` plus route loaders covers the common case well. Do not rush toward a TanStack-Query-style cache. Revisit only if the canonical app hits concrete ceilings that `resource()` + loaders cannot address. A full cache layer risks making the API surface sprawling.
 - **Auth / session patterns** — Start with canonical patterns in the Work Queue app (where session loading happens, how guards work on SSR vs client navigation, how protected layouts are structured). Extract a package only if a clear reusable primitive emerges from real usage. Auth varies too much across adapters and providers to be a useful first-party package at this stage.
