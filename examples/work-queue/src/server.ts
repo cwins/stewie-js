@@ -51,9 +51,7 @@ if (isProd) {
         res.end();
         return;
       }
-      const html = template
-        .replace('<!--ssr-outlet-->', result.html)
-        .replace('</body>', `  ${result.stateScript}\n  </body>`);
+      const html = template.replace('<!--ssr-outlet-->', result.html).replace('</body>', `  ${result.stateScript}\n  </body>`);
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(html);
     } catch (e) {
@@ -92,9 +90,7 @@ if (isProd) {
             res.end();
             return;
           }
-          const html = template
-            .replace('<!--ssr-outlet-->', result.html)
-            .replace('</body>', `  ${result.stateScript}\n  </body>`);
+          const html = template.replace('<!--ssr-outlet-->', result.html).replace('</body>', `  ${result.stateScript}\n  </body>`);
 
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
           res.end(html);

@@ -3,8 +3,8 @@
 // Fetches all active projects along with task counts for the list view.
 // No URL params — the projects list shows everything.
 
-import { getProjects, getTaskCountsForProject } from '../data/repo.js';
-import type { ProjectTaskCounts } from '../data/repo.js';
+import { getProjects, getTaskCountsForProject } from '../data/mocks/repo.js';
+import type { ProjectTaskCounts } from '../data/mocks/repo.js';
 import type { Project } from '../data/types.js';
 
 export interface ProjectWithCounts extends Project {

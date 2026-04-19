@@ -18,7 +18,6 @@ import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, For, Show } from '@stewie-js/core';
 import { useRouteData, useParams, Link } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
-import { StatusBadge, PriorityBadge } from '../components/lib/Badge.js';
 import { TaskRow } from '../components/TaskRow.js';
 import { EmptyState } from '../components/lib/EmptyState.js';
 import { createTask, updateTask, deleteTask } from '../actions/tasks.js';
@@ -84,18 +83,29 @@ function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSh
     <div class="task-sheet" data-testid="task-sheet">
       <div class="task-sheet-header">
         <h2 class="task-sheet-title">Edit Task</h2>
-        <button class="task-sheet-close" onClick={onClose} aria-label="Close panel">
-          ✕
-        </button>
+        <div class="task-sheet-header-actions">
+          <Link to={`/tasks/${task.id}`} class="btn btn-ghost btn-sm" data-testid="view-task-detail-btn">
+            Full detail →
+          </Link>
+          <button class="task-sheet-close" onClick={onClose} aria-label="Close panel">
+            ✕
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} data-testid="edit-task-form">
         <Show when={() => $error() !== ''}>
-          {() => <p class="form-error" role="alert">{$error()}</p>}
+          {() => (
+            <p class="form-error" role="alert">
+              {$error()}
+            </p>
+          )}
         </Show>
 
         <div class="field-group">
-          <label class="field-label" for="edit-title">Title</label>
+          <label class="field-label" for="edit-title">
+            Title
+          </label>
           <input
             id="edit-title"
             class="field-input"
@@ -107,7 +117,9 @@ function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSh
         </div>
 
         <div class="field-group">
-          <label class="field-label" for="edit-desc">Description</label>
+          <label class="field-label" for="edit-desc">
+            Description
+          </label>
           <textarea
             id="edit-desc"
             class="field-input field-textarea"
@@ -119,7 +131,9 @@ function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSh
 
         <div class="field-row">
           <div class="field-group">
-            <label class="field-label" for="edit-status">Status</label>
+            <label class="field-label" for="edit-status">
+              Status
+            </label>
             <select
               id="edit-status"
               class="field-select"
@@ -134,7 +148,9 @@ function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSh
           </div>
 
           <div class="field-group">
-            <label class="field-label" for="edit-priority">Priority</label>
+            <label class="field-label" for="edit-priority">
+              Priority
+            </label>
             <select
               id="edit-priority"
               class="field-select"
@@ -150,7 +166,9 @@ function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSh
         </div>
 
         <div class="field-group">
-          <label class="field-label" for="edit-due">Due Date</label>
+          <label class="field-label" for="edit-due">
+            Due Date
+          </label>
           <input
             id="edit-due"
             class="field-input"
@@ -162,20 +180,10 @@ function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSh
         </div>
 
         <div class="task-sheet-actions">
-          <button
-            type="submit"
-            class="btn btn-primary"
-            disabled={$saving()}
-            data-testid="edit-task-save"
-          >
+          <button type="submit" class="btn btn-primary" disabled={$saving()} data-testid="edit-task-save">
             {() => ($saving() ? 'Saving…' : 'Save Changes')}
           </button>
-          <button
-            type="button"
-            class="btn btn-destructive"
-            onClick={handleDelete}
-            data-testid="delete-task-btn"
-          >
+          <button type="button" class="btn btn-destructive" onClick={handleDelete} data-testid="delete-task-btn">
             Delete Task
           </button>
         </div>
@@ -225,7 +233,11 @@ function CreateTaskForm({ projectId, onCreated, onCancel }: CreateTaskFormProps)
   return (
     <form class="create-task-form" onSubmit={handleSubmit} data-testid="create-task-form">
       <Show when={() => $error() !== ''}>
-        {() => <p class="form-error" role="alert">{$error()}</p>}
+        {() => (
+          <p class="form-error" role="alert">
+            {$error()}
+          </p>
+        )}
       </Show>
       <div class="field-group">
         <input
@@ -310,140 +322,133 @@ export function ProjectDetailPage(): JSXElement {
 
   return (
     <AppShell>
-    <main class={() => `page project-detail-layout${panelOpen() ? ' project-detail-layout-split' : ''}`} data-testid={`project-detail-${projectId}`}>
-      {/* Task list pane */}
-      <div class="project-pane">
-        <div class="page-header">
-          <div class="page-header-start">
-            <Link to="/projects" class="back-link" data-testid="back-link">
-              ← Projects
-            </Link>
-            <h1 class="page-title" data-testid="project-name">{data.project.name}</h1>
+      <main
+        class={() => `page project-detail-layout${panelOpen() ? ' project-detail-layout-split' : ''}`}
+        data-testid={`project-detail-${projectId}`}
+      >
+        {/* Task list pane */}
+        <div class="project-pane">
+          <div class="page-header">
+            <div class="page-header-start">
+              <Link to="/projects" class="back-link" data-testid="back-link">
+                ← Projects
+              </Link>
+              <h1 class="page-title" data-testid="project-name">
+                {data.project.name}
+              </h1>
+              <Link to={`/projects/${projectId}/edit`} class="btn btn-ghost btn-sm" data-testid="edit-project-btn">
+                Edit
+              </Link>
+            </div>
+            <button
+              class="btn btn-primary"
+              onClick={() => {
+                $selectedTask.set(null);
+                $showCreateForm.set(true);
+              }}
+              data-testid="add-task-btn"
+            >
+              + Add Task
+            </button>
           </div>
-          <button
-            class="btn btn-primary"
-            onClick={() => {
-              $selectedTask.set(null);
-              $showCreateForm.set(true);
-            }}
-            data-testid="add-task-btn"
+
+          {data.project.description ? <p class="project-description">{data.project.description}</p> : null}
+
+          <Show when={() => $showCreateForm()}>
+            {() => <CreateTaskForm projectId={projectId} onCreated={handleCreated} onCancel={() => $showCreateForm.set(false)} />}
+          </Show>
+
+          <Show
+            when={hasTasks}
+            fallback={<EmptyState title="No tasks yet" description="Add your first task to get started." testId="tasks-empty" />}
           >
-            + Add Task
-          </button>
+            {() => (
+              <div class="task-sections">
+                <Show when={() => inProgressTasks().length > 0}>
+                  {() => (
+                    <section aria-labelledby="in-progress-heading">
+                      <h2 class="task-section-title" id="in-progress-heading">
+                        In Progress
+                      </h2>
+                      <div data-testid="tasks-in-progress">
+                        <For each={inProgressTasks} by={(t) => t.id}>
+                          {(getTask) => (
+                            <TaskRow
+                              task={getTask()}
+                              isSelected={() => $selectedTask()?.id === getTask().id}
+                              onSelect={(task) => {
+                                $showCreateForm.set(false);
+                                $selectedTask.set(task);
+                              }}
+                            />
+                          )}
+                        </For>
+                      </div>
+                    </section>
+                  )}
+                </Show>
+
+                <Show when={() => todoTasks().length > 0}>
+                  {() => (
+                    <section aria-labelledby="todo-heading">
+                      <h2 class="task-section-title" id="todo-heading">
+                        To Do
+                      </h2>
+                      <div data-testid="tasks-todo">
+                        <For each={todoTasks} by={(t) => t.id}>
+                          {(getTask) => (
+                            <TaskRow
+                              task={getTask()}
+                              isSelected={() => $selectedTask()?.id === getTask().id}
+                              onSelect={(task) => {
+                                $showCreateForm.set(false);
+                                $selectedTask.set(task);
+                              }}
+                            />
+                          )}
+                        </For>
+                      </div>
+                    </section>
+                  )}
+                </Show>
+
+                <Show when={() => doneTasks().length > 0}>
+                  {() => (
+                    <section aria-labelledby="done-heading">
+                      <h2 class="task-section-title" id="done-heading">
+                        Done
+                      </h2>
+                      <div data-testid="tasks-done">
+                        <For each={doneTasks} by={(t) => t.id}>
+                          {(getTask) => (
+                            <TaskRow
+                              task={getTask()}
+                              isSelected={() => $selectedTask()?.id === getTask().id}
+                              onSelect={(task) => {
+                                $showCreateForm.set(false);
+                                $selectedTask.set(task);
+                              }}
+                            />
+                          )}
+                        </For>
+                      </div>
+                    </section>
+                  )}
+                </Show>
+              </div>
+            )}
+          </Show>
         </div>
 
-        {data.project.description ? (
-          <p class="project-description">{data.project.description}</p>
-        ) : null}
-
-        <Show when={() => $showCreateForm()}>
-          {() => (
-            <CreateTaskForm
-              projectId={projectId}
-              onCreated={handleCreated}
-              onCancel={() => $showCreateForm.set(false)}
-            />
-          )}
+        {/* Task edit sheet — side panel */}
+        <Show when={() => $selectedTask() !== null}>
+          {() => {
+            const task = $selectedTask();
+            if (!task) return null;
+            return <TaskEditSheet task={task} onClose={closeSheet} onDeleted={handleDeleted} onStatusChanged={handleStatusChanged} />;
+          }}
         </Show>
-
-        <Show
-          when={hasTasks}
-          fallback={
-            <EmptyState
-              title="No tasks yet"
-              description="Add your first task to get started."
-              testId="tasks-empty"
-            />
-          }
-        >
-          {() => (
-            <div class="task-sections">
-              <Show when={() => inProgressTasks().length > 0}>
-                {() => (
-                  <section aria-labelledby="in-progress-heading">
-                    <h2 class="task-section-title" id="in-progress-heading">In Progress</h2>
-                    <div data-testid="tasks-in-progress">
-                      <For each={inProgressTasks} by={(t) => t.id}>
-                        {(getTask) => (
-                          <TaskRow
-                            task={getTask()}
-                            isSelected={() => $selectedTask()?.id === getTask().id}
-                            onSelect={(task) => {
-                              $showCreateForm.set(false);
-                              $selectedTask.set(task);
-                            }}
-                          />
-                        )}
-                      </For>
-                    </div>
-                  </section>
-                )}
-              </Show>
-
-              <Show when={() => todoTasks().length > 0}>
-                {() => (
-                  <section aria-labelledby="todo-heading">
-                    <h2 class="task-section-title" id="todo-heading">To Do</h2>
-                    <div data-testid="tasks-todo">
-                      <For each={todoTasks} by={(t) => t.id}>
-                        {(getTask) => (
-                          <TaskRow
-                            task={getTask()}
-                            isSelected={() => $selectedTask()?.id === getTask().id}
-                            onSelect={(task) => {
-                              $showCreateForm.set(false);
-                              $selectedTask.set(task);
-                            }}
-                          />
-                        )}
-                      </For>
-                    </div>
-                  </section>
-                )}
-              </Show>
-
-              <Show when={() => doneTasks().length > 0}>
-                {() => (
-                  <section aria-labelledby="done-heading">
-                    <h2 class="task-section-title" id="done-heading">Done</h2>
-                    <div data-testid="tasks-done">
-                      <For each={doneTasks} by={(t) => t.id}>
-                        {(getTask) => (
-                          <TaskRow
-                            task={getTask()}
-                            isSelected={() => $selectedTask()?.id === getTask().id}
-                            onSelect={(task) => {
-                              $showCreateForm.set(false);
-                              $selectedTask.set(task);
-                            }}
-                          />
-                        )}
-                      </For>
-                    </div>
-                  </section>
-                )}
-              </Show>
-            </div>
-          )}
-        </Show>
-      </div>
-
-      {/* Task edit sheet — side panel */}
-      <Show when={() => $selectedTask() !== null}>
-        {() => {
-          const task = $selectedTask();
-          if (!task) return null;
-          return (
-            <TaskEditSheet
-              task={task}
-              onClose={closeSheet}
-              onDeleted={handleDeleted}
-              onStatusChanged={handleStatusChanged}
-            />
-          );
-        }}
-      </Show>
-    </main>
+      </main>
     </AppShell>
   );
 }

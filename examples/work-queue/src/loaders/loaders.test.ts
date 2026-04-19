@@ -4,10 +4,12 @@
 // Reset the repo before each test so loader results are deterministic.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { _resetToSeed } from '../data/repo.js';
+import { _resetToSeed } from '../data/mocks/repo.js';
 import { dashboardLoader } from './dashboard.js';
 import { projectsLoader } from './projects.js';
 import { projectDetailLoader } from './project-detail.js';
+import { projectEditLoader } from './project-edit.js';
+import { taskDetailLoader } from './task-detail.js';
 
 beforeEach(() => {
   _resetToSeed();
@@ -55,5 +57,29 @@ describe('projectDetailLoader', () => {
 
   it('throws for unknown project', async () => {
     await expect(projectDetailLoader({ projectId: 'no_such_project' })).rejects.toThrow();
+  });
+});
+
+describe('projectEditLoader', () => {
+  it('loads the project for editing', async () => {
+    const data = await projectEditLoader({ projectId: 'proj_1' });
+    expect(data.project.id).toBe('proj_1');
+    expect(data.project.name).toBe('Platform Migration');
+  });
+
+  it('throws for unknown project', async () => {
+    await expect(projectEditLoader({ projectId: 'no_such_project' })).rejects.toThrow();
+  });
+});
+
+describe('taskDetailLoader', () => {
+  it('loads the task and its parent project', async () => {
+    const data = await taskDetailLoader({ taskId: 'task_1' });
+    expect(data.task.id).toBe('task_1');
+    expect(data.project.id).toBe('proj_1');
+  });
+
+  it('throws for unknown task', async () => {
+    await expect(taskDetailLoader({ taskId: 'no_such_task' })).rejects.toThrow();
   });
 });

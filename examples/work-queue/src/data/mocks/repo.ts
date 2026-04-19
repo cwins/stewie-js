@@ -11,7 +11,7 @@
 // is version-sensitive.
 
 import { seedProjects, seedTasks } from './seed.js';
-import type { Project, Task, ProjectStatus, TaskStatus, TaskPriority } from './types.js';
+import type { Project, Task, ProjectStatus, TaskPriority } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Internal storage — module-level, shared across requests
@@ -32,11 +32,7 @@ export function getProject(id: string): Project | undefined {
   return projects.find((p) => p.id === id);
 }
 
-export function createProject(data: {
-  name: string;
-  description: string;
-  color: string;
-}): Project {
+export function createProject(data: { name: string; description: string; color: string }): Project {
   const project: Project = {
     id: `proj_${Date.now()}`,
     status: 'active',
@@ -82,10 +78,7 @@ export function createTask(data: {
   return task;
 }
 
-export function updateTask(
-  id: string,
-  updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate'>>
-): Task {
+export function updateTask(id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate'>>): Task {
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx === -1) throw new Error(`Task ${id} not found`);
   tasks[idx] = { ...tasks[idx], ...updates };

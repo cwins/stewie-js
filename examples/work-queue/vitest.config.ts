@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-    reporter: ['agent']
+    exclude: ['src/**/*.browser.test.ts'],
+    reporters: ['agent']
   }
 });

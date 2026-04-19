@@ -8,11 +8,7 @@
 // state optimistically without navigating, since the server state and client
 // state are in sync for the current render.
 
-import {
-  createTask as repoCreateTask,
-  updateTask as repoUpdateTask,
-  deleteTask as repoDeleteTask
-} from '../data/repo.js';
+import { createTask as repoCreateTask, updateTask as repoUpdateTask, deleteTask as repoDeleteTask } from '../data/mocks/repo.js';
 import type { Task, TaskStatus, TaskPriority } from '../data/types.js';
 
 export interface CreateTaskInput {

@@ -22,9 +22,16 @@ import { DashboardPage } from './pages/DashboardPage.js';
 import { ProjectsPage } from './pages/ProjectsPage.js';
 import { ProjectDetailPage } from './pages/ProjectDetailPage.js';
 import { NewProjectPage } from './pages/NewProjectPage.js';
+import { EditProjectPage } from './pages/EditProjectPage.js';
+import { TaskDetailPage } from './pages/TaskDetailPage.js';
+import { LoginPage } from './pages/LoginPage.js';
+import { AdminPage } from './pages/AdminPage.js';
 import { dashboardLoader } from './loaders/dashboard.js';
 import { projectsLoader } from './loaders/projects.js';
 import { projectDetailLoader } from './loaders/project-detail.js';
+import { projectEditLoader } from './loaders/project-edit.js';
+import { taskDetailLoader } from './loaders/task-detail.js';
+import { requireAuth } from './data/mocks/auth.js';
 import './styles.css';
 
 // ---------------------------------------------------------------------------
@@ -40,7 +47,11 @@ const routeElements = [
   <Route path="/" component={DashboardPage} load={dashboardLoader} />,
   <Route path="/projects" component={ProjectsPage} load={projectsLoader} />,
   <Route path="/projects/new" component={NewProjectPage} />,
-  <Route path="/projects/:projectId" component={ProjectDetailPage} load={projectDetailLoader} />
+  <Route path="/projects/:projectId/edit" component={EditProjectPage} load={projectEditLoader} />,
+  <Route path="/projects/:projectId" component={ProjectDetailPage} load={projectDetailLoader} />,
+  <Route path="/tasks/:taskId" component={TaskDetailPage} load={taskDetailLoader} />,
+  <Route path="/login" component={LoginPage} />,
+  <Route path="/admin" component={AdminPage} beforeEnter={requireAuth} />
 ];
 
 // ---------------------------------------------------------------------------
@@ -49,9 +60,20 @@ const routeElements = [
 
 // App — the Router is the root. NavBar and layout chrome live inside each
 // page component (via AppShell) so they have access to the RouterContext.
-export function App({ initialUrl, router: ssrRouter }: { initialUrl?: string; router?: Awaited<ReturnType<typeof createSsrRouter>> } = {}): JSXElement {
+export function App({
+  initialUrl,
+  router: ssrRouter
+}: { initialUrl?: string; router?: Awaited<ReturnType<typeof createSsrRouter>> } = {}): JSXElement {
   return (
-    <Router initialUrl={initialUrl} router={ssrRouter} fallback={<div class="nav-loading" aria-live="polite">Loading…</div>}>
+    <Router
+      initialUrl={initialUrl}
+      router={ssrRouter}
+      fallback={
+        <div class="nav-loading" aria-live="polite">
+          Loading…
+        </div>
+      }
+    >
       {routeElements}
     </Router>
   );

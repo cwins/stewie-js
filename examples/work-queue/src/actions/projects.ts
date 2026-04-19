@@ -8,7 +8,7 @@
 // This is the canonical "navigate-to-refresh" mutation pattern: no cache
 // invalidation needed because navigation re-executes the loader.
 
-import { createProject as repoCreateProject, updateProject as repoUpdateProject } from '../data/repo.js';
+import { createProject as repoCreateProject, updateProject as repoUpdateProject } from '../data/mocks/repo.js';
 import type { Project } from '../data/types.js';
 
 export interface CreateProjectInput {
@@ -20,6 +20,21 @@ export interface CreateProjectInput {
 export function createProject(input: CreateProjectInput): Project {
   if (!input.name.trim()) throw new Error('Project name is required');
   return repoCreateProject({
+    name: input.name.trim(),
+    description: input.description.trim(),
+    color: input.color
+  });
+}
+
+export interface UpdateProjectInput {
+  name: string;
+  description: string;
+  color: string;
+}
+
+export function updateProject(id: string, input: UpdateProjectInput): Project {
+  if (!input.name.trim()) throw new Error('Project name is required');
+  return repoUpdateProject(id, {
     name: input.name.trim(),
     description: input.description.trim(),
     color: input.color

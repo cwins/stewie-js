@@ -17,9 +17,7 @@ export function AppShell({ children }: AppShellProps): JSXElement {
   return (
     <div class="app-shell">
       <NavBar />
-      <div class="app-content">
-        {children}
-      </div>
+      <div class="app-content">{children}</div>
     </div>
   );
 }

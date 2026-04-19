@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderApp } from './app.js';
-import { _resetToSeed } from './data/repo.js';
+import { _resetToSeed } from './data/mocks/repo.js';
 
 beforeEach(() => {
   _resetToSeed();
@@ -99,5 +99,62 @@ describe('SSR — new project page (/projects/new)', () => {
     expect(html).toContain('data-testid="new-project-form"');
     expect(html).toContain('data-testid="project-name-input"');
     expect(html).toContain('data-testid="create-project-submit"');
+  });
+});
+
+describe('SSR — edit project page (/projects/:projectId/edit)', () => {
+  it('renders the edit form pre-populated with project data', async () => {
+    const { html } = await renderApp('/projects/proj_1/edit');
+    expect(html).toContain('data-testid="edit-project-page"');
+    expect(html).toContain('data-testid="edit-project-form"');
+    // Input is pre-populated with the existing project name
+    expect(html).toContain('Platform Migration');
+  });
+
+  it('renders save and cancel buttons', async () => {
+    const { html } = await renderApp('/projects/proj_1/edit');
+    expect(html).toContain('data-testid="save-project-btn"');
+    expect(html).toContain('href="/projects/proj_1"');
+  });
+
+  it('renders the danger zone for archive', async () => {
+    const { html } = await renderApp('/projects/proj_1/edit');
+    expect(html).toContain('data-testid="danger-zone"');
+    expect(html).toContain('data-testid="archive-btn"');
+  });
+});
+
+describe('SSR — task detail page (/tasks/:taskId)', () => {
+  it('renders the task title and project back-link', async () => {
+    const { html } = await renderApp('/tasks/task_1');
+    expect(html).toContain('data-testid="task-detail-task_1"');
+    expect(html).toContain('Audit existing API surface');
+    expect(html).toContain('href="/projects/proj_1"');
+  });
+
+  it('renders the edit form', async () => {
+    const { html } = await renderApp('/tasks/task_1');
+    expect(html).toContain('data-testid="edit-task-form"');
+    expect(html).toContain('data-testid="task-title-input"');
+    expect(html).toContain('data-testid="task-status-select"');
+  });
+});
+
+describe('SSR — login page (/login)', () => {
+  it('renders the login form', async () => {
+    const { html } = await renderApp('/login');
+    expect(html).toContain('data-testid="login-page"');
+    expect(html).toContain('data-testid="login-form"');
+    expect(html).toContain('data-testid="username-input"');
+    expect(html).toContain('data-testid="login-submit"');
+  });
+});
+
+describe('SSR — admin page (/admin) with auth guard', () => {
+  it('redirects to /login when not authenticated', async () => {
+    // The requireAuth guard returns false for unauthenticated requests.
+    // renderApp catches the RedirectError and returns a redirect result.
+    const result = await renderApp('/admin');
+    expect(result.redirect).toMatch(/^\/login/);
   });
 });

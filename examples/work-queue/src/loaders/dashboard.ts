@@ -7,8 +7,8 @@
 // Loaders receive matched URL params and query as arguments, though the
 // dashboard has no dynamic segments — it receives empty objects.
 
-import { getStats, getProjects } from '../data/repo.js';
-import type { AppStats } from '../data/repo.js';
+import { getStats, getProjects } from '../data/mocks/repo.js';
+import type { AppStats } from '../data/mocks/repo.js';
 import type { Project } from '../data/types.js';
 
 export interface DashboardData {

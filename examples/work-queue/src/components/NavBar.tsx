@@ -16,12 +16,23 @@ export function NavBar(): JSXElement {
       <ul class="navbar-links" role="list">
         <li>
           <span class={() => `navbar-link-wrap${location.pathname === '/' ? ' active' : ''}`}>
-            <Link to="/" class="navbar-link">Dashboard</Link>
+            <Link to="/" class="navbar-link">
+              Dashboard
+            </Link>
           </span>
         </li>
         <li>
           <span class={() => `navbar-link-wrap${location.pathname.startsWith('/projects') ? ' active' : ''}`}>
-            <Link to="/projects" class="navbar-link">Projects</Link>
+            <Link to="/projects" class="navbar-link">
+              Projects
+            </Link>
+          </span>
+        </li>
+        <li>
+          <span class={() => `navbar-link-wrap${location.pathname === '/admin' ? ' active' : ''}`}>
+            <Link to="/admin" class="navbar-link">
+              Admin
+            </Link>
           </span>
         </li>
       </ul>

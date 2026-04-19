@@ -1,5 +1,6 @@
 import { BuildEnvironmentOptions, defineConfig } from 'vite';
 import { stewie } from '@stewie-js/vite';
+import devtoolsJson from 'vite-plugin-devtools-json';
 
 const ssrBuild: BuildEnvironmentOptions = {
   manifest: true,
@@ -40,7 +41,7 @@ const clientBuild: BuildEnvironmentOptions = {
 
 export default defineConfig((configEnv) => {
   return {
-    plugins: [stewie()],
+    plugins: [devtoolsJson(), stewie()],
     build: configEnv.isSsrBuild ? ssrBuild : clientBuild
   };
 });

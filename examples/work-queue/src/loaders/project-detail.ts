@@ -4,7 +4,7 @@
 // The loader receives matched URL params — `params.projectId` is the dynamic
 // segment from the route pattern.
 
-import { getProject, getTasksForProject } from '../data/repo.js';
+import { getProject, getTasksForProject } from '../data/mocks/repo.js';
 import type { Project, Task } from '../data/types.js';
 
 export interface ProjectDetailData {
@@ -12,9 +12,7 @@ export interface ProjectDetailData {
   tasks: Task[];
 }
 
-export async function projectDetailLoader(
-  params: Record<string, string>
-): Promise<ProjectDetailData> {
+export async function projectDetailLoader(params: Record<string, string>): Promise<ProjectDetailData> {
   const project = getProject(params.projectId);
   if (!project) {
     // In a real app, throw a typed NotFoundError that the router or error

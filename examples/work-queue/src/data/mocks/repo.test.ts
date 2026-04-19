@@ -18,7 +18,7 @@ import {
   getTaskCountsForProject,
   _resetToSeed
 } from './repo.js';
-import { seedProjects, seedTasks } from './seed.js';
+import { seedTasks } from './seed.js';
 
 beforeEach(() => {
   _resetToSeed();
