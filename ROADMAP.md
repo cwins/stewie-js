@@ -101,9 +101,27 @@ Things not strictly missing but that would meaningfully improve the project.
 
 ### Actions / Mutations
 
-Route loaders cover the read side. The write side — a blessed way to express mutations, pending/error/success state, validation, and cache invalidation after a write — is still missing. This is a genuine gap: without it every team builds their own ad hoc pattern.
+Route loaders cover the read side. The write side — a blessed way to express mutations with pending/error state and safe reuse across components — is still missing. Without it every team builds their own ad hoc pattern. A prototype wrapper (`action(fn)` returning `{ pending, error, run }`) was built during Work Queue but is unshipped pending resolution of the open questions below.
 
-This could live as an extension of `@stewie-js/router` / `@stewie-js/server` or as `@stewie-js/actions`. The design should be settled during the canonical Work Queue app, where real mutation use cases will surface the right shape before the API is committed.
+**Settled so far:**
+
+- The primitive's job is to encapsulate the `$pending` + `$error` + `try/catch/finally` pattern that repeats at every mutation call site. It does not add new capability over plain signals — its value is ergonomic consistency.
+- `pending` is strictly bounded by the mutation itself, never extending through caller-side work like navigation or store updates. This preserves a precise semantic contract.
+- The framework does not interpret the result. Success vs. failure is observable via `error()` (empty = success). The `run()` return value is whatever the mutation produced, or `undefined` when it threw. The framework doesn't and shouldn't care what the result is or how it came to be.
+- Post-mutation work (navigation, optimistic rollback, cross-store updates, toasts) lives in caller code after `await run()`, not in lifecycle callbacks on the primitive. One path for success handling, not two.
+- Per-row / per-instance pending state is achieved by having each component create its own instance — natural under Stewie's component scoping via `For`.
+
+**Open design questions:**
+
+1. **Definition vs. instance split (non-negotiable for reuse).** A flat `action(fn)` is unsafe at module scope because it creates reactive signals outside a component — violating the module-scope rule for reactive primitives. Shared, reusable actions require splitting into a module-scope `defineAction(fn)` (no signals created) plus a component-scope `.use()` (signals owned by the caller's scope). The prototype currently lacks this split and would footgun the first time a user tried to share an action across components.
+
+2. **Naming.** "Action" is overloaded prior art — MobX (state mutators), Redux (event objects), Remix (route-bound handlers). None match our meaning. Candidates include `defineAction`/`useAction` (accept the term but bind it to our specific shape via the API), `asyncState`/`trackAsync` (neutral about the term), or `mutation` (claims the term but narrower).
+
+3. **Relationship to form primitives.** The majority of real mutation sites are form submissions, which want submit-level pending/error *plus* field-level state (dirty, touched, validation). There are two plausible shapes: (a) ship the action primitive standalone and have forms compose it internally, or (b) fold submit-level tracking into `createForm()` and keep actions for non-form cases only. The Work Queue retrofit sites don't yet differentiate these.
+
+4. **Client-side action routes (future, not blocking).** A possible ergonomic layer: actions referenced by stable path-shaped identifiers (e.g. `defineAction('/project/:id/edit', ...)`) with a runtime context registry doing the dispatch. This keeps shared actions discoverable without import-chain coupling, without requiring the compiler (the compiler must remain optional). Not a server/RPC concept — the URL is type-indexed identity, not a network endpoint. The client primitive should be designed so this layer can sit on top later without redesign.
+
+5. **Current prototype status.** The flat `action()` exists at `packages/core/src/action.ts` with tests but is **not exported** from `@stewie-js/core`. The Work Queue retrofits that exercised it have been reverted. The file is kept in git to preserve the settled semantics (semantic contract, concurrent-call handling, error-coercion behavior) and the 13 tests that validate them — a future redesign can reuse what still holds without re-deriving it. Do not export from the core barrel until the questions above are resolved.
 
 ### Decision-Oriented Docs
 
@@ -161,6 +179,26 @@ This is an enhancement to `@stewie-js/vite` (build time) and `@stewie-js/server`
 
 **Why this is architecturally different:** Because `lazy()` is a first-class framework primitive and `renderToStream` already has a per-boundary flush hook, the ssr-manifest is a natural bridge between Vite's build-time output and the render-time boundary ordering. Libraries participate by importing CSS normally — they do not wrap the renderer.
 
+### Diagnostics — dev-mode and build-time
+
+A coordinated set of checks that catch common mistakes with actionable messages. Compiler diagnostics flag issues statically during build/HMR; dev-runtime warnings catch what requires type info or execution context. Each diagnostic has a stable code (e.g. `STW001`), a one-line message, a docs link with the fix, and can be silenced individually.
+
+**Discovery phase** — enumerate likely failure modes before implementing. Seeds:
+
+- Signal referenced but not called in JSX (`label={name}` when `name: Signal<string>` — should be `{name()}`)
+- Signal passed where a value is expected (function arg, object literal) outside a reactive context
+- `signal()` / `computed()` / `store()` / `effect()` created at module scope
+- `signal()` created inside an `effect()` body (leaks on every run)
+- `onCleanup()` called outside a reactive scope
+- `$prop` two-way binding targeting a non-signal
+- `consume(Context)` with no ancestor `provide()` (runtime, dev-only)
+- Route `load` / `beforeEnter` returning a signal instead of a value
+- `resource()` fetcher that ignores its `AbortSignal`
+- Hydration mismatch causes beyond text diff (attribute-level, structural)
+- Reading a signal inside `untrack()` with no surrounding scope
+
+**Deliverables:** compiler rule set, dev-runtime warning set, docs page mapping each code to a fix, per-code silencing mechanism.
+
 ### Infrastructure
 
 - **`@stewie-js/webpack`** — Webpack 5 plugin wrapping the compiler
@@ -199,10 +237,11 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 15. ~~**Compiler Bug 1**~~ — done (type-aware auto-wrap via ts.TypeChecker, heuristic fallback for plain JS)
 16. ~~**Browser tests — ssr-and-routing example**~~ — done; 11 Playwright tests run against prod build via `test:browser`; scaffold browser test story deferred pending CI solution
 17. **Canonical reference app (Work Queue) — Phase 1** — SSR app shell, route table, local data repo, dashboard + projects list; also the design testbed for actions/mutations and head/metadata patterns
-18. **Documentation site + decision-oriented guides** — API reference plus "the Stewie way" guides (signal vs store vs resource, route load vs resource, mutation patterns, etc.)
-19. **Form primitives** — `createForm()` with per-field signals, dirty/touched/valid/submitting state, field arrays, sync and async validation, server error integration
-20. **Actions / mutations** — design to emerge from Work Queue; blessed write-side counterpart to route loaders
-21. **Head / metadata + progressive asset streaming** — `useTitle`/`useMeta`/`<Head>` as signal-driven core primitives; Vite plugin component-to-assets manifest; per-boundary CSS emission in `renderToStream`; hydration gating on CSS + JS load
-22. Edge-first testing phases 2–4
-23. Cloudflare adapter
-24. Typed route params and query
+18. **Diagnostics — dev-mode and build-time** — compiler + dev-runtime checks for common mistakes (signal not called in JSX, module-scope reactive primitives, `$prop` on non-signal, missing context provider, etc.); stable codes, docs page, per-code silencing
+19. **Documentation site + decision-oriented guides** — API reference plus "the Stewie way" guides (signal vs store vs resource, route load vs resource, mutation patterns, etc.)
+20. **Form primitives** — `createForm()` with per-field signals, dirty/touched/valid/submitting state, field arrays, sync and async validation, server error integration
+21. **Actions / mutations** — design to emerge from Work Queue; blessed write-side counterpart to route loaders
+22. **Head / metadata + progressive asset streaming** — `useTitle`/`useMeta`/`<Head>` as signal-driven core primitives; Vite plugin component-to-assets manifest; per-boundary CSS emission in `renderToStream`; hydration gating on CSS + JS load
+23. Edge-first testing phases 2–4
+24. Cloudflare adapter
+25. Typed route params and query
