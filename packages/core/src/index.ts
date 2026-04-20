@@ -55,6 +55,10 @@ export type { _LazyBoundaryProps } from './lazy.js';
 export type { Resource } from './resource.js';
 export { resource } from './resource.js';
 
+// NOTE: ./action.ts is an unshipped prototype (@stewie-js/core does not export it).
+// The shape is under active design — see ROADMAP.md "Actions / Mutations". Do not
+// export from here until the definition-vs-instance split and naming are settled.
+
 // Built-in control flow components
 export type {
   ShowProps,
