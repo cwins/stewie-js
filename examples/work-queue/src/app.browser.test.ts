@@ -162,8 +162,8 @@ describe('Create project', () => {
 
   it('does not submit with empty name', async () => {
     await page.goto(`${BROWSER_TEST_URL}/projects/new`);
-    await page.getByTestId('create-project-submit').click();
-    // Should still be on the new project form (not navigated away)
+    // With an empty name, the submit button is disabled — form validity guards submission.
     await visible('new-project-form');
+    expect(await page.getByTestId('create-project-submit').isDisabled()).toBe(true);
   });
 });

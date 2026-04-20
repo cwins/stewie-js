@@ -32,10 +32,10 @@ interface TaskEditSheetProps {
   task: Task;
   onClose: () => void;
   onDeleted: (taskId: string) => void;
-  onStatusChanged: (taskId: string, status: TaskStatus) => void;
+  onUpdated: (task: Task) => void;
 }
 
-function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSheetProps): JSXElement {
+function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetProps): JSXElement {
   // Local form state — signal() for each field
   const $title = signal(task.title);
   const $description = signal(task.description);
@@ -61,10 +61,7 @@ function TaskEditSheet({ task, onClose, onDeleted, onStatusChanged }: TaskEditSh
         priority: $priority(),
         dueDate: $dueDate() || null
       });
-      // If status changed, let the parent know so the list updates reactively
-      if (updated.status !== task.status) {
-        onStatusChanged(task.id, updated.status);
-      }
+      onUpdated(updated);
       onClose();
     } catch (err) {
       $error.set(err instanceof Error ? err.message : 'Save failed');
@@ -307,9 +304,9 @@ export function ProjectDetailPage(): JSXElement {
     $tasks.set($tasks().filter((t) => t.id !== taskId));
   };
 
-  // Optimistic status change — update the task in the local signal
-  const handleStatusChanged = (taskId: string, status: TaskStatus) => {
-    $tasks.set($tasks().map((t) => (t.id === taskId ? { ...t, status } : t)));
+  // Optimistic update — replace the task in the local signal with the updated version
+  const handleUpdated = (updated: Task) => {
+    $tasks.set($tasks().map((t) => (t.id === updated.id ? updated : t)));
   };
 
   // Optimistic create — add to local signal, no navigation needed
@@ -374,7 +371,7 @@ export function ProjectDetailPage(): JSXElement {
                         <For each={inProgressTasks} by={(t) => t.id}>
                           {(getTask) => (
                             <TaskRow
-                              task={getTask()}
+                              task={getTask}
                               isSelected={() => $selectedTask()?.id === getTask().id}
                               onSelect={(task) => {
                                 $showCreateForm.set(false);
@@ -398,7 +395,7 @@ export function ProjectDetailPage(): JSXElement {
                         <For each={todoTasks} by={(t) => t.id}>
                           {(getTask) => (
                             <TaskRow
-                              task={getTask()}
+                              task={getTask}
                               isSelected={() => $selectedTask()?.id === getTask().id}
                               onSelect={(task) => {
                                 $showCreateForm.set(false);
@@ -422,7 +419,7 @@ export function ProjectDetailPage(): JSXElement {
                         <For each={doneTasks} by={(t) => t.id}>
                           {(getTask) => (
                             <TaskRow
-                              task={getTask()}
+                              task={getTask}
                               isSelected={() => $selectedTask()?.id === getTask().id}
                               onSelect={(task) => {
                                 $showCreateForm.set(false);
@@ -445,7 +442,7 @@ export function ProjectDetailPage(): JSXElement {
           {() => {
             const task = $selectedTask();
             if (!task) return null;
-            return <TaskEditSheet task={task} onClose={closeSheet} onDeleted={handleDeleted} onStatusChanged={handleStatusChanged} />;
+            return <TaskEditSheet task={task} onClose={closeSheet} onDeleted={handleDeleted} onUpdated={handleUpdated} />;
           }}
         </Show>
       </main>

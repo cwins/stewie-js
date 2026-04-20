@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.browser.test.ts'],
     globalSetup: ['src/browser-setup.ts'],
-    testTimeout: 20_000,
-    reporters: ['hanging-process', 'tree']
+    testTimeout: 10_000,
+    reporters: ['hanging-process', 'tree', 'agent']
   }
 });

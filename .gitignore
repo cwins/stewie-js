@@ -16,6 +16,8 @@ skills-lock.json
 
 .codex/
 
+.claude/agent-memory/
+
 .playwright/
 .playwright-cli/
 

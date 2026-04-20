@@ -13,11 +13,19 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 interface StatusBadgeProps {
-  status: TaskStatus;
+  // Accepts a plain value or an accessor so parents can pass reactive task
+  // fields (e.g. `() => task().status`) without the badge going stale on
+  // inline edits.
+  status: TaskStatus | (() => TaskStatus);
+}
+
+function resolve<T>(v: T | (() => T)): () => T {
+  return typeof v === 'function' ? (v as () => T) : () => v;
 }
 
 export function StatusBadge({ status }: StatusBadgeProps): JSXElement {
-  return <span class={`badge badge-status badge-status-${status}`}>{STATUS_LABELS[status]}</span>;
+  const get = resolve(status);
+  return <span class={() => `badge badge-status badge-status-${get()}`}>{() => STATUS_LABELS[get()]}</span>;
 }
 
 // ---------------------------------------------------------------------------
@@ -31,9 +39,10 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
 };
 
 interface PriorityBadgeProps {
-  priority: TaskPriority;
+  priority: TaskPriority | (() => TaskPriority);
 }
 
 export function PriorityBadge({ priority }: PriorityBadgeProps): JSXElement {
-  return <span class={`badge badge-priority badge-priority-${priority}`}>{PRIORITY_LABELS[priority]}</span>;
+  const get = resolve(priority);
+  return <span class={() => `badge badge-priority badge-priority-${get()}`}>{() => PRIORITY_LABELS[get()]}</span>;
 }
