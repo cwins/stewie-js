@@ -1,15 +1,14 @@
 // types.ts — shared types for @stewie-js/compiler
 
 import type ts from 'typescript';
+import type { Diagnostic, DiagnosticSeverity } from '@stewie-js/core';
 
-export type DiagnosticSeverity = 'error' | 'warning';
+export type { DiagnosticSeverity };
 
-export interface CompilerDiagnostic {
-  severity: DiagnosticSeverity;
-  message: string;
-  line: number; // 1-based
-  column: number; // 1-based
-  source?: string; // source snippet
+// Compiler-side extension of the shared Diagnostic shape. Adds `source` for
+// the source snippet that triggered the diagnostic.
+export interface CompilerDiagnostic extends Diagnostic {
+  source?: string;
 }
 
 export interface CompileOptions {

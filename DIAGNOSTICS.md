@@ -476,6 +476,16 @@ Two-way binding maps known attribute/event pairs (`value`/`input`, `checked`/`ch
 
 **Message:** `'$ {attr}' is not a recognized two-way binding. Known pairs: $value (input/textarea), $checked (checkbox/radio). For custom two-way data flow, read the signal and write in an event handler explicitly.`
 
+### STW094 — `$prop` binding on a `readonly` element
+**Detection:** compiler-static · **Severity:** warn
+
+**Message:** `$${prop} on readonly element will be downgraded to one-way binding.`
+
+### STW095 — `$prop` binding on a `disabled` element
+**Detection:** compiler-static · **Severity:** warn
+
+**Message:** `$${prop} on disabled element will be downgraded to one-way binding.`
+
 ---
 
 ## Testing
@@ -533,6 +543,8 @@ Cheap wins. Most of these already exist as informal runtime warnings; phase 1 fo
 | STW073 | `<Link to>` is an external URL | compiler-static | dev-runtime (check at navigation time) |
 | STW083 | `window`/`document` at module scope | compiler-static | dev-runtime (SSR import-time throw) |
 | STW092 | Both `$prop` and `prop` specified | compiler-static | n/a (compiler erases one side) |
+| STW094 | `$prop` on a readonly element | compiler-static | n/a |
+| STW095 | `$prop` on a disabled element | compiler-static | n/a |
 
 ### Phase 2 — compiler-type-aware (highest user value)
 

@@ -55,6 +55,10 @@ export type { _LazyBoundaryProps } from './lazy.js';
 export type { Resource } from './resource.js';
 export { resource } from './resource.js';
 
+// Diagnostics (shared shape for compiler + dev-runtime)
+export type { Diagnostic, DiagnosticSeverity } from './diagnostics.js';
+export { diagnosticDocsUrl } from './diagnostics.js';
+
 // NOTE: ./action.ts is an unshipped prototype (@stewie-js/core does not export it).
 // The shape is under active design — see ROADMAP.md "Actions / Mutations". Do not
 // export from here until the definition-vs-instance split and naming are settled.

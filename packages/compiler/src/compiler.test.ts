@@ -51,9 +51,9 @@ function App() {
 `;
     const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false });
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].message).toContain('Conflicting bindings');
+    expect(result.errors[0].code).toBe('STW092');
     expect(result.errors[0].message).toContain('$value');
-    expect(result.errors[0].message).toContain('value');
+    expect(result.errors[0].message).toContain("'value'");
   });
 
   it('$prop + readonly → warning + one-way output (no onInput)', () => {
