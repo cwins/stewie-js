@@ -85,6 +85,25 @@ export interface ModuleScopeBrowserGlobal {
   column: number;
 }
 
+export interface UncalledSignalInJsx {
+  // STW010 for JSX text children, STW011 for attribute values.
+  code: 'STW010' | 'STW011';
+  // For STW011, the attribute/element names.
+  attribute?: string;
+  element?: string;
+  line: number;
+  column: number;
+}
+
+export interface AccessorPropStaticRead {
+  // The destructured/parameter identifier that is a plain accessor.
+  name: string;
+  // e.g. 'task().title' — the offending expression text.
+  expressionText: string;
+  line: number;
+  column: number;
+}
+
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[];
   twoWayBindings: TwoWayBinding[];
@@ -97,6 +116,8 @@ export interface AnalysisResult {
   forByConstantKeys: ForByConstantKey[];
   externalLinkTos: ExternalLinkTo[];
   moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[];
+  uncalledSignalsInJsx: UncalledSignalInJsx[];
+  accessorPropStaticReads: AccessorPropStaticRead[];
 }
 
 const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect']);
@@ -123,6 +144,40 @@ function containsNoArgIdentifierCall(node: ts.Node): boolean {
  */
 function isSignalType(type: ts.Type): boolean {
   return type.getCallSignatures().length > 0 && type.getProperty('peek') !== undefined;
+}
+
+/**
+ * Returns true if `type` is a plain zero-arg accessor (`() => T`) that is
+ * *not* a Stewie signal. These are the "accessor props" Stewie components
+ * accept when the parent wants reactivity without handing over the signal.
+ */
+function isPlainAccessorType(type: ts.Type): boolean {
+  const sigs = type.getCallSignatures();
+  if (sigs.length === 0) return false;
+  if (type.getProperty('peek') !== undefined) return false; // it's a signal
+  // Must be zero-arg to count as an accessor shape.
+  return sigs.some((s) => s.parameters.length === 0);
+}
+
+/**
+ * Walks up from a symbol declaration to decide whether the binding is a
+ * function parameter (possibly inside a destructuring pattern). Used by
+ * STW030 to isolate "the ident refers to a prop the parent passed us."
+ */
+function symbolIsFunctionParameter(symbol: ts.Symbol | undefined): boolean {
+  if (!symbol) return false;
+  const decl = symbol.getDeclarations()?.[0];
+  if (!decl) return false;
+  if (ts.isParameter(decl)) return true;
+  if (ts.isBindingElement(decl)) {
+    let p: ts.Node | undefined = decl.parent;
+    while (p) {
+      if (ts.isParameter(p)) return true;
+      if (ts.isFunctionLike(p)) return false;
+      p = p.parent;
+    }
+  }
+  return false;
 }
 
 /**
@@ -186,6 +241,8 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
   const forByConstantKeys: ForByConstantKey[] = [];
   const externalLinkTos: ExternalLinkTo[] = [];
   const moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[] = [];
+  const uncalledSignalsInJsx: UncalledSignalInJsx[] = [];
+  const accessorPropStaticReads: AccessorPropStaticRead[] = [];
 
   // Stack of currently-active reactive bodies. Pushed when we descend into
   // the function argument of an effect()/computed() call; popped on exit.
@@ -244,6 +301,34 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     }
   }
 
+  // Type-aware helper: walks `expr` looking for any zero-arg call to an
+  // identifier whose symbol is a function parameter and whose type is a plain
+  // accessor (callable, no `.peek`). Returns the first such call or null.
+  // Used by STW030 to flag `prop()` reads in non-reactive JSX positions.
+  function findAccessorPropCall(node: ts.Node): ts.CallExpression | null {
+    if (!checker) return null;
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length === 0) {
+      const type = checker.getTypeAtLocation(node.expression);
+      if (isPlainAccessorType(type)) {
+        const symbol = checker.getSymbolAtLocation(node.expression);
+        if (symbolIsFunctionParameter(symbol)) {
+          return node;
+        }
+      }
+    }
+    let found: ts.CallExpression | null = null;
+    ts.forEachChild(node, (child) => {
+      if (found) return true;
+      const result = findAccessorPropCall(child);
+      if (result) {
+        found = result;
+        return true;
+      }
+      return undefined;
+    });
+    return found;
+  }
+
   function visitJsxChildren(node: ts.JsxElement): void {
     const tagName = node.openingElement.tagName.getText();
     if (!isIntrinsicElement(tagName)) return;
@@ -252,6 +337,30 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
       if (!ts.isJsxExpression(child) || !child.expression) continue;
       const expr = child.expression;
       if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) continue;
+
+      // STW010: bare Signal<T> / Computed<T> identifier as a JSX text child.
+      if (checker && ts.isIdentifier(expr)) {
+        const type = checker.getTypeAtLocation(expr);
+        if (isSignalType(type)) {
+          const pos = getLineAndColumn(expr, sourceFile);
+          uncalledSignalsInJsx.push({ code: 'STW010', line: pos.line, column: pos.column });
+          continue;
+        }
+      }
+
+      // STW030: static read of an accessor prop (e.g. `task().title` where
+      // `task: () => Task` is a component parameter).
+      const accessorCall = findAccessorPropCall(expr);
+      if (accessorCall) {
+        const pos = getLineAndColumn(expr, sourceFile);
+        accessorPropStaticReads.push({
+          name: (accessorCall.expression as ts.Identifier).text,
+          expressionText: expr.getText(sourceFile),
+          line: pos.line,
+          column: pos.column
+        });
+      }
+
       const hasReactiveRead = checker ? containsSignalRead(expr, checker) : containsNoArgIdentifierCall(expr);
       if (!hasReactiveRead) continue;
 
@@ -270,9 +379,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
 
     // STW022 / STW073: component-specific attribute checks
     if (elementName === 'For') {
-      const byAttr = attrs.find(
-        (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'by'
-      );
+      const byAttr = attrs.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'by');
       if (byAttr && byAttr.initializer && ts.isJsxExpression(byAttr.initializer) && byAttr.initializer.expression) {
         const expr = byAttr.initializer.expression;
         if (ts.isArrowFunction(expr)) {
@@ -305,9 +412,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     }
 
     if (elementName === 'Link') {
-      const toAttr = attrs.find(
-        (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'to'
-      );
+      const toAttr = attrs.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'to');
       if (toAttr && toAttr.initializer) {
         let urlText: string | null = null;
         if (ts.isStringLiteral(toAttr.initializer)) {
@@ -408,6 +513,38 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
           line: pos.line,
           column: pos.column
         });
+
+        // STW011: bare Signal<T> / Computed<T> identifier passed as the value
+        // of an attribute on an intrinsic element. Skipped for event handlers
+        // (`on*`) and for component attributes (those may accept signals
+        // intentionally).
+        if (isIntrinsic && !attrName.startsWith('on') && checker && ts.isIdentifier(expr)) {
+          const type = checker.getTypeAtLocation(expr);
+          if (isSignalType(type)) {
+            uncalledSignalsInJsx.push({
+              code: 'STW011',
+              element: elementName,
+              attribute: attrName,
+              line: pos.line,
+              column: pos.column
+            });
+          }
+        }
+
+        // STW030: accessor-prop call used as a non-reactive attribute value
+        // on an intrinsic element (e.g. `<div class={task().cls}>`). Skipped
+        // for event handlers and for expressions already wrapped in an arrow.
+        if (isIntrinsic && !attrName.startsWith('on') && !isReactive) {
+          const accessorCall = findAccessorPropCall(expr);
+          if (accessorCall) {
+            accessorPropStaticReads.push({
+              name: (accessorCall.expression as ts.Identifier).text,
+              expressionText: expr.getText(sourceFile),
+              line: pos.line,
+              column: pos.column
+            });
+          }
+        }
 
         // Auto-wrap: if this is an intrinsic element, the attribute is not an
         // event handler, the expression is not already a function, but it
@@ -522,6 +659,8 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     peekInReactiveContext,
     forByConstantKeys,
     externalLinkTos,
-    moduleScopeBrowserGlobals
+    moduleScopeBrowserGlobals,
+    uncalledSignalsInJsx,
+    accessorPropStaticReads
   };
 }

@@ -1,7 +1,53 @@
 import { describe, it, expect } from 'vitest';
+import ts from 'typescript';
 import { parseFile } from './parser.js';
 import { analyzeFile } from './analyzer.js';
 import { validateFile } from './validator.js';
+import type { ParsedFile } from './parser.js';
+
+const SIGNAL_DECLS = `
+interface Signal<T> { (): T; peek(): T; set(v: T): void; update(fn: (p: T) => T): void; }
+interface Computed<T> { (): T; peek(): T; }
+`;
+
+function createInMemoryProgram(filename: string, source: string): { program: ts.Program; parsed: ParsedFile } {
+  const sourceFile = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
+  const defaultHost = ts.createCompilerHost({});
+  const host: ts.CompilerHost = {
+    ...defaultHost,
+    getSourceFile(name, target) {
+      if (name === filename) return sourceFile;
+      return defaultHost.getSourceFile(name, target);
+    },
+    fileExists(name) {
+      return name === filename || defaultHost.fileExists(name);
+    },
+    readFile(name) {
+      if (name === filename) return source;
+      return defaultHost.readFile(name);
+    }
+  };
+  const program = ts.createProgram(
+    [filename],
+    {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      jsx: ts.JsxEmit.ReactJSX,
+      jsxImportSource: '@stewie-js/core',
+      strict: true,
+      noEmit: true,
+      skipLibCheck: true
+    },
+    host
+  );
+  return { program, parsed: { sourceFile, source, filename } };
+}
+
+function validateWithChecker(source: string) {
+  const { program, parsed } = createInMemoryProgram('test.tsx', source);
+  const checker = program.getTypeChecker();
+  return validateFile(parsed, analyzeFile(parsed, checker));
+}
 
 describe('validateFile()', () => {
   it('STW001 — module-scope signal()', () => {
@@ -311,6 +357,116 @@ describe('validateFile()', () => {
     const parsed = parseFile(source, 'test.tsx');
     const diagnostics = validateFile(parsed, analyzeFile(parsed));
     expect(diagnostics).toHaveLength(0);
+  });
+
+  it('STW010 — bare Signal identifier as JSX child', () => {
+    const source = `${SIGNAL_DECLS}
+declare const count: Signal<number>;
+function App() { return <span>{count}</span> }
+`;
+    const diagnostics = validateWithChecker(source);
+    const errors = diagnostics.filter((d) => d.code === 'STW010');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].message).toContain('JSX child');
+    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW010');
+  });
+
+  it('STW010 — does not fire for called signal in JSX child', () => {
+    const source = `${SIGNAL_DECLS}
+declare const count: Signal<number>;
+function App() { return <span>{count()}</span> }
+`;
+    const diagnostics = validateWithChecker(source);
+    expect(diagnostics.filter((d) => d.code === 'STW010')).toHaveLength(0);
+  });
+
+  it('STW010 — does not fire for arrow-wrapped signal', () => {
+    const source = `${SIGNAL_DECLS}
+declare const count: Signal<number>;
+function App() { return <span>{() => count()}</span> }
+`;
+    const diagnostics = validateWithChecker(source);
+    expect(diagnostics.filter((d) => d.code === 'STW010')).toHaveLength(0);
+  });
+
+  it('STW011 — bare Signal as attribute value on intrinsic element', () => {
+    const source = `${SIGNAL_DECLS}
+declare const cls: Signal<string>;
+function App() { return <div class={cls} /> }
+`;
+    const diagnostics = validateWithChecker(source);
+    const errors = diagnostics.filter((d) => d.code === 'STW011');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].message).toContain("'class'");
+    expect(errors[0].message).toContain('<div>');
+  });
+
+  it('STW011 — does not fire when signal is called', () => {
+    const source = `${SIGNAL_DECLS}
+declare const cls: Signal<string>;
+function App() { return <div class={cls()} /> }
+`;
+    const diagnostics = validateWithChecker(source);
+    expect(diagnostics.filter((d) => d.code === 'STW011')).toHaveLength(0);
+  });
+
+  it('STW011 — does not fire on event handlers', () => {
+    const source = `${SIGNAL_DECLS}
+declare const handler: Signal<() => void>;
+function App() { return <button onClick={handler} /> }
+`;
+    const diagnostics = validateWithChecker(source);
+    expect(diagnostics.filter((d) => d.code === 'STW011')).toHaveLength(0);
+  });
+
+  it('STW011 — does not fire on component (non-intrinsic) attribute', () => {
+    const source = `${SIGNAL_DECLS}
+declare const cls: Signal<string>;
+declare function MyComp(props: { value: Signal<string> }): any;
+function App() { return <MyComp value={cls} /> }
+`;
+    const diagnostics = validateWithChecker(source);
+    expect(diagnostics.filter((d) => d.code === 'STW011')).toHaveLength(0);
+  });
+
+  it('STW030 — accessor prop called in non-reactive JSX child', () => {
+    const source = `${SIGNAL_DECLS}
+function Row(task: () => { title: string }) { return <div>{task().title}</div> }
+`;
+    const diagnostics = validateWithChecker(source);
+    const warnings = diagnostics.filter((d) => d.code === 'STW030');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].severity).toBe('warning');
+    expect(warnings[0].message).toContain("'task'");
+    expect(warnings[0].message).toContain('accessor');
+  });
+
+  it('STW030 — accessor prop called in non-reactive attribute', () => {
+    const source = `${SIGNAL_DECLS}
+function Row(task: () => { cls: string }) { return <div class={task().cls} /> }
+`;
+    const diagnostics = validateWithChecker(source);
+    const warnings = diagnostics.filter((d) => d.code === 'STW030');
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('STW030 — does not fire when accessor read is arrow-wrapped', () => {
+    const source = `${SIGNAL_DECLS}
+function Row(task: () => { title: string }) { return <div>{() => task().title}</div> }
+`;
+    const diagnostics = validateWithChecker(source);
+    expect(diagnostics.filter((d) => d.code === 'STW030')).toHaveLength(0);
+  });
+
+  it('STW030 — does not fire for non-parameter accessor (module-scope getter)', () => {
+    const source = `${SIGNAL_DECLS}
+declare function getTask(): { title: string };
+function App() { return <div>{getTask().title}</div> }
+`;
+    const diagnostics = validateWithChecker(source);
+    expect(diagnostics.filter((d) => d.code === 'STW030')).toHaveLength(0);
   });
 
   it('correct line number for module-scope reactive calls', () => {

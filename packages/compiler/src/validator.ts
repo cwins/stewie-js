@@ -116,6 +116,41 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
     });
   }
 
+  // STW010 / STW011: Signal referenced but not called in JSX
+  for (const uc of analysis.uncalledSignalsInJsx) {
+    if (uc.code === 'STW010') {
+      diagnostics.push({
+        code: 'STW010',
+        severity: 'error',
+        message: `Signal referenced but not called in JSX child. The function value itself will be rendered, not the signal's current value. Call it: '{sig()}' or wrap as a function child: '{() => sig()}'.`,
+        line: uc.line,
+        column: uc.column,
+        docsUrl: diagnosticDocsUrl('STW010')
+      });
+    } else {
+      diagnostics.push({
+        code: 'STW011',
+        severity: 'error',
+        message: `Signal passed as the value of attribute '${uc.attribute}' on <${uc.element}> instead of its current value. The attribute will be set to the function itself. Call it: '${uc.attribute}={sig()}' (static read) or wrap as '${uc.attribute}={() => sig()}' (reactive).`,
+        line: uc.line,
+        column: uc.column,
+        docsUrl: diagnosticDocsUrl('STW011')
+      });
+    }
+  }
+
+  // STW030: accessor prop field read non-reactively
+  for (const read of analysis.accessorPropStaticReads) {
+    diagnostics.push({
+      code: 'STW030',
+      severity: 'warning',
+      message: `Prop '${read.name}' is an accessor (() => T) but is called in a non-reactive JSX position ('${read.expressionText}'). The rendered value will not update when the parent's signal changes. Wrap as '() => ${read.expressionText}' to make it reactive.`,
+      line: read.line,
+      column: read.column,
+      docsUrl: diagnosticDocsUrl('STW030')
+    });
+  }
+
   for (const conflict of analysis.bindingConflicts) {
     if (conflict.type === 'conflict') {
       // STW092: both $prop and prop specified on the same element
