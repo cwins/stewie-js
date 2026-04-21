@@ -175,6 +175,8 @@ Tests use `--reporter=agent` (not `--reporter=verbose`).
 
 When bumping versions, update all `packages/*/package.json`, `examples/*/package.json`, and `packages/create-stewie/src/templates.ts`. Commit and tag before starting the next batch of changes.
 
+`DIAGNOSTICS.md` at the repo root is the living inventory that drives roadmap item 18 (dev-mode / build-time diagnostics). When you add a primitive, change the semantics of an existing one, or remove something, update the relevant `STW###` entries in the same change — add new footguns, revise proposed messages, or drop entries that no longer apply. It is not user-facing docs; it is the implementation blueprint, and it only stays useful if it tracks the current API surface.
+
 ---
 
 ## Decisions Still Open
