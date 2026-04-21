@@ -59,6 +59,32 @@ export interface NonModuleScopeCreateContext {
   column: number;
 }
 
+export interface PeekInReactiveContext {
+  line: number;
+  column: number;
+  // Stack kind at the point of detection ('effect' or 'computed').
+  scope: 'effect' | 'computed';
+}
+
+export interface ForByConstantKey {
+  line: number;
+  column: number;
+  // The offending expression text (e.g. "() => 'x'", "(_) => _").
+  pattern: string;
+}
+
+export interface ExternalLinkTo {
+  line: number;
+  column: number;
+  url: string;
+}
+
+export interface ModuleScopeBrowserGlobal {
+  name: 'window' | 'document';
+  line: number;
+  column: number;
+}
+
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[];
   twoWayBindings: TwoWayBinding[];
@@ -67,6 +93,10 @@ export interface AnalysisResult {
   autoWrapCandidates: AutoWrapCandidate[];
   nestedReactiveCalls: NestedReactiveCall[];
   nonModuleScopeCreateContext: NonModuleScopeCreateContext[];
+  peekInReactiveContext: PeekInReactiveContext[];
+  forByConstantKeys: ForByConstantKey[];
+  externalLinkTos: ExternalLinkTo[];
+  moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[];
 }
 
 const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect']);
@@ -152,6 +182,10 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
   const autoWrapCandidates: AutoWrapCandidate[] = [];
   const nestedReactiveCalls: NestedReactiveCall[] = [];
   const nonModuleScopeCreateContext: NonModuleScopeCreateContext[] = [];
+  const peekInReactiveContext: PeekInReactiveContext[] = [];
+  const forByConstantKeys: ForByConstantKey[] = [];
+  const externalLinkTos: ExternalLinkTo[] = [];
+  const moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[] = [];
 
   // Stack of currently-active reactive bodies. Pushed when we descend into
   // the function argument of an effect()/computed() call; popped on exit.
@@ -233,6 +267,67 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     const elementName = getJsxElementName(node);
     const isIntrinsic = isIntrinsicElement(elementName);
     const attrs = node.attributes.properties;
+
+    // STW022 / STW073: component-specific attribute checks
+    if (elementName === 'For') {
+      const byAttr = attrs.find(
+        (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'by'
+      );
+      if (byAttr && byAttr.initializer && ts.isJsxExpression(byAttr.initializer) && byAttr.initializer.expression) {
+        const expr = byAttr.initializer.expression;
+        if (ts.isArrowFunction(expr)) {
+          const body = expr.body;
+          // () => 'x' / () => 42 / () => null / () => true — literal return
+          const isLiteralBody =
+            ts.isStringLiteral(body) ||
+            ts.isNumericLiteral(body) ||
+            body.kind === ts.SyntaxKind.TrueKeyword ||
+            body.kind === ts.SyntaxKind.FalseKeyword ||
+            body.kind === ts.SyntaxKind.NullKeyword;
+          // (x) => x — identity returns a param directly
+          let isIdentityBody = false;
+          if (ts.isIdentifier(body) && expr.parameters.length > 0) {
+            const paramNames = expr.parameters
+              .map((p) => (ts.isIdentifier(p.name) ? p.name.text : null))
+              .filter((n): n is string => n !== null);
+            if (paramNames.includes(body.text)) isIdentityBody = true;
+          }
+          if (isLiteralBody || isIdentityBody) {
+            const pos = getLineAndColumn(byAttr, sourceFile);
+            forByConstantKeys.push({
+              line: pos.line,
+              column: pos.column,
+              pattern: expr.getText(sourceFile)
+            });
+          }
+        }
+      }
+    }
+
+    if (elementName === 'Link') {
+      const toAttr = attrs.find(
+        (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === 'to'
+      );
+      if (toAttr && toAttr.initializer) {
+        let urlText: string | null = null;
+        if (ts.isStringLiteral(toAttr.initializer)) {
+          urlText = toAttr.initializer.text;
+        } else if (ts.isJsxExpression(toAttr.initializer) && toAttr.initializer.expression) {
+          const expr = toAttr.initializer.expression;
+          if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
+            urlText = expr.text;
+          }
+        }
+        if (urlText && /^(https?:\/\/|\/\/)/.test(urlText)) {
+          const pos = getLineAndColumn(toAttr, sourceFile);
+          externalLinkTos.push({
+            line: pos.line,
+            column: pos.column,
+            url: urlText
+          });
+        }
+      }
+    }
 
     // Collect all attribute names for conflict detection
     const attrNames = new Map<string, ts.JsxAttribute>();
@@ -359,6 +454,42 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
       }
     }
 
+    // STW014: sig.peek() inside an effect() or computed() body
+    if (
+      ts.isCallExpression(node) &&
+      node.arguments.length === 0 &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.name) &&
+      node.expression.name.text === 'peek' &&
+      reactiveBodyStack.length > 0
+    ) {
+      const pos = getLineAndColumn(node, sourceFile);
+      peekInReactiveContext.push({
+        line: pos.line,
+        column: pos.column,
+        scope: reactiveBodyStack[reactiveBodyStack.length - 1]!
+      });
+    }
+
+    // STW083: window.X / document.X at module scope. Narrowed to
+    // PropertyAccessExpression on window/document (e.g. `window.location`,
+    // `document.title`) to avoid false positives on property keys and
+    // shadowed names. Module-scope check walks up to the first enclosing
+    // function boundary.
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      (node.expression.text === 'window' || node.expression.text === 'document') &&
+      isModuleScopeCall(node)
+    ) {
+      const pos = getLineAndColumn(node.expression, sourceFile);
+      moduleScopeBrowserGlobals.push({
+        name: node.expression.text,
+        line: pos.line,
+        column: pos.column
+      });
+    }
+
     // Push a reactive-body frame when descending into effect(fn) / computed(fn).
     // Only push for inline function arguments — if the callback is an
     // identifier reference, we can't reliably know what's inside, so skip.
@@ -387,6 +518,10 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     bindingConflicts,
     autoWrapCandidates,
     nestedReactiveCalls,
-    nonModuleScopeCreateContext
+    nonModuleScopeCreateContext,
+    peekInReactiveContext,
+    forByConstantKeys,
+    externalLinkTos,
+    moduleScopeBrowserGlobals
   };
 }

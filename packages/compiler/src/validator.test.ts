@@ -170,6 +170,142 @@ describe('validateFile()', () => {
     expect(diagnostics).toHaveLength(0);
   });
 
+  it('STW014 — peek() inside effect() body', () => {
+    const source = `function App() {
+  const s = signal(0)
+  effect(() => { console.log(s.peek()) })
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const warnings = diagnostics.filter((d) => d.severity === 'warning');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].code).toBe('STW014');
+    expect(warnings[0].message).toContain('peek()');
+    expect(warnings[0].message).toContain('effect()');
+  });
+
+  it('STW014 — peek() inside computed() body', () => {
+    const source = `function App() {
+  const s = signal(0)
+  const c = computed(() => s.peek() + 1)
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const warnings = diagnostics.filter((d) => d.code === 'STW014');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain('computed()');
+  });
+
+  it('STW014 — peek() outside reactive context is fine', () => {
+    const source = `function App() {
+  const s = signal(0)
+  const snapshot = s.peek()
+  return snapshot
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics.filter((d) => d.code === 'STW014')).toHaveLength(0);
+  });
+
+  it('STW022 — <For by> returning a string literal', () => {
+    const source = `function App() {
+  return <For each={items} by={() => 'x'}>{() => null}</For>
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const warnings = diagnostics.filter((d) => d.code === 'STW022');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain('unique');
+  });
+
+  it('STW022 — <For by> identity function', () => {
+    const source = `function App() {
+  return <For each={items} by={(x) => x}>{() => null}</For>
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const warnings = diagnostics.filter((d) => d.code === 'STW022');
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('STW022 — <For by={(item) => item.id}> is fine', () => {
+    const source = `function App() {
+  return <For each={items} by={(item) => item.id}>{() => null}</For>
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics.filter((d) => d.code === 'STW022')).toHaveLength(0);
+  });
+
+  it('STW073 — <Link to> absolute https URL', () => {
+    const source = `function App() {
+  return <Link to="https://example.com">Docs</Link>
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const warnings = diagnostics.filter((d) => d.code === 'STW073');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].message).toContain('external');
+  });
+
+  it('STW073 — <Link to> protocol-relative URL', () => {
+    const source = `function App() {
+  return <Link to="//example.com/x">Docs</Link>
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics.filter((d) => d.code === 'STW073')).toHaveLength(1);
+  });
+
+  it('STW073 — <Link to> internal path is fine', () => {
+    const source = `function App() {
+  return <Link to="/projects/42">Project</Link>
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics.filter((d) => d.code === 'STW073')).toHaveLength(0);
+  });
+
+  it('STW083 — window.location at module scope', () => {
+    const source = `const origin = window.location.origin\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const errors = diagnostics.filter((d) => d.code === 'STW083');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toContain('window');
+    expect(errors[0].message).toContain('SSR');
+  });
+
+  it('STW083 — document.title at module scope', () => {
+    const source = `document.title = 'x'\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics.filter((d) => d.code === 'STW083')).toHaveLength(1);
+  });
+
+  it('STW083 — window.X inside a function is fine', () => {
+    const source = `function App() {
+  const x = window.location.origin
+  return x
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics.filter((d) => d.code === 'STW083')).toHaveLength(0);
+  });
+
+  it('STW083 — object literal key named window is fine', () => {
+    const source = `const map = { window: 1 }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics.filter((d) => d.code === 'STW083')).toHaveLength(0);
+  });
+
   it('emits no diagnostics for clean component', () => {
     const source = `function App() { const sig = signal(''); return <input $value={sig} /> }\n`;
     const parsed = parseFile(source, 'test.tsx');

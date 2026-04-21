@@ -68,6 +68,54 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
     });
   }
 
+  // STW014: signal.peek() inside a reactive context
+  for (const peek of analysis.peekInReactiveContext) {
+    diagnostics.push({
+      code: 'STW014',
+      severity: 'warning',
+      message: `peek() called inside a ${peek.scope}() body. peek() reads without subscribing, so the ${peek.scope} will not re-run when the signal changes. Call the signal directly ('sig()') if you want reactivity, or move the peek() out of the reactive context.`,
+      line: peek.line,
+      column: peek.column,
+      docsUrl: diagnosticDocsUrl('STW014')
+    });
+  }
+
+  // STW022: <For by> returns a constant or the identity of its parameter
+  for (const by of analysis.forByConstantKeys) {
+    diagnostics.push({
+      code: 'STW022',
+      severity: 'warning',
+      message: `<For by> key function '${by.pattern}' returns a value that is not per-item unique. Keys must be unique for keyed reconciliation; a constant or identity return will cause items to collapse or re-render incorrectly. Return a unique identifier per item (e.g., 'by={(item) => item.id}').`,
+      line: by.line,
+      column: by.column,
+      docsUrl: diagnosticDocsUrl('STW022')
+    });
+  }
+
+  // STW073: <Link to> looks like an external URL
+  for (const link of analysis.externalLinkTos) {
+    diagnostics.push({
+      code: 'STW073',
+      severity: 'warning',
+      message: `<Link to='${link.url}'> appears to be an external URL. <Link> is for internal client-side navigation only; external links should use a plain <a href='${link.url}' rel='noopener noreferrer'>.`,
+      line: link.line,
+      column: link.column,
+      docsUrl: diagnosticDocsUrl('STW073')
+    });
+  }
+
+  // STW083: window / document accessed at module scope
+  for (const ref of analysis.moduleScopeBrowserGlobals) {
+    diagnostics.push({
+      code: 'STW083',
+      severity: 'error',
+      message: `Browser global '${ref.name}' accessed at module scope. The module will throw on import in SSR / non-browser environments. Move the access inside a component, effect(), or guard with 'typeof ${ref.name} !== "undefined"'.`,
+      line: ref.line,
+      column: ref.column,
+      docsUrl: diagnosticDocsUrl('STW083')
+    });
+  }
+
   for (const conflict of analysis.bindingConflicts) {
     if (conflict.type === 'conflict') {
       // STW092: both $prop and prop specified on the same element
