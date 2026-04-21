@@ -85,6 +85,91 @@ describe('validateFile()', () => {
     expect(warnings[0].message).toContain('one-way binding');
   });
 
+  it('STW040 — signal() inside effect() body', () => {
+    const source = `function App() {
+  effect(() => {
+    const s = signal(0)
+    console.log(s())
+  })
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const errors = diagnostics.filter((d) => d.severity === 'error');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].code).toBe('STW040');
+    expect(errors[0].message).toContain('signal()');
+    expect(errors[0].message).toContain('effect()');
+  });
+
+  it('STW040 — does not fire for signal() outside the effect body', () => {
+    const source = `function App() {
+  const s = signal(0)
+  effect(() => { console.log(s()) })
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics).toHaveLength(0);
+  });
+
+  it('STW042 — effect() inside computed() body', () => {
+    const source = `function App() {
+  const c = computed(() => {
+    effect(() => { console.log('side effect') })
+    return 1
+  })
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const errors = diagnostics.filter((d) => d.severity === 'error');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].code).toBe('STW042');
+    expect(errors[0].message).toContain('computed()');
+  });
+
+  it('STW040 + STW042 — nested effects and computeds track correctly', () => {
+    const source = `function App() {
+  effect(() => {
+    computed(() => {
+      effect(() => {})
+    })
+    const s = signal(0)
+    return s
+  })
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const codes = diagnostics.map((d) => d.code).sort();
+    // Outer effect: signal() inside → STW040
+    // computed() inside effect is not currently flagged (only signal in effect)
+    // Innermost effect() is inside computed → STW042
+    expect(codes).toContain('STW040');
+    expect(codes).toContain('STW042');
+  });
+
+  it('STW052 — createContext() inside a function', () => {
+    const source = `function App() {
+  const Ctx = createContext('light')
+  return Ctx
+}`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const warnings = diagnostics.filter((d) => d.severity === 'warning');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].code).toBe('STW052');
+    expect(warnings[0].message).toContain('module scope');
+  });
+
+  it('STW052 — does not fire for module-scope createContext()', () => {
+    const source = `const Ctx = createContext('light')\nfunction App() { return Ctx }`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics).toHaveLength(0);
+  });
+
   it('emits no diagnostics for clean component', () => {
     const source = `function App() { const sig = signal(''); return <input $value={sig} /> }\n`;
     const parsed = parseFile(source, 'test.tsx');

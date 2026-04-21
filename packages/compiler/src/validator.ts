@@ -39,6 +39,35 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
     });
   }
 
+  // STW040: signal() inside effect() body
+  // STW042: effect() inside computed() body
+  for (const nested of analysis.nestedReactiveCalls) {
+    const message =
+      nested.code === 'STW040'
+        ? `signal() called inside an effect() body. This creates a new signal on every effect run, so the signal's state resets each time and nothing outside the effect can read it. Hoist the signal() call outside the effect.`
+        : `effect() called inside a computed() body. Computeds must be pure; effects created here will not be cleaned up and can loop when the computed re-evaluates. Move the effect to a component body or reactiveScope().`;
+    diagnostics.push({
+      code: nested.code,
+      severity: 'error',
+      message,
+      line: nested.line,
+      column: nested.column,
+      docsUrl: diagnosticDocsUrl(nested.code)
+    });
+  }
+
+  // STW052: createContext() called outside module scope
+  for (const call of analysis.nonModuleScopeCreateContext) {
+    diagnostics.push({
+      code: 'STW052',
+      severity: 'warning',
+      message: `createContext() called outside module scope. Each call creates a new context identity, so provide()/consume() pairs in different renders will never match. Move createContext() to the top level of the module.`,
+      line: call.line,
+      column: call.column,
+      docsUrl: diagnosticDocsUrl('STW052')
+    });
+  }
+
   for (const conflict of analysis.bindingConflicts) {
     if (conflict.type === 'conflict') {
       // STW092: both $prop and prop specified on the same element

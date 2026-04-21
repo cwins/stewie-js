@@ -270,7 +270,9 @@ const doubled = computed(() => {
 **Message:** `effect() created inside a computed(). Computeds must be pure — effects created here will not be cleaned up correctly. Move the effect to a component body or reactiveScope().`
 
 ### STW043 — Writing to a signal inside a `computed()` body
-**Detection:** compiler-static · **Severity:** error
+**Detection:** compiler-type-aware · **Severity:** error
+
+> Promoted from compiler-static: `sig.set(x)` and `map.set(k, v)` are indistinguishable without type info, so the receiver must be verified as a `Signal<T>` via the `ts.TypeChecker`. Lands in phase 2.
 
 ```tsx
 // Bad — side effect inside a pure computation
@@ -283,9 +285,9 @@ const doubled = computed(() => {
 **Message:** `Signal '{name}' written inside a computed() body. Computeds must be pure. Move the write to an event handler, effect(), or an action.`
 
 ### STW044 — Signal read inside `untrack()` with no surrounding reactive context
-**Detection:** compiler-static · **Severity:** warn
+**Detection:** dev-runtime · **Severity:** warn
 
-Using `untrack()` at module scope or outside any reactive scope is almost always a mistake.
+> Moved to dev-runtime: static detection can't tell which functions will run as components at call time. The runtime knows whether the active scope is reactive and can warn precisely.
 
 **Message:** `untrack() used outside a reactive context. untrack() is only meaningful when wrapped by a reactive scope (effect, computed, component). Here it is a no-op.`
 
@@ -537,8 +539,6 @@ Cheap wins. Most of these already exist as informal runtime warnings; phase 1 fo
 | STW022 | `<For by>` returns non-unique keys | compiler-static | dev-runtime (sample keys on render) |
 | STW040 | `signal()` inside `effect()` body | compiler-static | dev-runtime |
 | STW042 | `effect()` inside `computed()` body | compiler-static | dev-runtime |
-| STW043 | Signal write inside `computed()` body | compiler-static | dev-runtime |
-| STW044 | `untrack()` outside a reactive context | compiler-static | dev-runtime |
 | STW052 | `createContext()` inside a component | compiler-static | dev-runtime |
 | STW073 | `<Link to>` is an external URL | compiler-static | dev-runtime (check at navigation time) |
 | STW083 | `window`/`document` at module scope | compiler-static | dev-runtime (SSR import-time throw) |
@@ -560,6 +560,7 @@ Piggybacks on the `ts.Program` already created for auto-wrap. These are where re
 | STW021 | `<For each>` is a non-function | compiler-type-aware | dev-runtime |
 | STW030 | Accessor prop field read non-reactively | compiler-type-aware | n/a |
 | STW031 | Signal passed to plain-value prop | compiler-type-aware | no (signals are recognizable at runtime, but message quality is strictly worse) |
+| STW043 | Signal write inside `computed()` body | compiler-type-aware | dev-runtime |
 | STW032 | Component function returns a function | compiler-type-aware | dev-runtime |
 | STW090 | `$prop` on non-signal target | compiler-type-aware | n/a |
 | STW091 | `$prop` on read-only (computed) target | compiler-type-aware | n/a |
@@ -573,6 +574,7 @@ No static equivalent; these require execution context.
 | STW023 | `<Switch>` with no matching `<Match>` and no default |
 | STW024 | `<Portal to>` target not found |
 | STW041 | `onCleanup()` outside a reactive scope |
+| STW044 | `untrack()` outside a reactive context |
 | STW050 | `consume()` with no ancestor `provide` |
 | STW051 | `consume()` outside a reactive scope |
 | STW072 | `useParams`/`useQuery`/`useRouteData` outside a router |

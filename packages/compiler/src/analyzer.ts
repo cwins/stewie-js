@@ -44,12 +44,29 @@ export interface AutoWrapCandidate {
   expressionText: string;
 }
 
+export interface NestedReactiveCall {
+  // The rule we tripped. STW040 = signal() inside effect() body.
+  // STW042 = effect() inside computed() body.
+  code: 'STW040' | 'STW042';
+  // The inner callee that triggered the rule (e.g. 'signal' for STW040).
+  callee: string;
+  line: number;
+  column: number;
+}
+
+export interface NonModuleScopeCreateContext {
+  line: number;
+  column: number;
+}
+
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[];
   twoWayBindings: TwoWayBinding[];
   moduleScopeReactiveCalls: ModuleScopeCall[];
   bindingConflicts: BindingConflict[];
   autoWrapCandidates: AutoWrapCandidate[];
+  nestedReactiveCalls: NestedReactiveCall[];
+  nonModuleScopeCreateContext: NonModuleScopeCreateContext[];
 }
 
 const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect']);
@@ -133,6 +150,32 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
   const moduleScopeReactiveCalls: ModuleScopeCall[] = [];
   const bindingConflicts: BindingConflict[] = [];
   const autoWrapCandidates: AutoWrapCandidate[] = [];
+  const nestedReactiveCalls: NestedReactiveCall[] = [];
+  const nonModuleScopeCreateContext: NonModuleScopeCreateContext[] = [];
+
+  // Stack of currently-active reactive bodies. Pushed when we descend into
+  // the function argument of an effect()/computed() call; popped on exit.
+  // Used by STW040 (signal() inside effect) and STW042 (effect() inside computed).
+  const reactiveBodyStack: ('effect' | 'computed')[] = [];
+
+  function isModuleScopeCall(node: ts.Node): boolean {
+    let current: ts.Node = node;
+    while (current.parent && current.parent !== sourceFile) {
+      if (
+        ts.isFunctionDeclaration(current.parent) ||
+        ts.isFunctionExpression(current.parent) ||
+        ts.isArrowFunction(current.parent) ||
+        ts.isMethodDeclaration(current.parent) ||
+        ts.isClassDeclaration(current.parent) ||
+        ts.isClassExpression(current.parent) ||
+        ts.isBlock(current.parent)
+      ) {
+        return false;
+      }
+      current = current.parent;
+    }
+    return current.parent === sourceFile;
+  }
 
   function visitModuleScope(node: ts.Node): void {
     // Check for reactive calls at module scope
@@ -297,6 +340,41 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
       visitJsxChildren(node);
     }
 
+    // Nested reactive call detection + createContext placement check.
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      const callee = node.expression.text;
+      const top = reactiveBodyStack[reactiveBodyStack.length - 1];
+
+      if (callee === 'signal' && top === 'effect') {
+        const pos = getLineAndColumn(node, sourceFile);
+        nestedReactiveCalls.push({ code: 'STW040', callee, line: pos.line, column: pos.column });
+      } else if (callee === 'effect' && top === 'computed') {
+        const pos = getLineAndColumn(node, sourceFile);
+        nestedReactiveCalls.push({ code: 'STW042', callee, line: pos.line, column: pos.column });
+      }
+
+      if (callee === 'createContext' && !isModuleScopeCall(node)) {
+        const pos = getLineAndColumn(node, sourceFile);
+        nonModuleScopeCreateContext.push({ line: pos.line, column: pos.column });
+      }
+    }
+
+    // Push a reactive-body frame when descending into effect(fn) / computed(fn).
+    // Only push for inline function arguments — if the callback is an
+    // identifier reference, we can't reliably know what's inside, so skip.
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      const name = node.expression.text;
+      if ((name === 'effect' || name === 'computed') && node.arguments.length >= 1) {
+        const arg = node.arguments[0];
+        if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
+          reactiveBodyStack.push(name);
+          ts.forEachChild(node, visit);
+          reactiveBodyStack.pop();
+          return;
+        }
+      }
+    }
+
     ts.forEachChild(node, visit);
   }
 
@@ -307,6 +385,8 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     twoWayBindings,
     moduleScopeReactiveCalls,
     bindingConflicts,
-    autoWrapCandidates
+    autoWrapCandidates,
+    nestedReactiveCalls,
+    nonModuleScopeCreateContext
   };
 }
