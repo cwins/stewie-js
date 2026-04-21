@@ -9,6 +9,7 @@
   - **compiler-static** — detectable from syntax alone. Runs in `@stewie-js/compiler` without type info. Works in plain JS.
   - **compiler-type-aware** — requires a `ts.TypeChecker` (like the existing auto-wrap logic). Only runs when TS types are available.
   - **dev-runtime** — requires execution context. Runs in dev builds only; stripped in prod.
+  - **Dual detection:** Stewie's compiler is optional — projects using plain JSX via `jsxImportSource` get no compiler diagnostics. Where feasible, a rule should ship in both a compiler path AND a dev-runtime path so the safety net exists either way. Each entry tags `**Dual:** yes | no | n/a` to say whether a secondary path is viable. `n/a` means only one path is technically possible (e.g., hydration mismatches can't be caught statically; `$prop` conflicts can't be caught at runtime because the compiler has already erased one side).
 - **Severity:** `error` stops the build or throws; `warn` logs and continues.
 - Each entry has a single **message** proposal. Messages lead with what went wrong, include the identifier when possible, and suggest the fix.
 
@@ -501,4 +502,84 @@ expect(value).toBeSignal();  // value is a plain number
 - **Compiler vs runtime split** matters for deliverability. Compiler rules can block the build at develop time with great DX. Runtime rules are only active in dev and must not ship in prod — wrap in `if (process.env.NODE_ENV !== 'production')` or equivalent edge guard.
 - **Silencing:** each rule should accept `// stewie-ignore STW030` (line-scoped) and `// stewie-ignore STW030 -- reason` to capture intent.
 - **Docs:** each diagnostic code needs a docs page explaining the rule, the fix, and the rationale. Pattern: URL like `https://stewie.dev/diagnostics/STW030` embedded in the message when docs exist.
-- **Priorities:** start with the ones that caught real bugs already — STW001–004 (module-scope primitives), STW010–011 (uncalled signals in JSX), STW020–021 (non-function `when`/`each`), STW030 (static prop reads of accessors). These cover the majority of real mistakes observed so far.
+
+---
+
+## Phase plan
+
+Each phase is self-contained and ships the relevant cross-cutting infra with it. The `Dual` column names the secondary path when available.
+
+### Cross-cutting infra (lands with phase 1)
+
+- Diagnostic record type: `{ code, severity, message, loc, docsUrl }`
+- `// stewie-ignore STWxxx -- reason` comment directive, line-scoped, understood by both compiler and dev-runtime
+- Fixture-based test harness for compiler diagnostics in `packages/compiler`
+- Dev-runtime logger in `packages/core` guarded by `process.env.NODE_ENV !== 'production'` / edge equivalent, with a single emit path so rules don't each reinvent formatting
+
+### Phase 1 — compiler-static + runtime parity for existing checks
+
+Cheap wins. Most of these already exist as informal runtime warnings; phase 1 formalizes them with stable codes and adds the compiler-static counterpart.
+
+| Code | Rule | Primary | Dual |
+|---|---|---|---|
+| STW001–004 | Module-scope `signal`/`computed`/`store`/`effect` | compiler-static | dev-runtime (already exists informally) |
+| STW014 | `signal.peek()` in a reactive context | compiler-static | no (can't distinguish from intentional peek at runtime) |
+| STW022 | `<For by>` returns non-unique keys | compiler-static | dev-runtime (sample keys on render) |
+| STW040 | `signal()` inside `effect()` body | compiler-static | dev-runtime |
+| STW042 | `effect()` inside `computed()` body | compiler-static | dev-runtime |
+| STW043 | Signal write inside `computed()` body | compiler-static | dev-runtime |
+| STW044 | `untrack()` outside a reactive context | compiler-static | dev-runtime |
+| STW052 | `createContext()` inside a component | compiler-static | dev-runtime |
+| STW073 | `<Link to>` is an external URL | compiler-static | dev-runtime (check at navigation time) |
+| STW083 | `window`/`document` at module scope | compiler-static | dev-runtime (SSR import-time throw) |
+| STW092 | Both `$prop` and `prop` specified | compiler-static | n/a (compiler erases one side) |
+
+### Phase 2 — compiler-type-aware (highest user value)
+
+Piggybacks on the `ts.Program` already created for auto-wrap. These are where real-world mistakes cluster.
+
+| Code | Rule | Primary | Dual |
+|---|---|---|---|
+| STW010 | Uncalled signal in JSX text child | compiler-type-aware | n/a (compiler already rewrote reads) |
+| STW011 | Uncalled signal in JSX attribute | compiler-type-aware | n/a |
+| STW012 | Reactive read in a static attribute expression | compiler-type-aware | no |
+| STW013 | Non-signal function rendered as child | compiler-type-aware | dev-runtime (runtime catches any function, regardless of type — broader than the compiler rule) |
+| STW020 | `<Show when>` is a non-function | compiler-type-aware | dev-runtime |
+| STW021 | `<For each>` is a non-function | compiler-type-aware | dev-runtime |
+| STW030 | Accessor prop field read non-reactively | compiler-type-aware | n/a |
+| STW031 | Signal passed to plain-value prop | compiler-type-aware | no (signals are recognizable at runtime, but message quality is strictly worse) |
+| STW032 | Component function returns a function | compiler-type-aware | dev-runtime |
+| STW090 | `$prop` on non-signal target | compiler-type-aware | n/a |
+| STW091 | `$prop` on read-only (computed) target | compiler-type-aware | n/a |
+
+### Phase 3 — dev-runtime only
+
+No static equivalent; these require execution context.
+
+| Code | Rule |
+|---|---|
+| STW023 | `<Switch>` with no matching `<Match>` and no default |
+| STW024 | `<Portal to>` target not found |
+| STW041 | `onCleanup()` outside a reactive scope |
+| STW050 | `consume()` with no ancestor `provide` |
+| STW051 | `consume()` outside a reactive scope |
+| STW072 | `useParams`/`useQuery`/`useRouteData` outside a router |
+| STW074 | `navigate()` during render |
+| STW080–082 | Hydration mismatches (text, attribute, structural) |
+| STW084 | Browser-only API during SSR render |
+
+### Deferred
+
+Blocked on features that don't exist yet or aren't stable:
+
+- STW060–062 — resource(): wait until resource API is stable and the Suspense-loading-check rule has real usage data
+- STW070–071 — router loader/guard shape: stable but low-frequency; revisit after phase 2
+- STW085 — head/meta primitives: blocked on roadmap item 22
+- STW100–101 — testing matchers: blocked on `@stewie-js/testing` adding a signal-aware matcher surface
+
+### Priorities within each phase
+
+Start with the rules that have already caught real bugs in this repo or the Work Queue app:
+- Phase 1: STW001–004 (module-scope), STW043 (write in computed)
+- Phase 2: STW030 (the Work Queue accessor bug), STW010/011 (most common JSX mistake), STW020/021 (keyed-list/conditional footguns)
+- Phase 3: STW080–082 (hydration) is the highest-leverage runtime rule; everything else is opportunistic
