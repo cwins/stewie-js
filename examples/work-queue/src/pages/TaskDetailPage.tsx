@@ -71,8 +71,8 @@ export function TaskDetailPage(): JSXElement {
   };
 
   const handleDelete = async () => {
-    const result = await remove.run(taskId);
-    if (result === undefined) return;
+    await remove.run(taskId);
+    if (remove.lastRun() !== 'success') return;
     await router.navigate(`/projects/${project.id}`);
   };
 

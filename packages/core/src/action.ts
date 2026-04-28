@@ -27,6 +27,15 @@ interface InternalActionDefinition<I, O> extends ActionDefinition<I, O> {
   readonly [FN]: (input: I) => Promise<O> | O;
 }
 
+/**
+ * Status of the most recent run() invocation.
+ * - 'idle': run() has never been called (or reset() cleared the state)
+ * - 'success': last run resolved successfully
+ * - 'error': last run threw; `error` signal holds the caught Error
+ * - 'blocked': last run was rejected because another run was in flight
+ */
+export type RunStatus = 'idle' | 'success' | 'error' | 'blocked';
+
 interface ActionBase<O> {
   /**
    * `true` while a run() invocation is in flight. Strictly bounded by the
@@ -39,8 +48,14 @@ interface ActionBase<O> {
    */
   error: Signal<Error | null>;
   /**
-   * Clear `error` to `null`. No-op while `pending` is `true`. Use to dismiss
-   * a persistent error UI without retrying.
+   * Status of the most recent run() invocation. Use this to branch after
+   * `await action.run()` — works for void-returning actions where the
+   * `result === undefined` idiom collides with success-void.
+   */
+  lastRun: Signal<RunStatus>;
+  /**
+   * Clear `error` to `null` and `lastRun` to `'idle'`. No-op while `pending`
+   * is `true`. Use to dismiss a persistent error UI without retrying.
    */
   reset: () => void;
   // Marker so the conditional run() type below can distinguish on O even
@@ -57,9 +72,7 @@ declare const ActionOutputBrand: unique symbol;
  * argument.
  */
 export type Action<I, O> = ActionBase<O> &
-  ([I] extends [void]
-    ? { run: () => Promise<O | undefined> }
-    : { run: (input: I) => Promise<O | undefined> });
+  ([I] extends [void] ? { run: () => Promise<O | undefined> } : { run: (input: I) => Promise<O | undefined> });
 
 export function defineAction<O>(fn: () => Promise<O> | O): ActionDefinition<void, O>;
 export function defineAction<I, O>(fn: (input: I) => Promise<O> | O): ActionDefinition<I, O>;
@@ -71,9 +84,13 @@ export function useAction<I, O>(def: ActionDefinition<I, O>): Action<I, O> {
   const fn = (def as InternalActionDefinition<I, O>)[FN];
   const pending = signal<boolean>(false);
   const error = signal<Error | null>(null);
+  const lastRun = signal<RunStatus>('idle');
 
   async function run(input: I): Promise<O | undefined> {
-    if (pending.peek()) return undefined;
+    if (pending.peek()) {
+      lastRun.set('blocked');
+      return undefined;
+    }
 
     batch(() => {
       pending.set(true);
@@ -82,21 +99,30 @@ export function useAction<I, O>(def: ActionDefinition<I, O>): Action<I, O> {
 
     try {
       const result = await fn(input);
-      pending.set(false);
+      batch(() => {
+        pending.set(false);
+        lastRun.set('success');
+      });
       return result;
     } catch (err) {
       const errObj = err instanceof Error ? err : new Error(String(err));
       batch(() => {
         pending.set(false);
         error.set(errObj);
+        lastRun.set('error');
       });
       return undefined;
     }
   }
 
   function reset(): void {
-    if (!pending.peek()) error.set(null);
+    if (!pending.peek()) {
+      batch(() => {
+        error.set(null);
+        lastRun.set('idle');
+      });
+    }
   }
 
-  return { pending, error, run, reset } as unknown as Action<I, O>;
+  return { pending, error, lastRun, run, reset } as unknown as Action<I, O>;
 }

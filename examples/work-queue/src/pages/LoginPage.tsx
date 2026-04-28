@@ -30,11 +30,11 @@ export function LoginPage(): JSXElement {
     e.preventDefault();
     if (!isValid()) return;
 
-    const result = await login.run({
+    await login.run({
       username: $username.peek(),
       password: $password.peek()
     });
-    if (result === undefined) return;
+    if (login.lastRun() !== 'success') return;
 
     // Navigate to the originally-requested URL, or the dashboard.
     const redirectTo = query.redirect ?? '/';

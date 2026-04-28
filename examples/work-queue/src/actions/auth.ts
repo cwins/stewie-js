@@ -18,6 +18,6 @@ export const loginAction = defineAction(({ username }: LoginInput): void => {
   signIn(username.trim());
 });
 
-export const logoutAction = defineAction((_input: void): void => {
+export const logoutAction = defineAction((): void => {
   signOut();
 });

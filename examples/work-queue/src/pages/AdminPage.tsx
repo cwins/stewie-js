@@ -26,6 +26,7 @@ export function AdminPage(): JSXElement {
 
   const handleLogout = async () => {
     await logout.run();
+    if (logout.lastRun() !== 'success') return;
     await router.navigate('/');
   };
 

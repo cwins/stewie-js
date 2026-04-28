@@ -67,8 +67,8 @@ function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetPro
   };
 
   const handleDelete = async () => {
-    const result = await remove.run(task.id);
-    if (result === undefined) return;
+    await remove.run(task.id);
+    if (remove.lastRun() !== 'success') return;
     onDeleted(task.id);
     onClose();
   };

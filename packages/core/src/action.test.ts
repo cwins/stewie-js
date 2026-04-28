@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { defineAction, useAction } from './action.js';
+import { effect } from './reactive.js';
 
 describe('defineAction()', () => {
   it('returns an opaque definition that creates no signals', () => {
@@ -228,5 +229,113 @@ describe('useAction()', () => {
     await p;
     expect(action.pending()).toBe(false);
     expect(action.error()).toBeNull();
+  });
+});
+
+describe('lastRun', () => {
+  it("starts as 'idle' before any run", () => {
+    const a = useAction(defineAction(async (n: number) => n));
+    expect(a.lastRun()).toBe('idle');
+  });
+
+  it("becomes 'success' after a successful run", async () => {
+    const a = useAction(defineAction(async (n: number) => n * 2));
+    await a.run(3);
+    expect(a.lastRun()).toBe('success');
+  });
+
+  it("becomes 'error' after a failed run", async () => {
+    const a = useAction(
+      defineAction((_: void) => {
+        throw new Error('boom');
+      })
+    );
+    await a.run();
+    expect(a.lastRun()).toBe('error');
+  });
+
+  it("becomes 'blocked' when run() is called while pending", async () => {
+    let resolveFirst!: () => void;
+    const a = useAction(
+      defineAction(
+        () =>
+          new Promise<void>((r) => {
+            resolveFirst = r;
+          })
+      )
+    );
+
+    const p1 = a.run();
+    expect(a.pending()).toBe(true);
+
+    await a.run();
+    expect(a.lastRun()).toBe('blocked');
+
+    resolveFirst();
+    await p1;
+    // First call's success overwrites the blocked status from the second call.
+    expect(a.lastRun()).toBe('success');
+  });
+
+  it("disambiguates void-return success from error for the 'result === undefined' idiom", async () => {
+    // Void-returning success: result is undefined, but lastRun is 'success'.
+    const okVoid = useAction(
+      defineAction(async (_: void) => {
+        // returns undefined
+      })
+    );
+    const r1 = await okVoid.run();
+    expect(r1).toBeUndefined();
+    expect(okVoid.lastRun()).toBe('success');
+
+    // Error: result is also undefined, but lastRun is 'error'.
+    const failVoid = useAction(
+      defineAction(async (_: void) => {
+        throw new Error('nope');
+      })
+    );
+    const r2 = await failVoid.run();
+    expect(r2).toBeUndefined();
+    expect(failVoid.lastRun()).toBe('error');
+  });
+
+  it("reset() clears lastRun back to 'idle' when not pending", async () => {
+    const a = useAction(
+      defineAction((_: void) => {
+        throw new Error('err');
+      })
+    );
+    await a.run();
+    expect(a.lastRun()).toBe('error');
+
+    a.reset();
+    expect(a.lastRun()).toBe('idle');
+    expect(a.error()).toBeNull();
+  });
+
+  it('updates atomically with pending and error in a single batch', async () => {
+    const a = useAction(
+      defineAction((_: void) => {
+        throw new Error('atomic');
+      })
+    );
+
+    const observations: Array<{ pending: boolean; lastRun: string; hasError: boolean }> = [];
+    const dispose = effect(() => {
+      observations.push({
+        pending: a.pending(),
+        lastRun: a.lastRun(),
+        hasError: a.error() !== null
+      });
+    });
+
+    await a.run();
+    dispose();
+
+    // Should NOT see an interleaved state where pending=false but lastRun=='idle',
+    // or pending=false with lastRun=='error' but hasError=false. The terminal
+    // observation must show all three coherently.
+    const terminal = observations[observations.length - 1];
+    expect(terminal).toEqual({ pending: false, lastRun: 'error', hasError: true });
   });
 });

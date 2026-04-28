@@ -103,7 +103,7 @@ Things not strictly missing but that would meaningfully improve the project.
 
 Route loaders cover the read side. The write side — a blessed way to express mutations with pending/error state and safe reuse across components — is the gap this primitive fills. Without it every team builds their own ad hoc pattern.
 
-**Status:** API is settled; implementation pending. The flat `action()` prototype at `packages/core/src/action.ts` exists with 13 tests but is not exported. It will be reshaped (not extended) to match the spec below.
+**Status:** Shipped in 0.7.x.
 
 **Spec — `defineAction` + `useAction`:**
 
@@ -118,7 +118,7 @@ const saveTask = defineAction(async (input: { title: string }): Promise<{ id: st
 // component body — creates per-component instance
 function NewTaskForm() {
   const submit = useAction(saveTask);
-  // submit.run, submit.pending, submit.error, submit.reset
+  // submit.run, submit.pending, submit.error, submit.lastRun, submit.reset
 }
 ```
 
@@ -128,14 +128,17 @@ function NewTaskForm() {
 
 **Lifecycle per `run()`:**
 
-| Phase | `pending` | `error` |
-|---|---|---|
-| Before any call | `false` | `null` |
-| `run()` invoked (sync, in `batch`) | `true` | `null` |
-| Promise resolves successfully | `false` | `null` |
-| Promise rejects | `false` | the caught `Error` |
+| Phase | `pending` | `error` | `lastRun` |
+|---|---|---|---|
+| Before any call | `false` | `null` | `'idle'` |
+| `run()` invoked (sync, in `batch`) | `true` | `null` | (unchanged) |
+| Promise resolves successfully | `false` | `null` | `'success'` |
+| Promise rejects | `false` | the caught `Error` | `'error'` |
+| `run()` blocked while pending (returns immediately) | (unchanged) | (unchanged) | `'blocked'` |
 
-Each new `run()` clears `error` at the start, so retries don't show stale failures. `run` returns `Promise<O | undefined>`: success → `O`; concurrent-blocked (called while pending) → `undefined`; caught error → `undefined`. The caller's `if (result) ...` pattern unifies the success-vs-not check; `submit.error()` disambiguates failure from blocked.
+Each new `run()` clears `error` at the start, so retries don't show stale failures. `run` returns `Promise<O | undefined>`: success → `O`; concurrent-blocked → `undefined`; caught error → `undefined`. For value-returning actions, `if (result === undefined) return;` is the canonical post-await branch. For void-returning actions, that idiom collides with success-void — use `if (act.lastRun() !== 'success') return;` instead.
+
+**Zero-arg overload:** `defineAction(() => ...)` infers `I=void`, and `Action<void, O>['run']` takes no parameter. Call sites read `await logout.run()` rather than `await logout.run(undefined)`.
 
 **Settled semantics:**
 
@@ -143,7 +146,7 @@ Each new `run()` clears `error` at the start, so retries don't show stale failur
 - The framework does not interpret the result. Success vs. failure is observable via `error()` (`null` = success).
 - Post-mutation work (navigation, store sync, optimistic rollback, toasts) lives in caller code after `await submit.run()`, not in lifecycle callbacks on the primitive. One path for success handling, not two.
 - Concurrent `run()` calls on the same instance: the second no-ops while the first is pending. Returns `undefined`, doesn't touch `pending`/`error`, doesn't invoke the action body.
-- `reset()` clears `error` to `null`. No-op while pending. Use case: dismissing a persistent error UI without retrying.
+- `reset()` clears `error` to `null` and `lastRun` to `'idle'`. No-op while pending. Use case: dismissing a persistent error UI without retrying.
 - No cancellation in v1. Adding `cancel()` later (with `AbortController` propagation) is non-breaking.
 
 **Diagnostic:** `STW005 — useAction() called outside a component or reactiveScope()`. Same family as STW001-004; the rule is enforced statically by the compiler.
