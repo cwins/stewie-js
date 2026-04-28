@@ -86,6 +86,35 @@ describe('validateFile()', () => {
     expect(errors[0].message).toContain('store()');
   });
 
+  it('STW005 — module-scope useAction()', () => {
+    const source = `const def = defineAction(async (n) => n)\nconst submit = useAction(def)\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const errors = diagnostics.filter((d) => d.code === 'STW005');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].message).toContain('useAction()');
+    expect(errors[0].message).toContain('defineAction()');
+    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW005');
+  });
+
+  it('STW005 — does not fire for defineAction() at module scope', () => {
+    const source = `const saveTask = defineAction(async (input) => input)\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics).toHaveLength(0);
+  });
+
+  it('STW005 — does not fire for useAction() inside a component', () => {
+    const source = `const saveTask = defineAction(async (input) => input)
+function App() { const submit = useAction(saveTask); return null }
+`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics).toHaveLength(0);
+  });
+
   it('STW004 — module-scope effect()', () => {
     const source = `effect(() => {})\n`;
     const parsed = parseFile(source, 'test.tsx');

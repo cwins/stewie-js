@@ -12,12 +12,16 @@ const MODULE_SCOPE_CODES: Record<string, string> = {
   signal: 'STW001',
   computed: 'STW002',
   store: 'STW003',
-  effect: 'STW004'
+  effect: 'STW004',
+  useAction: 'STW005'
 };
 
 function moduleScopeMessage(callee: string): string {
   if (callee === 'effect') {
     return `effect() called at module scope. Effects must be owned by a component or reactiveScope() so they can be disposed.`;
+  }
+  if (callee === 'useAction') {
+    return `useAction() called at module scope. The instance creates per-call-site pending/error signals that must be owned by a scope so they can be disposed; calling it at module scope leaks state across SSR requests. Move the useAction() call inside a component body or reactiveScope(). (defineAction() at module scope is fine — it creates no signals.)`;
   }
   return `${callee}() called at module scope. Reactive primitives must be created inside a component or reactiveScope() — module-scope ${callee}s leak state across SSR requests.`;
 }

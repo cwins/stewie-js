@@ -59,9 +59,10 @@ export { resource } from './resource.js';
 export type { Diagnostic, DiagnosticSeverity } from './diagnostics.js';
 export { diagnosticDocsUrl } from './diagnostics.js';
 
-// NOTE: ./action.ts is an unshipped prototype (@stewie-js/core does not export it).
-// The shape is under active design — see ROADMAP.md "Actions / Mutations". Do not
-// export from here until the definition-vs-instance split and naming are settled.
+// Actions — write-side mutation primitive (defineAction + useAction).
+// See ROADMAP.md "Actions / Mutations" for the settled spec.
+export type { Action, ActionDefinition } from './action.js';
+export { defineAction, useAction } from './action.js';
 
 // Built-in control flow components
 export type {

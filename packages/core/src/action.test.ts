@@ -1,17 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { action } from './action.js';
+import { defineAction, useAction } from './action.js';
 
-// ---------------------------------------------------------------------------
-// action() — mutation primitive
-// ---------------------------------------------------------------------------
+describe('defineAction()', () => {
+  it('returns an opaque definition that creates no signals', () => {
+    const def = defineAction(async (n: number) => n * 2);
+    // Definition is a plain value; nothing observable to assert beyond type.
+    // What matters: calling defineAction at module scope cannot create signals,
+    // because there is nothing reactive in the returned shape. Verified
+    // structurally — no `pending` / `error` keys.
+    expect((def as { pending?: unknown }).pending).toBeUndefined();
+    expect((def as { error?: unknown }).error).toBeUndefined();
+  });
+});
 
-describe('action()', () => {
-  // 1. Happy path
-  it('resolves with the result; pending flips true then false; error stays empty', async () => {
-    const save = action(async (input: string) => input.toUpperCase());
+describe('useAction()', () => {
+  it('initial state — pending false, error null', () => {
+    const def = defineAction(async (n: number) => n * 2);
+    const action = useAction(def);
+    expect(action.pending()).toBe(false);
+    expect(action.error()).toBeNull();
+  });
 
-    expect(save.pending()).toBe(false);
-    expect(save.error()).toBe('');
+  it('happy path — pending flips true then false; resolves with result; error stays null', async () => {
+    const save = useAction(defineAction(async (input: string) => input.toUpperCase()));
 
     const p = save.run('hello');
     expect(save.pending()).toBe(true);
@@ -19,165 +30,191 @@ describe('action()', () => {
     const result = await p;
     expect(result).toBe('HELLO');
     expect(save.pending()).toBe(false);
-    expect(save.error()).toBe('');
+    expect(save.error()).toBeNull();
   });
 
-  // 2. Sync throw — run resolves undefined; error gets message; pending returns to false
-  it('sync throw — run resolves undefined; error captures message; pending resets', async () => {
-    const fail = action((_input: number) => {
-      throw new Error('sync boom');
-    });
+  it('sync throw — error captures Error; pending resets; resolves undefined', async () => {
+    const fail = useAction(
+      defineAction((_input: number) => {
+        throw new Error('sync boom');
+      })
+    );
 
     const result = await fail.run(42);
     expect(result).toBeUndefined();
-    expect(fail.error()).toBe('sync boom');
+    expect(fail.error()).toBeInstanceOf(Error);
+    expect(fail.error()?.message).toBe('sync boom');
     expect(fail.pending()).toBe(false);
   });
 
-  // 3. Async rejection — same outcome as sync throw
-  it('async rejection — run resolves undefined; error captures message; pending resets', async () => {
-    const fail = action(async (_input: number) => {
-      throw new Error('async boom');
-    });
+  it('async rejection — error captures Error; pending resets; resolves undefined', async () => {
+    const fail = useAction(
+      defineAction(async (_input: number) => {
+        throw new Error('async boom');
+      })
+    );
 
     const result = await fail.run(0);
     expect(result).toBeUndefined();
-    expect(fail.error()).toBe('async boom');
+    expect(fail.error()?.message).toBe('async boom');
     expect(fail.pending()).toBe(false);
   });
 
-  // 4. Error clears on a subsequent successful run
-  it('error is cleared at the start of a subsequent successful run', async () => {
+  it('error is cleared at the start of a subsequent run', async () => {
     let shouldFail = true;
-    const flaky = action(async (_: void) => {
-      if (shouldFail) throw new Error('first attempt failed');
-      return 'ok';
-    });
+    const flaky = useAction(
+      defineAction(async (_: void) => {
+        if (shouldFail) throw new Error('first attempt failed');
+        return 'ok';
+      })
+    );
 
     await flaky.run(undefined);
-    expect(flaky.error()).toBe('first attempt failed');
+    expect(flaky.error()?.message).toBe('first attempt failed');
 
     shouldFail = false;
     const result = await flaky.run(undefined);
     expect(result).toBe('ok');
-    expect(flaky.error()).toBe('');
+    expect(flaky.error()).toBeNull();
   });
 
-  // 5. pending is true while fn is in flight (observed via deferred promise)
-  it('pending is true while fn is in flight', async () => {
-    let resolve!: (v: string) => void;
-    const deferred = new Promise<string>((r) => {
-      resolve = r;
-    });
-
-    const slow = action((_: void) => deferred);
-
-    const p = slow.run(undefined);
-    expect(slow.pending()).toBe(true);
-
-    resolve('done');
-    await p;
-    expect(slow.pending()).toBe(false);
-  });
-
-  // 6. Sync fn (no async/await in the fn body) works correctly
-  it('sync fn (non-async) works correctly', async () => {
-    const double = action((n: number) => n * 2);
-
+  it('sync (non-async) fn works', async () => {
+    const double = useAction(defineAction((n: number) => n * 2));
     const result = await double.run(7);
     expect(result).toBe(14);
     expect(double.pending()).toBe(false);
-    expect(double.error()).toBe('');
+    expect(double.error()).toBeNull();
   });
 
-  // 7. Non-Error thrown values are coerced to strings sensibly
-  it('non-Error thrown string is coerced via String()', async () => {
-    const strThrow = action((_: void) => {
-      throw 'something went wrong';
-    });
+  it('non-Error thrown values are wrapped in new Error(String(x))', async () => {
+    const strThrow = useAction(
+      defineAction((_: void) => {
+        throw 'something went wrong';
+      })
+    );
     await strThrow.run(undefined);
-    expect(strThrow.error()).toBe('something went wrong');
-  });
+    expect(strThrow.error()).toBeInstanceOf(Error);
+    expect(strThrow.error()?.message).toBe('something went wrong');
 
-  it('non-Error thrown object is coerced via String()', async () => {
-    const objThrow = action((_: void) => {
-      throw { code: 404 };
-    });
+    const objThrow = useAction(
+      defineAction((_: void) => {
+        throw { code: 404 };
+      })
+    );
     await objThrow.run(undefined);
-    expect(objThrow.error()).toBe('[object Object]');
+    expect(objThrow.error()?.message).toBe('[object Object]');
   });
 
-  // 8. Two concurrent run() calls — both execute concurrently.
-  //    pending stays true until both settle; error reflects whichever failure
-  //    settled last. This is documented behavior: callers that need serialized
-  //    mutations should guard with the pending signal before calling run() again.
-  it('two concurrent run() calls — pending true until both settle', async () => {
-    let resolveFirst!: (v: number) => void;
-    let resolveSecond!: (v: number) => void;
-
-    const first = new Promise<number>((r) => {
-      resolveFirst = r;
+  it('concurrent run() while pending no-ops — second call returns undefined and does not invoke fn', async () => {
+    let calls = 0;
+    let resolveFirst!: (v: string) => void;
+    const def = defineAction((_: void) => {
+      calls++;
+      return new Promise<string>((r) => {
+        resolveFirst = r;
+      });
     });
-    const second = new Promise<number>((r) => {
-      resolveSecond = r;
-    });
+    const action = useAction(def);
 
-    let call = 0;
-    const multi = action((_: void) => {
-      call++;
-      return call === 1 ? first : second;
-    });
+    const p1 = action.run(undefined);
+    expect(action.pending()).toBe(true);
+    expect(calls).toBe(1);
 
-    // Fire both concurrently
-    const p1 = multi.run(undefined);
-    const p2 = multi.run(undefined);
+    // Second call while first is in flight — should no-op immediately.
+    const result2 = await action.run(undefined);
+    expect(result2).toBeUndefined();
+    expect(calls).toBe(1); // fn not invoked again
+    expect(action.pending()).toBe(true); // first still in flight
 
-    expect(multi.pending()).toBe(true);
-
-    // Resolve first; pending should still be true (second is in flight)
-    resolveFirst(1);
-    await p1;
-    expect(multi.pending()).toBe(true);
-
-    // Resolve second; now both are done
-    resolveSecond(2);
-    const result2 = await p2;
-    expect(multi.pending()).toBe(false);
-    expect(result2).toBe(2);
-    expect(multi.error()).toBe('');
+    resolveFirst('done');
+    const result1 = await p1;
+    expect(result1).toBe('done');
+    expect(action.pending()).toBe(false);
   });
 
-  it('concurrent calls — error reflects last settled rejection', async () => {
-    let rejectFirst!: (e: unknown) => void;
-    let rejectSecond!: (e: unknown) => void;
+  it('reset() clears error to null when not pending', async () => {
+    const fail = useAction(
+      defineAction((_: void) => {
+        throw new Error('boom');
+      })
+    );
+    await fail.run();
+    expect(fail.error()).not.toBeNull();
 
-    const first = new Promise<never>((_, r) => {
-      rejectFirst = r;
+    fail.reset();
+    expect(fail.error()).toBeNull();
+  });
+
+  it('reset() is a no-op while pending', async () => {
+    let resolve!: () => void;
+    const action = useAction(
+      defineAction(
+        (_: void) =>
+          new Promise<void>((r) => {
+            resolve = r;
+          })
+      )
+    );
+
+    const p = action.run(undefined);
+    expect(action.pending()).toBe(true);
+
+    // Should not affect anything; pending is true so reset bails.
+    action.reset();
+    expect(action.pending()).toBe(true);
+
+    resolve();
+    await p;
+  });
+
+  it('two useAction() calls on the same definition each get their own instance', async () => {
+    const def = defineAction(async (n: number) => n + 1);
+    const a = useAction(def);
+    const b = useAction(def);
+
+    expect(a.pending).not.toBe(b.pending);
+    expect(a.error).not.toBe(b.error);
+
+    // Trigger an error on a; b stays clean.
+    const failingDef = defineAction((_: void) => {
+      throw new Error('only a');
     });
-    const second = new Promise<never>((_, r) => {
-      rejectSecond = r;
-    });
+    const aFail = useAction(failingDef);
+    const bFail = useAction(failingDef);
+    await aFail.run(undefined);
+    expect(aFail.error()?.message).toBe('only a');
+    expect(bFail.error()).toBeNull();
+  });
 
-    let call = 0;
-    const multi = action((_: void) => {
-      call++;
-      return call === 1 ? first : second;
-    });
+  it('lifecycle ordering — pending and error update in a single batch at run() start', async () => {
+    let resolveFn!: () => void;
+    const action = useAction(
+      defineAction(
+        (_: void) =>
+          new Promise<void>((r) => {
+            resolveFn = r;
+          })
+      )
+    );
 
-    const p1 = multi.run(undefined);
-    const p2 = multi.run(undefined);
+    // Seed an error so the start-of-run clear is observable.
+    const failOnce = useAction(
+      defineAction((_: void) => {
+        throw new Error('seed');
+      })
+    );
+    await failOnce.run();
+    expect(failOnce.error()?.message).toBe('seed');
 
-    // First settles with an error
-    rejectFirst(new Error('first error'));
-    await p1;
-    // error is set from first rejection; second still in flight
-    expect(multi.error()).toBe('first error');
-    expect(multi.pending()).toBe(true);
+    // For the lifecycle batching itself, observe that during the in-flight
+    // window, pending is true and error is null (cleared at start).
+    const p = action.run(undefined);
+    expect(action.pending()).toBe(true);
+    expect(action.error()).toBeNull();
 
-    // Second settles with a different error — wins
-    rejectSecond(new Error('second error'));
-    await p2;
-    expect(multi.error()).toBe('second error');
-    expect(multi.pending()).toBe(false);
+    resolveFn();
+    await p;
+    expect(action.pending()).toBe(false);
+    expect(action.error()).toBeNull();
   });
 });

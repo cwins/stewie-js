@@ -1,98 +1,90 @@
-// action.ts — UNSHIPPED PROTOTYPE. Not exported from @stewie-js/core.
+// action.ts — defineAction + useAction (settled write-side mutation primitive).
 //
-// This file exists to keep the Work Queue design-testbed work in git while the
-// API shape is settled. See ROADMAP.md "Actions / Mutations" for the open
-// questions (definition-vs-instance split, naming, relationship to form
-// primitives, possible action-routes layer). Tests in action.test.ts validate
-// the current shape against the settled semantics so a future redesign can
-// reuse what still holds.
+// defineAction(fn) returns an opaque definition that creates no signals — safe
+// to call at module scope and to share across files. useAction(def) is a free
+// function (matches consume(Context)) that creates the per-component instance
+// owning { pending, error } signals scoped to the calling component.
 //
-// KNOWN FOOTGUN in this shape: calling action() at module scope creates
-// pending/error signals at module scope, violating the module-scope rule for
-// reactive primitives and breaking cross-component reuse. This is the primary
-// reason the primitive is unexported — resolving it requires splitting into
-// defineAction(fn) (module-scope, no signals) + .use() (component-scope).
-//
-// action() wraps a mutation function and provides reactive pending/error signals.
-// It is a factory, not a reactive effect — safe to call inside or outside a
-// reactiveScope. The returned signals are usable in any reactive context.
+// See CLAUDE.md "Actions / mutations API shape" and ROADMAP.md "Actions /
+// Mutations" for the full settled spec.
 
-import { signal } from './reactive.js';
+import { batch, signal } from './reactive.js';
 import type { Signal } from './reactive.js';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// Phantom type-only brand. The variance markers tie I/O into the type so two
+// definitions with different signatures aren't assignable to each other.
+declare const ActionBrand: unique symbol;
+
+export interface ActionDefinition<I, O> {
+  readonly [ActionBrand]: [(input: I) => void, () => O];
+}
+
+// Internal runtime carrier. The brand symbol is type-only; the actual function
+// is held under a private symbol so userland cannot read or replace it.
+const FN = Symbol('stewie.action.fn');
+
+interface InternalActionDefinition<I, O> extends ActionDefinition<I, O> {
+  readonly [FN]: (input: I) => Promise<O> | O;
+}
 
 export interface Action<I, O> {
   /**
-   * True from the moment run() is invoked until fn resolves or rejects.
-   * Strictly bounded: does NOT stay true during caller-side post-mutation work.
+   * `true` while a run() invocation is in flight. Strictly bounded by the
+   * mutation itself — does NOT extend through caller-side post-mutation work.
    */
   pending: Signal<boolean>;
   /**
-   * '' when clean. Cleared at the start of every run() call.
-   * Set to an error message string on rejection.
+   * `null` when clean. Cleared at the start of every run() call. Set to the
+   * caught Error on rejection (non-Error values are wrapped in `new Error()`).
    */
-  error: Signal<string>;
+  error: Signal<Error | null>;
   /**
-   * Invoke the mutation. Never rejects — resolves with the result on success,
-   * or undefined on failure. The caller inspects the return value to branch.
+   * Invoke the mutation. Never rejects — resolves with the action's return
+   * value on success, or `undefined` on failure or when blocked by an
+   * in-flight call. Inspect the return value to branch.
    */
   run: (input: I) => Promise<O | undefined>;
+  /**
+   * Clear `error` to `null`. No-op while `pending` is `true`. Use to dismiss
+   * a persistent error UI without retrying.
+   */
+  reset: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// action()
-// ---------------------------------------------------------------------------
+export function defineAction<I, O>(fn: (input: I) => Promise<O> | O): ActionDefinition<I, O> {
+  return { [FN]: fn } as InternalActionDefinition<I, O>;
+}
 
-/**
- * Wraps a mutation function and returns reactive signals for its pending and
- * error state. The returned `run()` method never rejects — callers branch on
- * the return value instead of try/catch.
- *
- * ```ts
- * const save = action((input: UpdateProjectInput) => updateProject(id, input));
- *
- * const handleSubmit = async (e: Event) => {
- *   e.preventDefault();
- *   const result = await save.run({ name: $name(), description: $desc() });
- *   if (result) await router.navigate(`/projects/${result.id}`);
- * };
- * ```
- *
- * **Concurrent run() calls:** both run concurrently. `pending` is true while
- * any call is in flight (tracked with a counter). `error` reflects the last
- * settled rejection — if multiple calls fail, whichever settles last wins.
- * This is the simplest correct behavior; callers that need serialized mutations
- * should guard with the `pending` signal before calling run() again.
- */
-export function action<I, O>(fn: (input: I) => Promise<O> | O): Action<I, O> {
+export function useAction<I, O>(def: ActionDefinition<I, O>): Action<I, O> {
+  const fn = (def as InternalActionDefinition<I, O>)[FN];
   const pending = signal<boolean>(false);
-  const error = signal<string>('');
-
-  // Tracks how many run() calls are currently in flight. pending is true
-  // while this is > 0, allowing correct behavior under concurrent calls.
-  let _inFlight = 0;
+  const error = signal<Error | null>(null);
 
   async function run(input: I): Promise<O | undefined> {
-    _inFlight++;
-    pending.set(true);
-    error.set('');
+    if (pending.peek()) return undefined;
+
+    batch(() => {
+      pending.set(true);
+      error.set(null);
+    });
 
     try {
       const result = await fn(input);
+      pending.set(false);
       return result;
     } catch (err) {
-      error.set(err instanceof Error ? err.message : String(err));
-      return undefined;
-    } finally {
-      _inFlight--;
-      if (_inFlight === 0) {
+      const errObj = err instanceof Error ? err : new Error(String(err));
+      batch(() => {
         pending.set(false);
-      }
+        error.set(errObj);
+      });
+      return undefined;
     }
   }
 
-  return { pending, error, run };
+  function reset(): void {
+    if (!pending.peek()) error.set(null);
+  }
+
+  return { pending, error, run, reset };
 }

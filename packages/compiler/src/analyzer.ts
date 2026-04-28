@@ -120,7 +120,12 @@ export interface AnalysisResult {
   accessorPropStaticReads: AccessorPropStaticRead[];
 }
 
-const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect']);
+// Callees whose call at module scope creates per-call-site signals and is
+// therefore unsafe (leaks state across SSR requests). Each maps to its own
+// STW code via MODULE_SCOPE_CODES in the validator. `useAction` is included
+// because it instantiates pending/error signals; `defineAction` is NOT —
+// definitions create no signals and are encouraged at module scope.
+const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect', 'useAction']);
 
 /**
  * Syntax-only heuristic (no type info): returns true if `node` or any
