@@ -1,5 +1,5 @@
-import { computed, effect, resource, Show, signal } from '@stewie-js/core';
-import type { Resource, JSXElement } from '@stewie-js/core';
+import { computed, defineResource, effect, Show, signal, useResource } from '@stewie-js/core';
+import type { JSXElement } from '@stewie-js/core';
 import { useQuery, useRouter } from '@stewie-js/router';
 import { fetchGraphQL } from '../api/graphql.js';
 import { CHARACTERS_QUERY } from '../api/queries.js';
@@ -21,6 +21,22 @@ const STATUS_OPTIONS = [
   { label: 'Unknown', value: 'unknown' }
 ];
 
+interface CharactersSource {
+  page: number;
+  name: string;
+  status: string;
+}
+
+const fetchCharacters = defineResource((src: CharactersSource, _opts: { signal: AbortSignal }) =>
+  fetchGraphQL<CharactersResponse, CharactersVariables>(CHARACTERS_QUERY, {
+    page: src.page,
+    filter: {
+      name: src.name || undefined,
+      status: src.status || undefined
+    }
+  })
+);
+
 export function CharactersPage(): JSXElement {
   const router = useRouter();
   const query = useQuery<{ page?: string; name?: string; status?: string }>();
@@ -32,33 +48,17 @@ export function CharactersPage(): JSXElement {
   const $name = signal(activeName());
   const $status = signal(activeStatus());
 
+  // Keep form state in sync with URL params when navigation changes them.
   effect(() => {
     $name.set(activeName());
     $status.set(activeStatus());
   });
 
-  let charactersResource!: Resource<CharactersResponse>;
-  charactersResource = resource(() =>
-    fetchGraphQL<CharactersResponse, CharactersVariables>(CHARACTERS_QUERY, {
-      page: currentPage(),
-      filter: {
-        name: activeName() || undefined,
-        status: activeStatus() || undefined
-      }
-    })
-  );
-
-  let didInit = false;
-  effect(() => {
-    currentPage();
-    activeName();
-    activeStatus();
-    if (!didInit) {
-      didInit = true;
-      return;
-    }
-    void charactersResource.refetch();
-  });
+  const charactersResource = useResource(fetchCharacters, () => ({
+    page: currentPage(),
+    name: activeName(),
+    status: activeStatus()
+  }));
 
   const results = computed(() => charactersResource.data()?.characters.results ?? []);
   const info = computed(() => charactersResource.data()?.characters.info ?? null);

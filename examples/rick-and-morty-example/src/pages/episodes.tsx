@@ -1,5 +1,5 @@
-import { computed, effect, resource, Show, signal } from '@stewie-js/core';
-import type { Resource, JSXElement } from '@stewie-js/core';
+import { computed, defineResource, effect, Show, signal, useResource } from '@stewie-js/core';
+import type { JSXElement } from '@stewie-js/core';
 import { useQuery, useRouter } from '@stewie-js/router';
 import { fetchGraphQL } from '../api/graphql.js';
 import { EPISODES_QUERY } from '../api/queries.js';
@@ -23,6 +23,22 @@ const SEASON_OPTIONS = [
   { label: 'Season 5', value: 'S05' }
 ];
 
+interface EpisodesSource {
+  page: number;
+  name: string;
+  season: string;
+}
+
+const fetchEpisodes = defineResource((src: EpisodesSource, _opts: { signal: AbortSignal }) =>
+  fetchGraphQL<EpisodesResponse, EpisodesVariables>(EPISODES_QUERY, {
+    page: src.page,
+    filter: {
+      name: src.name || undefined,
+      episode: src.season || undefined
+    }
+  })
+);
+
 export function EpisodesPage(): JSXElement {
   const router = useRouter();
   const query = useQuery<{ page?: string; name?: string; season?: string }>();
@@ -34,33 +50,17 @@ export function EpisodesPage(): JSXElement {
   const $name = signal(activeName());
   const $season = signal(activeSeason());
 
+  // Keep form state in sync with URL params when navigation changes them.
   effect(() => {
     $name.set(activeName());
     $season.set(activeSeason());
   });
 
-  let episodesResource!: Resource<EpisodesResponse>;
-  episodesResource = resource(() =>
-    fetchGraphQL<EpisodesResponse, EpisodesVariables>(EPISODES_QUERY, {
-      page: currentPage(),
-      filter: {
-        name: activeName() || undefined,
-        episode: activeSeason() || undefined
-      }
-    })
-  );
-
-  let didInit = false;
-  effect(() => {
-    currentPage();
-    activeName();
-    activeSeason();
-    if (!didInit) {
-      didInit = true;
-      return;
-    }
-    void episodesResource.refetch();
-  });
+  const episodesResource = useResource(fetchEpisodes, () => ({
+    page: currentPage(),
+    name: activeName(),
+    season: activeSeason()
+  }));
 
   const results = computed(() => episodesResource.data()?.episodes.results ?? []);
   const info = computed(() => episodesResource.data()?.episodes.info ?? null);

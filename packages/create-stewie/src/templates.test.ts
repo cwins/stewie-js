@@ -424,19 +424,21 @@ describe('generateFiles — new feature coverage', () => {
     expect(counter.content).toContain('resets.update(');
   });
 
-  it('home page (router) uses resource() for async data', () => {
+  it('home page (router) uses defineResource/useResource for async data', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: true });
     const home = files.find((f) => f.path === 'src/pages/home.tsx')!;
-    expect(home.content).toContain("import { signal, reactiveScope, Show, For, resource } from '@stewie-js/core'");
-    expect(home.content).toContain('resource(loadWelcomeTip)');
+    expect(home.content).toContain("import { signal, reactiveScope, Show, For, defineResource, useResource } from '@stewie-js/core'");
+    expect(home.content).toContain('defineResource(');
+    expect(home.content).toContain('useResource(fetchTip');
     expect(home.content).toContain('tipResource.loading()');
     expect(home.content).toContain('tipResource.data()');
   });
 
-  it('no-router app uses resource() for async data', () => {
+  it('no-router app uses defineResource/useResource for async data', () => {
     const files = generateFiles({ projectName: 'my-app', mode: 'static', includeRouter: false });
     const app = files.find((f) => f.path === 'src/app.tsx')!;
-    expect(app.content).toContain('resource(');
+    expect(app.content).toContain('defineResource(');
+    expect(app.content).toContain('useResource(fetchTip');
     expect(app.content).toContain('tipResource.loading()');
   });
 
@@ -447,7 +449,7 @@ describe('generateFiles — new feature coverage', () => {
     expect(app.content).toContain('batch(');
   });
 
-  it('SSR router variant home page also uses resource()', () => {
+  it('SSR router variant home page also uses defineResource/useResource', () => {
     const files = generateFiles({
       projectName: 'my-app',
       mode: 'ssr',
@@ -455,6 +457,7 @@ describe('generateFiles — new feature coverage', () => {
       includeRouter: true
     });
     const home = files.find((f) => f.path === 'src/pages/home.tsx')!;
-    expect(home.content).toContain('resource(');
+    expect(home.content).toContain('defineResource(');
+    expect(home.content).toContain('useResource(');
   });
 });

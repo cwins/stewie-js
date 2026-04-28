@@ -514,7 +514,7 @@ export async function renderApp(_url: string = '/'): Promise<RenderResult> {
 
     files.push({
       path: 'src/app.tsx',
-      content: `import { signal, store, computed, batch, reactiveScope, resource } from '@stewie-js/core'
+      content: `import { signal, store, computed, batch, reactiveScope, defineResource, useResource } from '@stewie-js/core'
 import { Show, For, Switch, Match } from '@stewie-js/core'
 import type { Resource, JSXElement } from '@stewie-js/core'
 import './styles.css'
@@ -526,13 +526,13 @@ interface TodoItem {
 }
 
 // Simulated async data load — in a real app replace with:
-// async function loadWelcomeTip(signal: AbortSignal) {
-//   return fetch('/api/tip', { signal }).then(r => r.json())
-// }
-async function loadWelcomeTip(_signal: AbortSignal): Promise<{ tip: string }> {
+// const fetchTip = defineResource((_src: void, { signal }: { signal: AbortSignal }) =>
+//   fetch('/api/tip', { signal }).then(r => r.json())
+// )
+const fetchTip = defineResource(async (_src: void, _opts: { signal: AbortSignal }): Promise<{ tip: string }> => {
   await new Promise<void>((r) => setTimeout(r, 600))
   return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
-}
+})
 
 export function App(): JSXElement {
   let count!: ReturnType<typeof signal<number>>
@@ -553,8 +553,8 @@ export function App(): JSXElement {
       { id: 2, text: 'Try fine-grained reactivity', done: false },
       { id: 3, text: 'Build something great', done: false },
     ])
-    // resource() wraps any async function — exposes .loading, .data, .error signals
-    tipResource = resource(loadWelcomeTip)
+    // defineResource at module scope + useResource inside component/scope
+    tipResource = useResource(fetchTip, () => undefined)
   })
 
   return (
@@ -575,9 +575,9 @@ export function App(): JSXElement {
           <div class="section">
             <h2 class="section-title">Async data</h2>
             <p class="section-desc">
-              resource() wraps any async function with reactive loading, data, and error signals.
+              useResource() wraps any async function with reactive loading, data, and error signals.
             </p>
-            {/* resource() — show fallback while loading, content once resolved */}
+            {/* useResource() — show fallback while loading, content once resolved */}
             <div class="card">
               <Show
                 when={() => !tipResource.loading()}
@@ -735,19 +735,19 @@ export function Shell({ children }: { children: JSXElement }): JSXElement {
 
     files.push({
       path: 'src/pages/home.tsx',
-      content: `import { signal, reactiveScope, Show, For, resource } from '@stewie-js/core'
+      content: `import { signal, reactiveScope, Show, For, defineResource, useResource } from '@stewie-js/core'
 import type { Resource, JSXElement } from '@stewie-js/core'
 import { useRouter } from '@stewie-js/router'
 import { Shell } from '../shell.js'
 
 // Simulated async data load — in a real app replace with:
-// async function loadWelcomeTip(signal: AbortSignal) {
-//   return fetch('/api/tip', { signal }).then(r => r.json())
-// }
-async function loadWelcomeTip(_signal: AbortSignal): Promise<{ tip: string }> {
+// const fetchTip = defineResource((_src: void, { signal }: { signal: AbortSignal }) =>
+//   fetch('/api/tip', { signal }).then(r => r.json())
+// )
+const fetchTip = defineResource(async (_src: void, _opts: { signal: AbortSignal }): Promise<{ tip: string }> => {
   await new Promise<void>((r) => setTimeout(r, 600))
   return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
-}
+})
 
 const FEATURES = [
   'Signal-based reactivity — no virtual DOM',
@@ -764,8 +764,8 @@ export function HomePage(): JSXElement {
   let tipResource!: Resource<{ tip: string }>
   reactiveScope(() => {
     showFeatures = signal(false)
-    // resource() wraps any async function — exposes .loading, .data, .error signals
-    tipResource = resource(loadWelcomeTip)
+    // defineResource at module scope + useResource inside component/scope
+    tipResource = useResource(fetchTip, () => undefined)
   })
 
   return (
@@ -787,7 +787,7 @@ export function HomePage(): JSXElement {
           </div>
         </div>
 
-        {/* resource() — reactive loading/data/error signals for async operations */}
+        {/* useResource() — reactive loading/data/error signals for async operations */}
         <div class="section">
           <h2 class="section-title">Async data</h2>
           <div class="card">

@@ -1,4 +1,4 @@
-import { computed, resource, Show } from '@stewie-js/core';
+import { computed, defineResource, Show, useResource } from '@stewie-js/core';
 import type { JSXElement } from '@stewie-js/core';
 import { fetchGraphQL } from '../api/graphql.js';
 import { HOME_QUERY } from '../api/queries.js';
@@ -12,8 +12,10 @@ import { SectionHeading } from '../components/lib/section-heading.js';
 import { Shell } from '../shell.js';
 import { formatCount, getErrorMessage } from '../utils/format.js';
 
+const fetchHome = defineResource((_src: void, _opts: { signal: AbortSignal }) => fetchGraphQL<HomeResponse>(HOME_QUERY));
+
 export function HomePage(): JSXElement {
-  const homeResource = resource(() => fetchGraphQL<HomeResponse>(HOME_QUERY));
+  const homeResource = useResource(fetchHome, () => undefined);
 
   const stats = computed(() => {
     const payload = homeResource.data();

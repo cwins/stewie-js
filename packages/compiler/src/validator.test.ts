@@ -115,6 +115,35 @@ function App() { const submit = useAction(saveTask); return null }
     expect(diagnostics).toHaveLength(0);
   });
 
+  it('STW006 — module-scope useResource()', () => {
+    const source = `const fetchUser = defineResource((id, { signal }) => fetch('/api/users/' + id, { signal }).then(r => r.json()))\nconst user = useResource(fetchUser, () => '1')\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const errors = diagnostics.filter((d) => d.code === 'STW006');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].message).toContain('useResource()');
+    expect(errors[0].message).toContain('defineResource()');
+    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW006');
+  });
+
+  it('STW006 — does not fire for defineResource() at module scope', () => {
+    const source = `const fetchUser = defineResource((id, { signal }) => fetch('/api/users/' + id, { signal }).then(r => r.json()))\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics).toHaveLength(0);
+  });
+
+  it('STW006 — does not fire for useResource() inside a component', () => {
+    const source = `const fetchUser = defineResource((id, { signal }) => fetch('/api/users/' + id, { signal }).then(r => r.json()))
+function App() { const user = useResource(fetchUser, () => '1'); return null }
+`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics).toHaveLength(0);
+  });
+
   it('STW004 — module-scope effect()', () => {
     const source = `effect(() => {})\n`;
     const parsed = parseFile(source, 'test.tsx');

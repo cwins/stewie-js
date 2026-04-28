@@ -51,9 +51,11 @@ export { hydrate } from './hydrate.js';
 export { lazy, _LazyBoundary } from './lazy.js';
 export type { _LazyBoundaryProps } from './lazy.js';
 
-// Async resource primitive
-export type { Resource } from './resource.js';
-export { resource } from './resource.js';
+// Async resource primitive — defineResource + useResource.
+// defineResource(fn) creates no signals (safe at module scope).
+// useResource(def, source) creates the per-component reactive instance.
+export type { Resource, ResourceDefinition } from './resource.js';
+export { defineResource, useResource } from './resource.js';
 
 // Diagnostics (shared shape for compiler + dev-runtime)
 export type { Diagnostic, DiagnosticSeverity } from './diagnostics.js';

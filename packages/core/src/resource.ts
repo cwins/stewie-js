@@ -1,11 +1,43 @@
-// resource.ts — async resource primitive
+// resource.ts — defineResource + useResource (async data primitive).
+//
+// defineResource(fn) returns an opaque definition that creates no signals — safe
+// to call at module scope and to share across files. useResource(def, source)
+// is a free function (matches consume(Context) and useAction(def)) that creates
+// the per-component instance owning { data, loading, error } signals scoped to
+// the calling component.
+//
+// The reactive-triggering asymmetry is intrinsic:
+//   - resources fire on source change
+//   - actions fire on .run()
+// These are different primitives; the asymmetry is not incidental.
 
-import { signal, onCleanup } from './reactive.js';
+import { signal, effect, onCleanup } from './reactive.js';
 import type { Signal } from './reactive.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+// Phantom type-only brand. Variance markers tie S/T into the type so two
+// definitions with different signatures are not assignable to each other.
+declare const ResourceBrand: unique symbol;
+
+/**
+ * An opaque token returned by `defineResource`. Carries no reactive state —
+ * safe to create at module scope and share across files. Pass to `useResource`
+ * inside a component to create the per-component reactive instance.
+ */
+export interface ResourceDefinition<S, T> {
+  readonly [ResourceBrand]: [(source: S) => void, () => T];
+}
+
+// Internal runtime carrier. The brand symbol is type-only; the actual fetcher
+// is held under a private symbol so userland cannot read or replace it.
+const FN = Symbol('stewie.resource.fn');
+
+interface InternalResourceDefinition<S, T> extends ResourceDefinition<S, T> {
+  readonly [FN]: (source: S, opts: { signal: AbortSignal }) => Promise<T> | T;
+}
 
 export interface Resource<T> {
   /**
@@ -22,7 +54,7 @@ export interface Resource<T> {
    * The error thrown by the fetcher, or null if no error.
    * Reactive signal.
    */
-  error: Signal<unknown>;
+  error: Signal<Error | null>;
   /**
    * Suspense-compatible accessor.
    * - Throws a Promise (caught by `<Suspense>`) while the fetch is in flight.
@@ -42,27 +74,58 @@ export interface Resource<T> {
 }
 
 // ---------------------------------------------------------------------------
-// resource()
+// defineResource
 // ---------------------------------------------------------------------------
 
 /**
- * Wraps an async function and returns reactive signals for its loading state,
- * resolved data, and error.
+ * Creates a resource definition. Safe at module scope — creates no signals.
  *
- * The fetcher receives an `AbortSignal` that is cancelled when:
- * - `refetch()` is called (stale request is aborted before the new one starts)
- * - The owning reactive scope is disposed (component unmounts)
+ * The fetcher receives the current source value and an `{ signal }` object
+ * whose `AbortSignal` is cancelled when:
+ * - the source changes and a new fetch begins
+ * - `refetch()` is called (stale request aborted before the new one starts)
+ * - the owning reactive scope disposes (component unmounts)
  *
  * Pass the signal to `fetch()` so in-flight network requests are cancelled
- * and their results never update signals:
+ * and their results never update the reactive signals:
+ *
+ * ```ts
+ * const fetchUser = defineResource((id: string, { signal }) =>
+ *   fetch(`/api/users/${id}`, { signal }).then(r => r.json())
+ * )
+ * ```
+ *
+ * Use `useResource(def, source)` inside a component to create the per-component
+ * reactive instance.
+ */
+export function defineResource<S, T>(fn: (source: S, opts: { signal: AbortSignal }) => Promise<T> | T): ResourceDefinition<S, T> {
+  return { [FN]: fn } as InternalResourceDefinition<S, T>;
+}
+
+// ---------------------------------------------------------------------------
+// useResource
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a per-component resource instance from a definition. Must be called
+ * inside a component or `reactiveScope()` — the signals it creates are owned
+ * by that scope and disposed when the scope disposes.
+ *
+ * `source` is a reactive accessor: `() => S`. The fetcher re-runs whenever the
+ * source value changes (tracked via an internal effect). To fetch once with a
+ * static value, pass `() => theValue`.
  *
  * **DOM usage (recommended):**
  * ```tsx
+ * const fetchUser = defineResource((id: string, { signal }) =>
+ *   fetch(`/api/users/${id}`, { signal }).then(r => r.json())
+ * )
+ *
  * function UserProfile() {
- *   const user = resource((signal) => fetch('/api/me', { signal }).then(r => r.json()))
+ *   const user = useResource(fetchUser, () => props.id)
  *   return (
  *     <Show when={() => !user.loading()} fallback={<Spinner />}>
- *       <div>{user.data()?.name}</div>
+ *       <div>{() => user.data()?.name}</div>
  *     </Show>
  *   )
  * }
@@ -71,7 +134,7 @@ export interface Resource<T> {
  * **SSR usage with `<Suspense>` and `read()`:**
  * ```tsx
  * function UserProfile() {
- *   const user = resource((signal) => fetch('/api/me', { signal }).then(r => r.json()))
+ *   const user = useResource(fetchUser, () => props.id)
  *   const data = user.read()  // throws Promise on server; <Suspense> awaits it
  *   return <div>{data.name}</div>
  * }
@@ -79,15 +142,17 @@ export interface Resource<T> {
  * ```
  *
  * Note: For SSR data loading, prefer route-level `load()` functions which run
- * before any rendering begins. `resource()` is most useful for client-side
+ * before any rendering begins. `useResource` is most useful for client-side
  * data fetching after the initial page load.
  */
-export function resource<T>(fetcher: (signal: AbortSignal) => Promise<T>): Resource<T> {
+export function useResource<S, T>(def: ResourceDefinition<S, T>, source: () => S): Resource<T> {
+  const fn = (def as InternalResourceDefinition<S, T>)[FN];
+
   // Signals are created in the enclosing reactive scope (e.g. a component's
   // reactiveScope) — no need for a wrapper reactiveScope here.
   const _loading = signal<boolean>(true);
   const _data = signal<T | undefined>(undefined);
-  const _error = signal<unknown>(null);
+  const _error = signal<Error | null>(null);
 
   // _currentPromise is what read() throws for Suspense integration.
   // It resolves on fetch success (so Suspense retries and gets data).
@@ -97,7 +162,7 @@ export function resource<T>(fetcher: (signal: AbortSignal) => Promise<T>): Resou
   // AbortController for the in-flight request. Replaced on every _fetch() call.
   let _controller = new AbortController();
 
-  function _fetch(): Promise<void> {
+  function _fetch(sourceValue: S): Promise<void> {
     // Abort the previous in-flight request before starting a new one.
     _controller.abort();
     _controller = new AbortController();
@@ -117,7 +182,7 @@ export function resource<T>(fetcher: (signal: AbortSignal) => Promise<T>): Resou
     // receive the rejection — attaching .catch() here doesn't prevent other handlers.
     _currentPromise.catch(() => {});
 
-    fetcher(abortSignal).then(
+    Promise.resolve(fn(sourceValue, { signal: abortSignal })).then(
       (data) => {
         // Ignore results from a request that was cancelled (stale refetch or unmount).
         if (abortSignal.aborted) return;
@@ -127,17 +192,22 @@ export function resource<T>(fetcher: (signal: AbortSignal) => Promise<T>): Resou
       },
       (err) => {
         if (abortSignal.aborted) return;
-        _error.set(err);
+        const errObj = err instanceof Error ? err : new Error(String(err));
+        _error.set(errObj);
         _loading.set(false);
-        reject(err);
+        reject(errObj);
       }
     );
 
     return _currentPromise;
   }
 
-  // Start the initial fetch.
-  _fetch();
+  // Track the source and re-fetch when it changes. The effect runs
+  // immediately, which fires the initial fetch.
+  effect(() => {
+    const sourceValue = source();
+    _fetch(sourceValue);
+  });
 
   // Cancel in-flight request when the owning reactive scope (component) disposes.
   onCleanup(() => _controller.abort());
@@ -154,6 +224,8 @@ export function resource<T>(fetcher: (signal: AbortSignal) => Promise<T>): Resou
       return _data.peek() as T;
     },
 
-    refetch: _fetch
+    refetch(): Promise<void> {
+      return _fetch(source());
+    }
   };
 }

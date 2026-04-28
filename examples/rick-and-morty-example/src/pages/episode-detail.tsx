@@ -1,5 +1,5 @@
-import { computed, effect, resource, Show } from '@stewie-js/core';
-import type { Resource, JSXElement } from '@stewie-js/core';
+import { computed, defineResource, Show, useResource } from '@stewie-js/core';
+import type { JSXElement } from '@stewie-js/core';
 import { useQuery } from '@stewie-js/router';
 import { fetchGraphQL } from '../api/graphql.js';
 import { EPISODE_DETAIL_QUERY } from '../api/queries.js';
@@ -14,26 +14,16 @@ import { SectionHeading } from '../components/lib/section-heading.js';
 import { Shell } from '../shell.js';
 import { getErrorMessage, parseId } from '../utils/format.js';
 
+const fetchEpisode = defineResource((id: string | null, _opts: { signal: AbortSignal }) => {
+  if (!id) return Promise.resolve({ episode: null });
+  return fetchGraphQL<EpisodeResponse, DetailVariables>(EPISODE_DETAIL_QUERY, { id });
+});
+
 export function EpisodeDetailPage(): JSXElement {
   const query = useQuery<{ id?: string }>();
   const episodeId = computed(() => parseId(query.id));
 
-  let episodeResource!: Resource<EpisodeResponse>;
-  episodeResource = resource(() => {
-    const id = episodeId();
-    if (!id) return Promise.resolve({ episode: null });
-    return fetchGraphQL<EpisodeResponse, DetailVariables>(EPISODE_DETAIL_QUERY, { id });
-  });
-
-  let didInit = false;
-  effect(() => {
-    episodeId();
-    if (!didInit) {
-      didInit = true;
-      return;
-    }
-    void episodeResource.refetch();
-  });
+  const episodeResource = useResource(fetchEpisode, () => episodeId());
 
   const episode = computed(() => episodeResource.data()?.episode ?? null);
 

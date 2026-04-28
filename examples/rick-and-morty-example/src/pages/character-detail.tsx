@@ -1,5 +1,5 @@
-import { computed, effect, For, resource, Show } from '@stewie-js/core';
-import type { Resource, JSXElement } from '@stewie-js/core';
+import { computed, defineResource, For, Show, useResource } from '@stewie-js/core';
+import type { JSXElement } from '@stewie-js/core';
 import { LinkButton } from '../components/lib/link-button.js';
 import { useQuery } from '@stewie-js/router';
 import { fetchGraphQL } from '../api/graphql.js';
@@ -13,26 +13,16 @@ import { SectionHeading } from '../components/lib/section-heading.js';
 import { Shell } from '../shell.js';
 import { formatAirDate, getErrorMessage, parseId } from '../utils/format.js';
 
+const fetchCharacter = defineResource((id: string | null, _opts: { signal: AbortSignal }) => {
+  if (!id) return Promise.resolve({ character: null });
+  return fetchGraphQL<CharacterResponse, DetailVariables>(CHARACTER_DETAIL_QUERY, { id });
+});
+
 export function CharacterDetailPage(): JSXElement {
   const query = useQuery<{ id?: string }>();
   const characterId = computed(() => parseId(query.id));
 
-  let characterResource!: Resource<CharacterResponse>;
-  characterResource = resource(() => {
-    const id = characterId();
-    if (!id) return Promise.resolve({ character: null });
-    return fetchGraphQL<CharacterResponse, DetailVariables>(CHARACTER_DETAIL_QUERY, { id });
-  });
-
-  let didInit = false;
-  effect(() => {
-    characterId();
-    if (!didInit) {
-      didInit = true;
-      return;
-    }
-    void characterResource.refetch();
-  });
+  const characterResource = useResource(fetchCharacter, () => characterId() as string | null);
 
   const character = computed(() => characterResource.data()?.character ?? null);
 

@@ -76,9 +76,9 @@ Same shape as STW001 with `store`.
 ---
 
 ### STW006 — `useResource()` called outside a component or `reactiveScope()`
-**Detection:** compiler-static · **Severity:** error · **Dual:** dev-runtime
+**Detection:** compiler-static · **Severity:** error · **Dual:** dev-runtime · **Implemented:** compiler-static
 
-**Message:** `useResource() called outside a component or reactiveScope(). The instance creates data/loading/error signals that must be owned by a scope so they can be disposed; calling it at module scope leaks state across SSR requests. Move the useResource() call inside a component body or reactiveScope().`
+**Message:** `useResource() called outside a component or reactiveScope(). The instance creates per-call-site data/loading/error signals that must be owned by a scope so they can be disposed; calling it at module scope leaks state across SSR requests. Move the useResource() call inside a component body or reactiveScope(). (defineResource() at module scope is fine — it creates no signals.)`
 
 **Note:** `defineResource()` at module scope is fine and encouraged — it creates no signals. The rule applies only to `useResource()`, which instantiates the per-component signals.
 
