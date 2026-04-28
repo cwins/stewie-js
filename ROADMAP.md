@@ -101,27 +101,68 @@ Things not strictly missing but that would meaningfully improve the project.
 
 ### Actions / Mutations
 
-Route loaders cover the read side. The write side — a blessed way to express mutations with pending/error state and safe reuse across components — is still missing. Without it every team builds their own ad hoc pattern. A prototype wrapper (`action(fn)` returning `{ pending, error, run }`) was built during Work Queue but is unshipped pending resolution of the open questions below.
+Route loaders cover the read side. The write side — a blessed way to express mutations with pending/error state and safe reuse across components — is the gap this primitive fills. Without it every team builds their own ad hoc pattern.
 
-**Settled so far:**
+**Status:** API is settled; implementation pending. The flat `action()` prototype at `packages/core/src/action.ts` exists with 13 tests but is not exported. It will be reshaped (not extended) to match the spec below.
 
-- The primitive's job is to encapsulate the `$pending` + `$error` + `try/catch/finally` pattern that repeats at every mutation call site. It does not add new capability over plain signals — its value is ergonomic consistency.
-- `pending` is strictly bounded by the mutation itself, never extending through caller-side work like navigation or store updates. This preserves a precise semantic contract.
-- The framework does not interpret the result. Success vs. failure is observable via `error()` (empty = success). The `run()` return value is whatever the mutation produced, or `undefined` when it threw. The framework doesn't and shouldn't care what the result is or how it came to be.
-- Post-mutation work (navigation, optimistic rollback, cross-store updates, toasts) lives in caller code after `await run()`, not in lifecycle callbacks on the primitive. One path for success handling, not two.
-- Per-row / per-instance pending state is achieved by having each component create its own instance — natural under Stewie's component scoping via `For`.
+**Spec — `defineAction` + `useAction`:**
 
-**Open design questions:**
+```ts
+// module scope — opaque definition, creates no signals
+const saveTask = defineAction(async (input: { title: string }): Promise<{ id: string }> => {
+  const res = await fetch('/api/tasks', { method: 'POST', body: JSON.stringify(input) });
+  if (!res.ok) throw new Error('Could not save');
+  return res.json();
+});
 
-1. **Definition vs. instance split (non-negotiable for reuse).** A flat `action(fn)` is unsafe at module scope because it creates reactive signals outside a component — violating the module-scope rule for reactive primitives. Shared, reusable actions require splitting into a module-scope `defineAction(fn)` (no signals created) plus a component-scope `.use()` (signals owned by the caller's scope). The prototype currently lacks this split and would footgun the first time a user tried to share an action across components.
+// component body — creates per-component instance
+function NewTaskForm() {
+  const submit = useAction(saveTask);
+  // submit.run, submit.pending, submit.error, submit.reset
+}
+```
 
-2. **Naming.** "Action" is overloaded prior art — MobX (state mutators), Redux (event objects), Remix (route-bound handlers). None match our meaning. Candidates include `defineAction`/`useAction` (accept the term but bind it to our specific shape via the API), `asyncState`/`trackAsync` (neutral about the term), or `mutation` (claims the term but narrower).
+`defineAction(fn)` returns an opaque `ActionDefinition<I, O>`. No signals are created at this step, so calling `defineAction` at module scope is safe and encouraged.
 
-3. **Relationship to form primitives.** The majority of real mutation sites are form submissions, which want submit-level pending/error *plus* field-level state (dirty, touched, validation). There are two plausible shapes: (a) ship the action primitive standalone and have forms compose it internally, or (b) fold submit-level tracking into `createForm()` and keep actions for non-form cases only. The Work Queue retrofit sites don't yet differentiate these.
+`useAction(def)` is a free function (matches `consume(Context)`, not `def.use()`) that creates the per-component instance. The instance owns its `pending` and `error` signals, scoped to the calling component. Two components calling `useAction(saveTask)` each get their own pending — sharing is by composition (lift into context, pass via prop), not by primitive design.
 
-4. **Client-side action routes (future, not blocking).** A possible ergonomic layer: actions referenced by stable path-shaped identifiers (e.g. `defineAction('/project/:id/edit', ...)`) with a runtime context registry doing the dispatch. This keeps shared actions discoverable without import-chain coupling, without requiring the compiler (the compiler must remain optional). Not a server/RPC concept — the URL is type-indexed identity, not a network endpoint. The client primitive should be designed so this layer can sit on top later without redesign.
+**Lifecycle per `run()`:**
 
-5. **Current prototype status.** The flat `action()` exists at `packages/core/src/action.ts` with tests but is **not exported** from `@stewie-js/core`. The Work Queue retrofits that exercised it have been reverted. The file is kept in git to preserve the settled semantics (semantic contract, concurrent-call handling, error-coercion behavior) and the 13 tests that validate them — a future redesign can reuse what still holds without re-deriving it. Do not export from the core barrel until the questions above are resolved.
+| Phase | `pending` | `error` |
+|---|---|---|
+| Before any call | `false` | `null` |
+| `run()` invoked (sync, in `batch`) | `true` | `null` |
+| Promise resolves successfully | `false` | `null` |
+| Promise rejects | `false` | the caught `Error` |
+
+Each new `run()` clears `error` at the start, so retries don't show stale failures. `run` returns `Promise<O | undefined>`: success → `O`; concurrent-blocked (called while pending) → `undefined`; caught error → `undefined`. The caller's `if (result) ...` pattern unifies the success-vs-not check; `submit.error()` disambiguates failure from blocked.
+
+**Settled semantics:**
+
+- `pending` is strictly bounded by the mutation itself; it does not extend through caller-side work like navigation, store updates, or toasts. Those are straight-line code after `await run()`.
+- The framework does not interpret the result. Success vs. failure is observable via `error()` (`null` = success).
+- Post-mutation work (navigation, store sync, optimistic rollback, toasts) lives in caller code after `await submit.run()`, not in lifecycle callbacks on the primitive. One path for success handling, not two.
+- Concurrent `run()` calls on the same instance: the second no-ops while the first is pending. Returns `undefined`, doesn't touch `pending`/`error`, doesn't invoke the action body.
+- `reset()` clears `error` to `null`. No-op while pending. Use case: dismissing a persistent error UI without retrying.
+- No cancellation in v1. Adding `cancel()` later (with `AbortController` propagation) is non-breaking.
+
+**Diagnostic:** `STW005 — useAction() called outside a component or reactiveScope()`. Same family as STW001-004; the rule is enforced statically by the compiler.
+
+**Forms:** `useAction` is also the form-submission primitive. There is no `createForm()` in v1. See item 20 below.
+
+**Snapshot pattern for async submit:**
+
+Submit handlers should snapshot signals via `.peek()` at the call site to avoid the async-read hazard (signal mutated mid-submit by typing or external updates):
+
+```ts
+submit.run({ title: title.peek(), done: done.peek() });
+```
+
+A future diagnostic (best-effort, inline arrows only) may flag `signal()` reads inside an inline `defineAction` callback as a likely missing snapshot.
+
+**Resource mirror:** The same definition/instance split applies to `resource()`, which will be reshaped to `defineResource(fn)` + `useResource(def, source)` in the same release. The triggering asymmetry (resources are reactive, actions are imperatively triggered) is intrinsic and stays.
+
+**Future, not blocking — client-side action routes:** Actions referenced by stable path-shaped identifiers (e.g. `defineAction('/project/:id/edit', ...)`) with a runtime context registry doing the dispatch. Keeps shared actions discoverable without import-chain coupling, without requiring the compiler. Not a server/RPC concept — the URL is type-indexed identity, not a network endpoint. The current API leaves room for this layer to sit on top without redesign.
 
 ### Decision-Oriented Docs
 
@@ -145,7 +186,7 @@ These guides are more valuable than a complete API listing. They turn a technica
 
 ### Runtime
 
-- **Form primitives** — `createForm({ fields, validate })` returning per-field signals, dirty/touched state, and a submit handler
+- **Form primitives** — settled as compose-don't-bundle: `useAction` + signals + computeds. No `createForm`. See "Actions / Mutations" for the settled spec and the multi-field-helper tripwire.
 - **Animation utilities** — thin reactive wrappers over the Web Animations API driven by signal values
 - **Island architecture / partial hydration** — ship zero client JS by default, opt specific components into hydration at the boundary level
 
@@ -239,8 +280,8 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 17. **Canonical reference app (Work Queue) — Phase 1** — SSR app shell, route table, local data repo, dashboard + projects list; also the design testbed for actions/mutations and head/metadata patterns
 18. **Diagnostics — dev-mode and build-time** — compiler + dev-runtime checks for common mistakes (signal not called in JSX, module-scope reactive primitives, `$prop` on non-signal, missing context provider, etc.); stable codes, docs page, per-code silencing
 19. **Documentation site + decision-oriented guides** — API reference plus "the Stewie way" guides (signal vs store vs resource, route load vs resource, mutation patterns, etc.)
-20. **Form primitives** — `createForm()` with per-field signals, dirty/touched/valid/submitting state, field arrays, sync and async validation, server error integration
-21. **Actions / mutations** — design to emerge from Work Queue; blessed write-side counterpart to route loaders
+20. **Form primitives** — settled: no `createForm()` in v1. Forms compose from existing primitives (signals for fields/touched, computeds for validation/dirty, `useAction` for submit lifecycle, `signal.peek()` for the submit snapshot). Tripwire: extract a `field(signal, initial)` helper only after 3+ Work Queue forms grow the same multi-field touched/dirty pattern.
+21. **Actions / mutations** — `defineAction` + `useAction` (settled spec above). Includes the parallel `defineResource` + `useResource` reshape of the existing flat `resource()`. New diagnostics STW005/STW006 for `useAction`/`useResource` outside component scope.
 22. **Head / metadata + progressive asset streaming** — `useTitle`/`useMeta`/`<Head>` as signal-driven core primitives; Vite plugin component-to-assets manifest; per-boundary CSS emission in `renderToStream`; hydration gating on CSS + JS load
 23. Edge-first testing phases 2–4
 24. Cloudflare adapter

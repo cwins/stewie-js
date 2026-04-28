@@ -66,6 +66,24 @@ Same shape as STW001 with `store`.
 
 ---
 
+### STW005 — `useAction()` called outside a component or `reactiveScope()`
+**Detection:** compiler-static · **Severity:** error · **Dual:** dev-runtime
+
+**Message:** `useAction() called outside a component or reactiveScope(). The instance creates per-call-site pending/error signals that must be owned by a scope so they can be disposed; calling it at module scope leaks state across SSR requests. Move the useAction() call inside a component body or reactiveScope().`
+
+**Note:** `defineAction()` at module scope is fine and encouraged — it creates no signals. The rule applies only to `useAction()`, which instantiates the per-component signals.
+
+---
+
+### STW006 — `useResource()` called outside a component or `reactiveScope()`
+**Detection:** compiler-static · **Severity:** error · **Dual:** dev-runtime
+
+**Message:** `useResource() called outside a component or reactiveScope(). The instance creates data/loading/error signals that must be owned by a scope so they can be disposed; calling it at module scope leaks state across SSR requests. Move the useResource() call inside a component body or reactiveScope().`
+
+**Note:** `defineResource()` at module scope is fine and encouraged — it creates no signals. The rule applies only to `useResource()`, which instantiates the per-component signals.
+
+---
+
 ## Signal usage in JSX
 
 ### STW010 — Signal referenced but not called in JSX text child
@@ -325,6 +343,8 @@ const ThemeContext = createContext('light');
 
 ## Resource
 
+> **Upcoming reshape:** `resource()` is being split into `defineResource(fn)` + `useResource(def, source)` to match the action primitive's shape and eliminate the module-scope footgun (see CLAUDE.md "Resource primitive shape" and ROADMAP item 21). The rules below are spec'd against the current flat shape; STW060 will attach to the `defineResource` fetcher and STW061 to the `useResource` source after the reshape lands. STW006 (above) covers the new "useResource outside scope" rule.
+
 ### STW060 — `resource()` fetcher does not accept its `AbortSignal`
 **Detection:** compiler-type-aware · **Severity:** warn
 
@@ -535,6 +555,8 @@ Cheap wins. Most of these already exist as informal runtime warnings; phase 1 fo
 | Code | Rule | Primary | Dual |
 |---|---|---|---|
 | STW001–004 | Module-scope `signal`/`computed`/`store`/`effect` | compiler-static | dev-runtime (already exists informally) |
+| STW005 | `useAction()` outside a component or `reactiveScope()` | compiler-static | dev-runtime |
+| STW006 | `useResource()` outside a component or `reactiveScope()` | compiler-static | dev-runtime |
 | STW014 | `signal.peek()` in a reactive context | compiler-static | no (can't distinguish from intentional peek at runtime) |
 | STW022 | `<For by>` returns non-unique keys | compiler-static | dev-runtime (sample keys on render) |
 | STW040 | `signal()` inside `effect()` body | compiler-static | dev-runtime |
