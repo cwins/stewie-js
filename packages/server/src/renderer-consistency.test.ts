@@ -21,7 +21,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { jsx, Show, For, Switch, Match, _LazyBoundary } from '@stewie-js/core';
-import type { JSXElement, Component, _LazyBoundaryProps } from '@stewie-js/core';
+import type { JSXElement, Component } from '@stewie-js/core';
 import { renderToString } from './renderer.js';
 import { renderToStream } from './stream.js';
 
@@ -250,7 +250,7 @@ describe('renderer consistency: _LazyBoundary', () => {
       {
         loaded: () => false,
         render: () => jsx('span', { children: 'content' })
-      } as unknown as _LazyBoundaryProps
+      } as unknown as Record<string, unknown>
     );
     await assertConsistent(tree, '<!--Lazy-->');
   });
@@ -261,7 +261,7 @@ describe('renderer consistency: _LazyBoundary', () => {
       {
         loaded: () => true,
         render: () => jsx('span', { children: 'loaded' })
-      } as unknown as _LazyBoundaryProps
+      } as unknown as Record<string, unknown>
     );
     await assertConsistent(tree, '<span>loaded</span><!--Lazy-->');
   });

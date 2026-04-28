@@ -323,7 +323,7 @@ describe('SSR → hydrate: control flow', () => {
       return jsx('ul', {
         children: For({
           each: items,
-          children: (item: string) => jsx('li', { children: item })
+          children: (item: () => string) => jsx('li', { children: item })
         })
       });
     }
