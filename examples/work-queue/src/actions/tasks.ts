@@ -1,13 +1,11 @@
 // Task mutations.
 //
-// Each action validates its input, delegates to the repo, and returns the
-// updated entity. The caller decides what happens next — typically navigate()
-// to re-run the route loader and render fresh data (navigate-to-refresh).
+// defineAction at module scope — no signals created, safe to share across files.
+// useAction(def) inside the component creates the per-component pending/error instance.
 //
-// For inline status toggles, the caller may choose to update local reactive
-// state optimistically without navigating, since the server state and client
-// state are in sync for the current render.
+// Post-mutation work (navigate, local state sync) stays in the caller.
 
+import { defineAction } from '@stewie-js/core';
 import { createTask as repoCreateTask, updateTask as repoUpdateTask, deleteTask as repoDeleteTask } from '../data/mocks/repo.js';
 import type { Task, TaskStatus, TaskPriority } from '../data/types.js';
 
@@ -19,7 +17,7 @@ export interface CreateTaskInput {
   dueDate: string | null;
 }
 
-export function createTask(input: CreateTaskInput): Task {
+export const createTaskAction = defineAction((input: CreateTaskInput): Task => {
   if (!input.title.trim()) throw new Error('Task title is required');
   return repoCreateTask({
     projectId: input.projectId,
@@ -28,9 +26,10 @@ export function createTask(input: CreateTaskInput): Task {
     priority: input.priority,
     dueDate: input.dueDate || null
   });
-}
+});
 
 export interface UpdateTaskInput {
+  id: string;
   title?: string;
   description?: string;
   status?: TaskStatus;
@@ -38,16 +37,16 @@ export interface UpdateTaskInput {
   dueDate?: string | null;
 }
 
-export function updateTask(id: string, input: UpdateTaskInput): Task {
+export const updateTaskAction = defineAction((input: UpdateTaskInput): Task => {
   const updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate'>> = {};
   if (input.title !== undefined) updates.title = input.title.trim();
   if (input.description !== undefined) updates.description = input.description.trim();
   if (input.status !== undefined) updates.status = input.status;
   if (input.priority !== undefined) updates.priority = input.priority;
   if (input.dueDate !== undefined) updates.dueDate = input.dueDate || null;
-  return repoUpdateTask(id, updates);
-}
+  return repoUpdateTask(input.id, updates);
+});
 
-export function deleteTask(id: string): void {
+export const deleteTaskAction = defineAction((id: string): void => {
   repoDeleteTask(id);
-}
+});

@@ -2,17 +2,18 @@
 // Login page — route: /login
 //
 // Teaching points:
-//   - Plain form + action pattern (no special framework form API)
-//   - signal() for form state and pending/error state
+//   - Plain form + defineAction/useAction pattern (no special framework form API)
+//   - signal() for form field state
 //   - computed() for validation
+//   - useAction() creates the per-component pending/error instance
 //   - Post-login redirect: read ?redirect= from query, navigate there on success
 //   - The auth guard in app.tsx sets ?redirect= before sending here
 
 import type { JSXElement } from '@stewie-js/core';
-import { signal, computed, Show } from '@stewie-js/core';
+import { signal, computed, Show, useAction } from '@stewie-js/core';
 import { useRouter, useQuery } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
-import { login } from '../actions/auth.js';
+import { loginAction } from '../actions/auth.js';
 
 export function LoginPage(): JSXElement {
   const router = useRouter();
@@ -20,26 +21,24 @@ export function LoginPage(): JSXElement {
 
   const $username = signal('');
   const $password = signal('');
-  const $submitting = signal(false);
-  const $error = signal('');
 
   const isValid = computed(() => $username().trim().length > 0 && $password().length > 0);
+
+  const login = useAction(loginAction);
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     if (!isValid()) return;
 
-    $submitting.set(true);
-    $error.set('');
-    try {
-      login($username(), $password());
-      // Navigate to the originally-requested URL, or the dashboard.
-      const redirectTo = query.redirect ?? '/';
-      await router.navigate(redirectTo);
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Login failed');
-      $submitting.set(false);
-    }
+    const result = await login.run({
+      username: $username.peek(),
+      password: $password.peek()
+    });
+    if (result === undefined) return;
+
+    // Navigate to the originally-requested URL, or the dashboard.
+    const redirectTo = query.redirect ?? '/';
+    await router.navigate(redirectTo);
   };
 
   return (
@@ -52,10 +51,10 @@ export function LoginPage(): JSXElement {
 
         <div class="form-card">
           <form onSubmit={handleSubmit} data-testid="login-form">
-            <Show when={() => $error() !== ''}>
+            <Show when={() => login.error() !== null}>
               {() => (
                 <p class="form-error" role="alert" data-testid="login-error">
-                  {$error()}
+                  {() => login.error()?.message ?? ''}
                 </p>
               )}
             </Show>
@@ -94,8 +93,8 @@ export function LoginPage(): JSXElement {
             </div>
 
             <div class="form-actions">
-              <button type="submit" class="btn btn-primary" disabled={() => !isValid() || $submitting()} data-testid="login-submit">
-                {() => ($submitting() ? 'Signing in…' : 'Sign in')}
+              <button type="submit" class="btn btn-primary" disabled={() => !isValid() || login.pending()} data-testid="login-submit">
+                {() => (login.pending() ? 'Signing in\u2026' : 'Sign in')}
               </button>
             </div>
           </form>

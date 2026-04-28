@@ -3,7 +3,7 @@
 // Stable layer: this file does not change when Stewie APIs change.
 // Tests, loaders, and the initial repo state all import from here.
 
-import type { Project, Task } from './types.js';
+import type { Project, Task } from '../types.js';
 
 export const seedProjects: Project[] = [
   {

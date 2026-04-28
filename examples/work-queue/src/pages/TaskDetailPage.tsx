@@ -13,11 +13,11 @@
 //   - Destructive action (delete) with two-step confirm
 
 import type { JSXElement } from '@stewie-js/core';
-import { signal, computed, Show } from '@stewie-js/core';
+import { signal, computed, Show, useAction } from '@stewie-js/core';
 import { useRouteData, useParams, useRouter, Link } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
 import { StatusBadge, PriorityBadge } from '../components/lib/Badge.js';
-import { updateTask, deleteTask } from '../actions/tasks.js';
+import { updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { TaskDetailData } from '../loaders/task-detail.js';
 import type { TaskStatus } from '../data/types.js';
 
@@ -32,9 +32,10 @@ export function TaskDetailPage(): JSXElement {
   const $status = signal<TaskStatus>(task.status);
   const $priority = signal(task.priority);
   const $dueDate = signal(task.dueDate ?? '');
-  const $saving = signal(false);
-  const $error = signal('');
   const $confirmDelete = signal(false);
+
+  const save = useAction(updateTaskAction);
+  const remove = useAction(deleteTaskAction);
 
   const isValid = computed(() => $title().trim().length > 0);
 
@@ -48,35 +49,31 @@ export function TaskDetailPage(): JSXElement {
       ($dueDate() || null) !== task.dueDate
   );
 
+  // Unified error: whichever action last errored surfaces here.
+  const $displayError = computed(() => save.error()?.message ?? remove.error()?.message ?? '');
+
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     if (!isValid()) return;
 
-    $saving.set(true);
-    $error.set('');
-    try {
-      updateTask(taskId, {
-        title: $title(),
-        description: $description(),
-        status: $status(),
-        priority: $priority(),
-        dueDate: $dueDate() || null
-      });
-      // Navigate-to-refresh back to the project detail page.
-      await router.navigate(`/projects/${project.id}`);
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Failed to save task');
-      $saving.set(false);
-    }
+    const result = await save.run({
+      id: taskId,
+      title: $title.peek(),
+      description: $description.peek(),
+      status: $status.peek(),
+      priority: $priority.peek(),
+      dueDate: $dueDate.peek() || null
+    });
+    if (result === undefined) return;
+
+    // Navigate-to-refresh back to the project detail page.
+    await router.navigate(`/projects/${project.id}`);
   };
 
   const handleDelete = async () => {
-    try {
-      deleteTask(taskId);
-      await router.navigate(`/projects/${project.id}`);
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Failed to delete task');
-    }
+    const result = await remove.run(taskId);
+    if (result === undefined) return;
+    await router.navigate(`/projects/${project.id}`);
   };
 
   return (
@@ -97,10 +94,10 @@ export function TaskDetailPage(): JSXElement {
 
         <div class="form-card">
           <form onSubmit={handleSubmit} data-testid="edit-task-form">
-            <Show when={() => $error() !== ''}>
+            <Show when={() => $displayError() !== ''}>
               {() => (
                 <p class="form-error" role="alert">
-                  {$error()}
+                  {() => $displayError()}
                 </p>
               )}
             </Show>
@@ -187,10 +184,10 @@ export function TaskDetailPage(): JSXElement {
               <button
                 type="submit"
                 class="btn btn-primary"
-                disabled={() => !isValid() || !hasChanges() || $saving()}
+                disabled={() => !isValid() || !hasChanges() || save.pending()}
                 data-testid="save-task-btn"
               >
-                {() => ($saving() ? 'Saving…' : 'Save Changes')}
+                {() => (save.pending() ? 'Saving\u2026' : 'Save Changes')}
               </button>
               <Link to={`/projects/${project.id}`} class="btn btn-ghost">
                 Cancel

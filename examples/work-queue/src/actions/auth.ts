@@ -1,17 +1,23 @@
 // Auth actions — login and logout.
 //
-// These are plain functions; they do not return data. The caller navigates
-// after calling them so the page re-renders with the new auth state.
+// defineAction at module scope (no signals created — safe). useAction() inside
+// the component creates the per-component pending/error instance.
 
+import { defineAction } from '@stewie-js/core';
 import { signIn, signOut } from '../data/mocks/auth.js';
 
-export function login(username: string, _password: string): void {
+export interface LoginInput {
+  username: string;
+  password: string;
+}
+
+export const loginAction = defineAction(({ username }: LoginInput): void => {
   // Demo: any non-empty username is accepted. A real app would verify
   // credentials against a database and set a signed session cookie.
   if (!username.trim()) throw new Error('Username is required');
   signIn(username.trim());
-}
+});
 
-export function logout(): void {
+export const logoutAction = defineAction((_input: void): void => {
   signOut();
-}
+});

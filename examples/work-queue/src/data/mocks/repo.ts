@@ -11,7 +11,7 @@
 // is version-sensitive.
 
 import { seedProjects, seedTasks } from './seed.js';
-import type { Project, Task, ProjectStatus, TaskPriority } from './types.js';
+import type { Project, Task, ProjectStatus, TaskPriority } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Internal storage — module-level, shared across requests

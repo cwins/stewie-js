@@ -9,10 +9,10 @@
 //   - Archive (soft-delete) as a destructive action with confirm guard
 
 import type { JSXElement } from '@stewie-js/core';
-import { signal, computed, Show, For } from '@stewie-js/core';
+import { signal, computed, Show, For, useAction } from '@stewie-js/core';
 import { useRouteData, useParams, useRouter, Link } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
-import { updateProject, archiveProject } from '../actions/projects.js';
+import { updateProjectAction, archiveProjectAction } from '../actions/projects.js';
 import { PROJECT_COLORS } from '../data/colors.js';
 import type { ProjectEditData } from '../loaders/project-edit.js';
 
@@ -26,40 +26,38 @@ export function EditProjectPage(): JSXElement {
   const $name = signal(project.name);
   const $description = signal(project.description);
   const $color = signal(project.color);
-  const $submitting = signal(false);
-  const $error = signal('');
   const $confirmArchive = signal(false);
 
   const isValid = computed(() => $name().trim().length > 0);
+
+  const save = useAction(updateProjectAction);
+  const archive = useAction(archiveProjectAction);
+
+  // Unified error: whichever action last set an error wins.
+  // Both are surfaced in the same form-error slot.
+  const $displayError = computed(() => save.error()?.message ?? archive.error()?.message ?? '');
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     if (!isValid()) return;
 
-    $submitting.set(true);
-    $error.set('');
-    try {
-      updateProject(projectId, {
-        name: $name(),
-        description: $description(),
-        color: $color()
-      });
-      // Navigate-to-refresh: the project detail loader re-runs on arrival
-      // and renders the updated project name, description, and color.
-      await router.navigate(`/projects/${projectId}`);
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Failed to save project');
-      $submitting.set(false);
-    }
+    const result = await save.run({
+      id: projectId,
+      name: $name.peek(),
+      description: $description.peek(),
+      color: $color.peek()
+    });
+    if (result === undefined) return;
+
+    // Navigate-to-refresh: the project detail loader re-runs on arrival
+    // and renders the updated project name, description, and color.
+    await router.navigate(`/projects/${projectId}`);
   };
 
   const handleArchive = async () => {
-    try {
-      archiveProject(projectId);
-      await router.navigate('/projects');
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Failed to archive project');
-    }
+    const result = await archive.run(projectId);
+    if (result === undefined) return;
+    await router.navigate('/projects');
   };
 
   return (
@@ -74,10 +72,10 @@ export function EditProjectPage(): JSXElement {
 
         <div class="form-card">
           <form onSubmit={handleSubmit} data-testid="edit-project-form">
-            <Show when={() => $error() !== ''}>
+            <Show when={() => $displayError() !== ''}>
               {() => (
                 <p class="form-error" role="alert" data-testid="form-error">
-                  {$error()}
+                  {() => $displayError()}
                 </p>
               )}
             </Show>
@@ -137,8 +135,8 @@ export function EditProjectPage(): JSXElement {
             </div>
 
             <div class="form-actions">
-              <button type="submit" class="btn btn-primary" disabled={() => !isValid() || $submitting()} data-testid="save-project-btn">
-                {() => ($submitting() ? 'Saving…' : 'Save Changes')}
+              <button type="submit" class="btn btn-primary" disabled={() => !isValid() || save.pending()} data-testid="save-project-btn">
+                {() => (save.pending() ? 'Saving\u2026' : 'Save Changes')}
               </button>
               <Link to={`/projects/${projectId}`} class="btn btn-ghost">
                 Cancel

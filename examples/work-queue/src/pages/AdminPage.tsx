@@ -8,10 +8,11 @@
 //   - Logout clears auth state and navigates away (navigate-to-refresh)
 
 import type { JSXElement } from '@stewie-js/core';
+import { useAction } from '@stewie-js/core';
 import { useRouter } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
 import { getSession } from '../data/mocks/auth.js';
-import { logout } from '../actions/auth.js';
+import { logoutAction } from '../actions/auth.js';
 
 export function AdminPage(): JSXElement {
   const router = useRouter();
@@ -21,8 +22,10 @@ export function AdminPage(): JSXElement {
   // the user is authenticated on whichever side is running.
   const session = getSession();
 
+  const logout = useAction(logoutAction);
+
   const handleLogout = async () => {
-    logout();
+    await logout.run();
     await router.navigate('/');
   };
 

@@ -4,14 +4,15 @@
 // Teaching points:
 //   - signal() for all form field state
 //   - computed() for validation state
+//   - useAction() creates the per-component pending/error instance
 //   - Navigate-to-refresh: create → navigate(/projects/:id) → loader fires fresh
-//   - Pending/error/success state via local signals (no external state manager)
+//   - signal.peek() to snapshot form state at call site (no live read inside run())
 
 import type { JSXElement } from '@stewie-js/core';
-import { signal, computed, Show, For } from '@stewie-js/core';
+import { signal, computed, Show, For, useAction } from '@stewie-js/core';
 import { useRouter, Link } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
-import { createProject } from '../actions/projects.js';
+import { createProjectAction } from '../actions/projects.js';
 import { PROJECT_COLORS } from '../data/colors.js';
 
 export function NewProjectPage(): JSXElement {
@@ -20,31 +21,26 @@ export function NewProjectPage(): JSXElement {
   const $name = signal('');
   const $description = signal('');
   const $color = signal(PROJECT_COLORS[0].value);
-  const $submitting = signal(false);
-  const $error = signal('');
 
   // Derived: form is valid when name is non-empty
   const isValid = computed(() => $name().trim().length > 0);
+
+  const create = useAction(createProjectAction);
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     if (!isValid()) return;
 
-    $submitting.set(true);
-    $error.set('');
-    try {
-      const project = createProject({
-        name: $name(),
-        description: $description(),
-        color: $color()
-      });
-      // Navigate-to-refresh: navigate to the new project's detail page.
-      // The route loader runs on arrival and fetches fresh data from the repo.
-      await router.navigate(`/projects/${project.id}`);
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Failed to create project');
-      $submitting.set(false);
-    }
+    const result = await create.run({
+      name: $name.peek(),
+      description: $description.peek(),
+      color: $color.peek()
+    });
+    if (result === undefined) return;
+
+    // Navigate-to-refresh: navigate to the new project's detail page.
+    // The route loader runs on arrival and fetches fresh data from the repo.
+    await router.navigate(`/projects/${result.id}`);
   };
 
   return (
@@ -52,17 +48,17 @@ export function NewProjectPage(): JSXElement {
       <main class="page" data-testid="new-project-page">
         <div class="page-header">
           <Link to="/projects" class="back-link">
-            ← Projects
+            &larr; Projects
           </Link>
           <h1 class="page-title">New Project</h1>
         </div>
 
         <div class="form-card">
           <form onSubmit={handleSubmit} data-testid="new-project-form">
-            <Show when={() => $error() !== ''}>
+            <Show when={() => create.error() !== null}>
               {() => (
                 <p class="form-error" role="alert" data-testid="form-error">
-                  {$error()}
+                  {() => create.error()?.message ?? ''}
                 </p>
               )}
             </Show>
@@ -127,10 +123,10 @@ export function NewProjectPage(): JSXElement {
               <button
                 type="submit"
                 class="btn btn-primary"
-                disabled={() => !isValid() || $submitting()}
+                disabled={() => !isValid() || create.pending()}
                 data-testid="create-project-submit"
               >
-                {() => ($submitting() ? 'Creating…' : 'Create Project')}
+                {() => (create.pending() ? 'Creating\u2026' : 'Create Project')}
               </button>
               <Link to="/projects" class="btn btn-ghost">
                 Cancel

@@ -15,12 +15,12 @@
 //   - "navigate-to-refresh" after delete: delete task → navigate away → loader on return is fresh
 
 import type { JSXElement } from '@stewie-js/core';
-import { signal, computed, For, Show } from '@stewie-js/core';
+import { signal, computed, For, Show, useAction } from '@stewie-js/core';
 import { useRouteData, useParams, Link } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
 import { TaskRow } from '../components/TaskRow.js';
 import { EmptyState } from '../components/lib/EmptyState.js';
-import { createTask, updateTask, deleteTask } from '../actions/tasks.js';
+import { createTaskAction, updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { ProjectDetailData } from '../loaders/project-detail.js';
 import type { Task, TaskStatus } from '../data/types.js';
 
@@ -42,36 +42,33 @@ function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetPro
   const $status = signal<TaskStatus>(task.status);
   const $priority = signal(task.priority);
   const $dueDate = signal(task.dueDate ?? '');
-  const $saving = signal(false);
-  const $error = signal('');
 
-  const handleSubmit = (e: Event) => {
+  const save = useAction(updateTaskAction);
+  const remove = useAction(deleteTaskAction);
+
+  const $displayError = computed(() => save.error()?.message ?? remove.error()?.message ?? '');
+
+  const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    if (!$title().trim()) {
-      $error.set('Title is required');
-      return;
-    }
-    $saving.set(true);
-    $error.set('');
-    try {
-      const updated = updateTask(task.id, {
-        title: $title(),
-        description: $description(),
-        status: $status(),
-        priority: $priority(),
-        dueDate: $dueDate() || null
-      });
-      onUpdated(updated);
-      onClose();
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      $saving.set(false);
-    }
+    if (!$title().trim()) return;
+
+    const result = await save.run({
+      id: task.id,
+      title: $title.peek(),
+      description: $description.peek(),
+      status: $status.peek(),
+      priority: $priority.peek(),
+      dueDate: $dueDate.peek() || null
+    });
+    if (result === undefined) return;
+
+    onUpdated(result);
+    onClose();
   };
 
-  const handleDelete = () => {
-    deleteTask(task.id);
+  const handleDelete = async () => {
+    const result = await remove.run(task.id);
+    if (result === undefined) return;
     onDeleted(task.id);
     onClose();
   };
@@ -91,10 +88,10 @@ function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetPro
       </div>
 
       <form onSubmit={handleSubmit} data-testid="edit-task-form">
-        <Show when={() => $error() !== ''}>
+        <Show when={() => $displayError() !== ''}>
           {() => (
             <p class="form-error" role="alert">
-              {$error()}
+              {() => $displayError()}
             </p>
           )}
         </Show>
@@ -177,10 +174,16 @@ function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetPro
         </div>
 
         <div class="task-sheet-actions">
-          <button type="submit" class="btn btn-primary" disabled={$saving()} data-testid="edit-task-save">
-            {() => ($saving() ? 'Saving…' : 'Save Changes')}
+          <button type="submit" class="btn btn-primary" disabled={() => save.pending()} data-testid="edit-task-save">
+            {() => (save.pending() ? 'Saving\u2026' : 'Save Changes')}
           </button>
-          <button type="button" class="btn btn-destructive" onClick={handleDelete} data-testid="delete-task-btn">
+          <button
+            type="button"
+            class="btn btn-destructive"
+            onClick={handleDelete}
+            disabled={() => remove.pending()}
+            data-testid="delete-task-btn"
+          >
             Delete Task
           </button>
         </div>
@@ -204,35 +207,31 @@ function CreateTaskForm({ projectId, onCreated, onCancel }: CreateTaskFormProps)
   const $description = signal('');
   const $priority = signal<Task['priority']>('medium');
   const $dueDate = signal('');
-  const $error = signal('');
 
-  const handleSubmit = (e: Event) => {
+  const create = useAction(createTaskAction);
+
+  const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    if (!$title().trim()) {
-      $error.set('Title is required');
-      return;
-    }
-    $error.set('');
-    try {
-      const task = createTask({
-        projectId,
-        title: $title(),
-        description: $description(),
-        priority: $priority(),
-        dueDate: $dueDate() || null
-      });
-      onCreated(task);
-    } catch (err) {
-      $error.set(err instanceof Error ? err.message : 'Failed to create task');
-    }
+    if (!$title().trim()) return;
+
+    const result = await create.run({
+      projectId,
+      title: $title.peek(),
+      description: $description.peek(),
+      priority: $priority.peek(),
+      dueDate: $dueDate.peek() || null
+    });
+    if (result === undefined) return;
+
+    onCreated(result);
   };
 
   return (
     <form class="create-task-form" onSubmit={handleSubmit} data-testid="create-task-form">
-      <Show when={() => $error() !== ''}>
+      <Show when={() => create.error() !== null}>
         {() => (
           <p class="form-error" role="alert">
-            {$error()}
+            {() => create.error()?.message ?? ''}
           </p>
         )}
       </Show>
@@ -265,8 +264,8 @@ function CreateTaskForm({ projectId, onCreated, onCancel }: CreateTaskFormProps)
           onInput={(e: InputEvent) => $dueDate.set((e.target as HTMLInputElement).value)}
           data-testid="create-task-due"
         />
-        <button type="submit" class="btn btn-primary btn-sm" data-testid="create-task-submit">
-          Add
+        <button type="submit" class="btn btn-primary btn-sm" disabled={() => create.pending()} data-testid="create-task-submit">
+          {() => (create.pending() ? 'Adding\u2026' : 'Add')}
         </button>
         <button type="button" class="btn btn-ghost btn-sm" onClick={onCancel}>
           Cancel
