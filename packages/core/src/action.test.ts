@@ -11,6 +11,18 @@ describe('defineAction()', () => {
     expect((def as { pending?: unknown }).pending).toBeUndefined();
     expect((def as { error?: unknown }).error).toBeUndefined();
   });
+
+  it('zero-arg overload infers I=void and run() takes no argument', async () => {
+    let calls = 0;
+    const logoutAction = defineAction(() => {
+      calls++;
+    });
+    const logout = useAction(logoutAction);
+    // Compile-time check: this would error before the overload + conditional
+    // run() type — `Expected 1 arguments, but got 0`.
+    await logout.run();
+    expect(calls).toBe(1);
+  });
 });
 
 describe('useAction()', () => {
@@ -69,11 +81,11 @@ describe('useAction()', () => {
       })
     );
 
-    await flaky.run(undefined);
+    await flaky.run();
     expect(flaky.error()?.message).toBe('first attempt failed');
 
     shouldFail = false;
-    const result = await flaky.run(undefined);
+    const result = await flaky.run();
     expect(result).toBe('ok');
     expect(flaky.error()).toBeNull();
   });
@@ -92,7 +104,7 @@ describe('useAction()', () => {
         throw 'something went wrong';
       })
     );
-    await strThrow.run(undefined);
+    await strThrow.run();
     expect(strThrow.error()).toBeInstanceOf(Error);
     expect(strThrow.error()?.message).toBe('something went wrong');
 
@@ -101,7 +113,7 @@ describe('useAction()', () => {
         throw { code: 404 };
       })
     );
-    await objThrow.run(undefined);
+    await objThrow.run();
     expect(objThrow.error()?.message).toBe('[object Object]');
   });
 
@@ -116,12 +128,12 @@ describe('useAction()', () => {
     });
     const action = useAction(def);
 
-    const p1 = action.run(undefined);
+    const p1 = action.run();
     expect(action.pending()).toBe(true);
     expect(calls).toBe(1);
 
     // Second call while first is in flight — should no-op immediately.
-    const result2 = await action.run(undefined);
+    const result2 = await action.run();
     expect(result2).toBeUndefined();
     expect(calls).toBe(1); // fn not invoked again
     expect(action.pending()).toBe(true); // first still in flight
@@ -156,7 +168,7 @@ describe('useAction()', () => {
       )
     );
 
-    const p = action.run(undefined);
+    const p = action.run();
     expect(action.pending()).toBe(true);
 
     // Should not affect anything; pending is true so reset bails.
@@ -181,7 +193,7 @@ describe('useAction()', () => {
     });
     const aFail = useAction(failingDef);
     const bFail = useAction(failingDef);
-    await aFail.run(undefined);
+    await aFail.run();
     expect(aFail.error()?.message).toBe('only a');
     expect(bFail.error()).toBeNull();
   });
@@ -208,7 +220,7 @@ describe('useAction()', () => {
 
     // For the lifecycle batching itself, observe that during the in-flight
     // window, pending is true and error is null (cleared at start).
-    const p = action.run(undefined);
+    const p = action.run();
     expect(action.pending()).toBe(true);
     expect(action.error()).toBeNull();
 

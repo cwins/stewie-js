@@ -27,7 +27,7 @@ interface InternalActionDefinition<I, O> extends ActionDefinition<I, O> {
   readonly [FN]: (input: I) => Promise<O> | O;
 }
 
-export interface Action<I, O> {
+interface ActionBase<O> {
   /**
    * `true` while a run() invocation is in flight. Strictly bounded by the
    * mutation itself — does NOT extend through caller-side post-mutation work.
@@ -39,18 +39,30 @@ export interface Action<I, O> {
    */
   error: Signal<Error | null>;
   /**
-   * Invoke the mutation. Never rejects — resolves with the action's return
-   * value on success, or `undefined` on failure or when blocked by an
-   * in-flight call. Inspect the return value to branch.
-   */
-  run: (input: I) => Promise<O | undefined>;
-  /**
    * Clear `error` to `null`. No-op while `pending` is `true`. Use to dismiss
    * a persistent error UI without retrying.
    */
   reset: () => void;
+  // Marker so the conditional run() type below can distinguish on O even
+  // when callers parameterize Action<...> manually. Phantom — never read.
+  readonly [ActionOutputBrand]?: O;
 }
 
+declare const ActionOutputBrand: unique symbol;
+
+/**
+ * Per-component action instance. `run()` never rejects: resolves with the
+ * action's return value on success, or `undefined` on caught error / when
+ * blocked by an in-flight call. When `I` is `void`, `run()` takes no
+ * argument.
+ */
+export type Action<I, O> = ActionBase<O> &
+  ([I] extends [void]
+    ? { run: () => Promise<O | undefined> }
+    : { run: (input: I) => Promise<O | undefined> });
+
+export function defineAction<O>(fn: () => Promise<O> | O): ActionDefinition<void, O>;
+export function defineAction<I, O>(fn: (input: I) => Promise<O> | O): ActionDefinition<I, O>;
 export function defineAction<I, O>(fn: (input: I) => Promise<O> | O): ActionDefinition<I, O> {
   return { [FN]: fn } as InternalActionDefinition<I, O>;
 }
@@ -86,5 +98,5 @@ export function useAction<I, O>(def: ActionDefinition<I, O>): Action<I, O> {
     if (!pending.peek()) error.set(null);
   }
 
-  return { pending, error, run, reset };
+  return { pending, error, run, reset } as unknown as Action<I, O>;
 }
