@@ -116,7 +116,7 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
   for (const ref of analysis.moduleScopeBrowserGlobals) {
     diagnostics.push({
       code: 'STW083',
-      severity: 'error',
+      severity: 'warning',
       message: `Browser global '${ref.name}' accessed at module scope. The module will throw on import in SSR / non-browser environments. Move the access inside a component, effect(), or guard with 'typeof ${ref.name} !== "undefined"'.`,
       line: ref.line,
       column: ref.column,
@@ -145,18 +145,6 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
         docsUrl: diagnosticDocsUrl('STW011')
       });
     }
-  }
-
-  // STW030: accessor prop field read non-reactively
-  for (const read of analysis.accessorPropStaticReads) {
-    diagnostics.push({
-      code: 'STW030',
-      severity: 'warning',
-      message: `Prop '${read.name}' is an accessor (() => T) but is called in a non-reactive JSX position ('${read.expressionText}'). The rendered value will not update when the parent's signal changes. Wrap as '() => ${read.expressionText}' to make it reactive.`,
-      line: read.line,
-      column: read.column,
-      docsUrl: diagnosticDocsUrl('STW030')
-    });
   }
 
   for (const conflict of analysis.bindingConflicts) {

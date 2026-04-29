@@ -219,7 +219,7 @@ interface Computed<T> { (): T; peek(): T; }
 `;
 
 describe('analyzeFile() — type-aware auto-wrap (with TypeChecker)', () => {
-  it('does NOT wrap {getRow().id} when id is a plain number', () => {
+  it('DOES wrap {getRow().id} when getRow is a plain accessor (() => T)', () => {
     const source = `${SIGNAL_DECLS}
 declare function getRow(): { id: number; label: Signal<string>; };
 function App() { return <span>{getRow().id}</span> }
@@ -227,7 +227,8 @@ function App() { return <span>{getRow().id}</span> }
     const { program, parsed } = createInMemoryProgram('test.tsx', source);
     const checker = program.getTypeChecker();
     const result = analyzeFile(parsed, checker);
-    expect(result.autoWrapCandidates).toHaveLength(0);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('getRow().id');
   });
 
   it('DOES wrap {getRow().label()} when label is a Signal<string>', () => {
@@ -266,7 +267,7 @@ function App() { return <span>{count() + 1}</span> }
     expect(result.autoWrapCandidates[0].expressionText).toBe('count() + 1');
   });
 
-  it('does NOT wrap {getItem().done} on a plain getter (benchmark pattern)', () => {
+  it('DOES wrap {getItem().done} on a plain accessor (benchmark pattern)', () => {
     const source = `${SIGNAL_DECLS}
 interface Row { id: number; done: boolean; text: string; }
 declare function getItem(): Row;
@@ -275,8 +276,9 @@ function App() { return <li class={getItem().done ? 'done' : ''}>{getItem().text
     const { program, parsed } = createInMemoryProgram('test.tsx', source);
     const checker = program.getTypeChecker();
     const result = analyzeFile(parsed, checker);
-    // Neither getItem().done nor getItem().text read a signal — should not wrap.
-    expect(result.autoWrapCandidates).toHaveLength(0);
+    // getItem is `() => Row` (plain accessor) — both reads should be wrapped
+    // so the surrounding effect re-runs whenever the accessor's source changes.
+    expect(result.autoWrapCandidates).toHaveLength(2);
   });
 
   it('heuristic fallback — still wraps without TypeChecker (existing behavior preserved)', () => {

@@ -489,44 +489,6 @@ function App() { return <MyComp value={cls} /> }
     expect(diagnostics.filter((d) => d.code === 'STW011')).toHaveLength(0);
   });
 
-  it('STW030 — accessor prop called in non-reactive JSX child', () => {
-    const source = `${SIGNAL_DECLS}
-function Row(task: () => { title: string }) { return <div>{task().title}</div> }
-`;
-    const diagnostics = validateWithChecker(source);
-    const warnings = diagnostics.filter((d) => d.code === 'STW030');
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0].severity).toBe('warning');
-    expect(warnings[0].message).toContain("'task'");
-    expect(warnings[0].message).toContain('accessor');
-  });
-
-  it('STW030 — accessor prop called in non-reactive attribute', () => {
-    const source = `${SIGNAL_DECLS}
-function Row(task: () => { cls: string }) { return <div class={task().cls} /> }
-`;
-    const diagnostics = validateWithChecker(source);
-    const warnings = diagnostics.filter((d) => d.code === 'STW030');
-    expect(warnings).toHaveLength(1);
-  });
-
-  it('STW030 — does not fire when accessor read is arrow-wrapped', () => {
-    const source = `${SIGNAL_DECLS}
-function Row(task: () => { title: string }) { return <div>{() => task().title}</div> }
-`;
-    const diagnostics = validateWithChecker(source);
-    expect(diagnostics.filter((d) => d.code === 'STW030')).toHaveLength(0);
-  });
-
-  it('STW030 — does not fire for non-parameter accessor (module-scope getter)', () => {
-    const source = `${SIGNAL_DECLS}
-declare function getTask(): { title: string };
-function App() { return <div>{getTask().title}</div> }
-`;
-    const diagnostics = validateWithChecker(source);
-    expect(diagnostics.filter((d) => d.code === 'STW030')).toHaveLength(0);
-  });
-
   it('correct line number for module-scope reactive calls', () => {
     const source = `// comment\nconst s = signal(0)\n`;
     const parsed = parseFile(source, 'test.tsx');

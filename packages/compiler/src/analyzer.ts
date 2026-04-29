@@ -95,15 +95,6 @@ export interface UncalledSignalInJsx {
   column: number;
 }
 
-export interface AccessorPropStaticRead {
-  // The destructured/parameter identifier that is a plain accessor.
-  name: string;
-  // e.g. 'task().title' — the offending expression text.
-  expressionText: string;
-  line: number;
-  column: number;
-}
-
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[];
   twoWayBindings: TwoWayBinding[];
@@ -117,7 +108,6 @@ export interface AnalysisResult {
   externalLinkTos: ExternalLinkTo[];
   moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[];
   uncalledSignalsInJsx: UncalledSignalInJsx[];
-  accessorPropStaticReads: AccessorPropStaticRead[];
 }
 
 // Callees whose call at module scope creates per-call-site signals and is
@@ -165,45 +155,28 @@ function isPlainAccessorType(type: ts.Type): boolean {
 }
 
 /**
- * Walks up from a symbol declaration to decide whether the binding is a
- * function parameter (possibly inside a destructuring pattern). Used by
- * STW030 to isolate "the ident refers to a prop the parent passed us."
- */
-function symbolIsFunctionParameter(symbol: ts.Symbol | undefined): boolean {
-  if (!symbol) return false;
-  const decl = symbol.getDeclarations()?.[0];
-  if (!decl) return false;
-  if (ts.isParameter(decl)) return true;
-  if (ts.isBindingElement(decl)) {
-    let p: ts.Node | undefined = decl.parent;
-    while (p) {
-      if (ts.isParameter(p)) return true;
-      if (ts.isFunctionLike(p)) return false;
-      p = p.parent;
-    }
-  }
-  return false;
-}
-
-/**
  * Type-aware reactive read detector. Returns true if `node` or any descendant
- * calls a value whose type is Signal<T> or Computed<T>.
+ * calls a value whose type is Signal<T>, Computed<T>, or a plain accessor
+ * (`() => T`, no `.peek`). Both shapes need to be wrapped in JSX positions so
+ * the read participates in the surrounding reactive effect.
  *
- * Handles the three real patterns:
  *   count()           — callee `count: Signal<number>` → true
- *   count() + 1       — binary expr containing count() → true
- *   row().id          — callee `row: () => Row` (no peek) → false ✓
- *   row().label()     — callee of outer call is `row().label: Signal<string>` → true ✓
+ *   row().label()     — outer callee `Signal<string>` → true
+ *   row().id          — callee `row: () => Row` accessor → true (NEW)
+ *   plain.value       — no zero-arg calls → false
+ *
+ * The accessor branch generalizes the autowrap to keyed-list children
+ * (`<For>{(item) => <div>{item().name}</div>}`) and any component prop
+ * typed `() => T`. STW030 used to flag these as static reads; with autowrap
+ * doing the work the diagnostic is obsolete.
  */
-function containsSignalRead(node: ts.Node, checker: ts.TypeChecker): boolean {
+function containsReactiveRead(node: ts.Node, checker: ts.TypeChecker): boolean {
   if (ts.isCallExpression(node) && node.arguments.length === 0) {
-    // Check whether the thing being called has a Signal/Computed type.
     const calleeType = checker.getTypeAtLocation(node.expression);
     if (isSignalType(calleeType)) return true;
-    // Callee is not a signal itself — recurse in case there are signal reads
-    // deeper in the expression (e.g. row().label() where label: Signal<string>).
+    if (isPlainAccessorType(calleeType)) return true;
   }
-  return ts.forEachChild(node, (child): true | undefined => (containsSignalRead(child, checker) ? true : undefined)) === true;
+  return ts.forEachChild(node, (child): true | undefined => (containsReactiveRead(child, checker) ? true : undefined)) === true;
 }
 
 function isIntrinsicElement(name: string): boolean {
@@ -247,7 +220,6 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
   const externalLinkTos: ExternalLinkTo[] = [];
   const moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[] = [];
   const uncalledSignalsInJsx: UncalledSignalInJsx[] = [];
-  const accessorPropStaticReads: AccessorPropStaticRead[] = [];
 
   // Stack of currently-active reactive bodies. Pushed when we descend into
   // the function argument of an effect()/computed() call; popped on exit.
@@ -306,34 +278,6 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     }
   }
 
-  // Type-aware helper: walks `expr` looking for any zero-arg call to an
-  // identifier whose symbol is a function parameter and whose type is a plain
-  // accessor (callable, no `.peek`). Returns the first such call or null.
-  // Used by STW030 to flag `prop()` reads in non-reactive JSX positions.
-  function findAccessorPropCall(node: ts.Node): ts.CallExpression | null {
-    if (!checker) return null;
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.arguments.length === 0) {
-      const type = checker.getTypeAtLocation(node.expression);
-      if (isPlainAccessorType(type)) {
-        const symbol = checker.getSymbolAtLocation(node.expression);
-        if (symbolIsFunctionParameter(symbol)) {
-          return node;
-        }
-      }
-    }
-    let found: ts.CallExpression | null = null;
-    ts.forEachChild(node, (child) => {
-      if (found) return true;
-      const result = findAccessorPropCall(child);
-      if (result) {
-        found = result;
-        return true;
-      }
-      return undefined;
-    });
-    return found;
-  }
-
   function visitJsxChildren(node: ts.JsxElement): void {
     const tagName = node.openingElement.tagName.getText();
     if (!isIntrinsicElement(tagName)) return;
@@ -353,20 +297,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
         }
       }
 
-      // STW030: static read of an accessor prop (e.g. `task().title` where
-      // `task: () => Task` is a component parameter).
-      const accessorCall = findAccessorPropCall(expr);
-      if (accessorCall) {
-        const pos = getLineAndColumn(expr, sourceFile);
-        accessorPropStaticReads.push({
-          name: (accessorCall.expression as ts.Identifier).text,
-          expressionText: expr.getText(sourceFile),
-          line: pos.line,
-          column: pos.column
-        });
-      }
-
-      const hasReactiveRead = checker ? containsSignalRead(expr, checker) : containsNoArgIdentifierCall(expr);
+      const hasReactiveRead = checker ? containsReactiveRead(expr, checker) : containsNoArgIdentifierCall(expr);
       if (!hasReactiveRead) continue;
 
       autoWrapCandidates.push({
@@ -536,25 +467,10 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
           }
         }
 
-        // STW030: accessor-prop call used as a non-reactive attribute value
-        // on an intrinsic element (e.g. `<div class={task().cls}>`). Skipped
-        // for event handlers and for expressions already wrapped in an arrow.
-        if (isIntrinsic && !attrName.startsWith('on') && !isReactive) {
-          const accessorCall = findAccessorPropCall(expr);
-          if (accessorCall) {
-            accessorPropStaticReads.push({
-              name: (accessorCall.expression as ts.Identifier).text,
-              expressionText: expr.getText(sourceFile),
-              line: pos.line,
-              column: pos.column
-            });
-          }
-        }
-
         // Auto-wrap: if this is an intrinsic element, the attribute is not an
         // event handler, the expression is not already a function, but it
         // contains a no-arg identifier call (signal read pattern) → wrap in () =>
-        const attrHasReactiveRead = checker ? containsSignalRead(expr, checker) : containsNoArgIdentifierCall(expr);
+        const attrHasReactiveRead = checker ? containsReactiveRead(expr, checker) : containsNoArgIdentifierCall(expr);
         if (isIntrinsic && !attrName.startsWith('on') && !isReactive && attrHasReactiveRead) {
           autoWrapCandidates.push({
             start: attr.initializer.getStart(sourceFile),
@@ -665,7 +581,6 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     forByConstantKeys,
     externalLinkTos,
     moduleScopeBrowserGlobals,
-    uncalledSignalsInJsx,
-    accessorPropStaticReads
+    uncalledSignalsInJsx
   };
 }

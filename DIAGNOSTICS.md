@@ -211,24 +211,9 @@ Detect patterns like `by={() => 'x'}`, `by={() => 0}`, or `by={(_) => _}` when `
 
 This is the category that caught us in Work Queue — static prop destructuring when the parent passes an accessor.
 
-### STW030 — Component destructures a prop and reads fields non-reactively
-**Detection:** compiler-type-aware · **Severity:** warn
+### STW030 — *Removed*
 
-When a component destructures a prop whose type is `T | (() => T)` or an accessor function, and then reads a field of it non-reactively inside the JSX body.
-
-```tsx
-// Bad — reads are static even though parent may update the accessor
-function TaskRow({ task }: { task: () => Task }) {
-  return <span>{task().title}</span>;  // not reactive
-}
-
-// Good
-function TaskRow({ task }: { task: () => Task }) {
-  return <span>{() => task().title}</span>;
-}
-```
-
-**Message:** `Prop '{name}' is an accessor ({signature}) but field '{field}' is read non-reactively. The rendered value will not update when the parent's signal changes. Wrap as '() => {name}().{field}' or make '{name}' a plain value if reactivity is not needed here.`
+Previously this warned when a component destructured an accessor-typed prop (`() => T`) and read fields of it non-reactively in JSX. Removed in 0.8.0 because the type-aware autowrap was extended to plain accessors: `containsReactiveRead` now treats any zero-arg call whose callee is `() => T` (no `.peek`) as a reactive read, so `<span>{task().title}</span>` is wrapped automatically. The diagnostic became impossible to trigger in compiler-on builds and only nagged authors of compiler-off code that the runtime cannot enforce.
 
 ### STW031 — Signal passed to a prop typed as a plain value
 **Detection:** compiler-type-aware · **Severity:** error
@@ -532,8 +517,8 @@ expect(value).toBeSignal();  // value is a plain number
 
 - **Numeric ranges** leave gaps for expansion inside each category (e.g., STW005–009 reserved for future module-scope rules).
 - **Compiler vs runtime split** matters for deliverability. Compiler rules can block the build at develop time with great DX. Runtime rules are only active in dev and must not ship in prod — wrap in `if (process.env.NODE_ENV !== 'production')` or equivalent edge guard.
-- **Silencing:** each rule should accept `// stewie-ignore STW030` (line-scoped) and `// stewie-ignore STW030 -- reason` to capture intent.
-- **Docs:** each diagnostic code needs a docs page explaining the rule, the fix, and the rationale. Pattern: URL like `https://stewie.dev/diagnostics/STW030` embedded in the message when docs exist.
+- **Silencing:** each rule should accept `// stewie-ignore STW010` (line-scoped) and `// stewie-ignore STW010 -- reason` to capture intent.
+- **Docs:** each diagnostic code needs a docs page explaining the rule, the fix, and the rationale. Pattern: URL like `https://stewie.dev/diagnostics/STW010` embedded in the message when docs exist.
 
 ---
 
@@ -580,7 +565,6 @@ Piggybacks on the `ts.Program` already created for auto-wrap. These are where re
 | STW013 | Non-signal function rendered as child | compiler-type-aware | dev-runtime (runtime catches any function, regardless of type — broader than the compiler rule) |
 | STW020 | `<Show when>` is a non-function | compiler-type-aware | dev-runtime |
 | STW021 | `<For each>` is a non-function | compiler-type-aware | dev-runtime |
-| STW030 | Accessor prop field read non-reactively | compiler-type-aware | n/a |
 | STW031 | Signal passed to plain-value prop | compiler-type-aware | no (signals are recognizable at runtime, but message quality is strictly worse) |
 | STW043 | Signal write inside `computed()` body | compiler-type-aware | dev-runtime |
 | STW032 | Component function returns a function | compiler-type-aware | dev-runtime |
@@ -617,5 +601,5 @@ Blocked on features that don't exist yet or aren't stable:
 
 Start with the rules that have already caught real bugs in this repo or the Work Queue app:
 - Phase 1: STW001–004 (module-scope), STW043 (write in computed)
-- Phase 2: STW030 (the Work Queue accessor bug), STW010/011 (most common JSX mistake), STW020/021 (keyed-list/conditional footguns)
+- Phase 2: STW010/011 (most common JSX mistake), STW020/021 (keyed-list/conditional footguns)
 - Phase 3: STW080–082 (hydration) is the highest-leverage runtime rule; everything else is opportunistic
