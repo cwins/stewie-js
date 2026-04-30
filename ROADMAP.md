@@ -39,7 +39,11 @@ These exist and work — not listed as open items below.
 | Devtools panel | `@stewie-js/devtools` | Renders tab (component names, old→new values, caller frames, anchor highlighting for Show/For/Switch), Stores tab, Routes tab, Graph tab (live signal dep visualization, disposal tracking) |
 | Testing utilities | `@stewie-js/testing` | `mount`, query helpers, signal assertions |
 | `create-stewie` CLI | `create-stewie` | Static and SSR scaffolding with router option |
-| `resource()` primitive | `@stewie-js/core` | Signals (`data`, `loading`, `error`), `read()` for Suspense, `refetch()` |
+| `defineResource` + `useResource` | `@stewie-js/core` | Signals (`data`, `loading`, `error`), `read()` for Suspense, `refetch()`. SSR replay via `DataRegistry` not yet wired — see "SSR + Hydration Correctness" below |
+| `defineAction` + `useAction` | `@stewie-js/core` | `pending`, `error`, `lastRun`, `reset`; concurrent `run()` no-ops while pending |
+| `useTitle`, `useMeta`, `<Head>` | `@stewie-js/core` | Signal-driven `document.head` mutations; `renderToString` returns `headHtml`; `renderToStream` emits per-boundary inline `<script>` head patches |
+| Progressive asset streaming — Phase 1 | `@stewie-js/vite`, `@stewie-js/server` | Vite plugin rewrites `lazy(() => import('./X'))` to include the manifest id; `renderToStream` accepts a `manifest` option and emits deduped `<link rel="stylesheet">` per lazy boundary |
+| Lazy hydration preserves SSR DOM | `@stewie-js/core` | `renderLazy` late-hydrates the still-in-DOM SSR nodes via a sub-cursor when the factory resolves — no flicker, no re-render |
 
 ---
 
@@ -211,17 +215,37 @@ This is an enhancement to `@stewie-js/vite` (build time) and `@stewie-js/server`
 
 **Critical constraint — client and server bundles diverge:** The server bundle and client bundle have meaningfully different dependency graphs. The server bundle typically elides CSS entirely (reducing CSS module imports to class-name mappings only) and does not produce the same chunk boundaries as the client build. Walking the server bundle's import graph therefore cannot yield CSS file paths or correct JS chunk references — those come from the client build. Any asset manifest must be built from client build artifacts.
 
-**The Stewie approach:**
+**Phase 1 — shipped.** `@stewie-js/vite` rewrites `lazy(() => import('./X'))` into `lazy(..., 'src/X.tsx')` — the source-id key Vite emits in `ssr-manifest.json`. `renderToStream` accepts the manifest via options and emits `<link rel="stylesheet">` per lazy boundary, deduped across the stream, before the boundary's HTML flush. No custom manifest, no developer ceremony — `lazy()` users get progressive CSS hints automatically when the manifest is wired through. Boundaries without an `id` (compiler-off `lazy()` calls) take the no-hint fallback path.
 
-*Build order matters:* The client build runs first, producing CSS files, JS chunks, and `dist/client/manifest.json` with content-hashed filenames. The server build runs second with `ssrManifest: true`, cross-referencing the client manifest to produce `dist/server/ssr-manifest.json`. This file maps server-side module IDs to their corresponding client-side assets (CSS links, JS chunks, preload hints). This is Vite's existing mechanism — Stewie uses it rather than reimplementing it.
+**Phase 2 — modulepreload + client hydration gating.** Emit `<link rel="modulepreload">` for the `.js`/`.mjs` assets in each boundary's manifest entry alongside the existing CSS links. Client hydration of a lazy boundary should gate on its CSS link `load` events before attaching reactive effects, to eliminate any FOUC during the hydration window.
 
-*Render time (`renderToStream`):* When a Suspense boundary for a `lazy()` component is about to flush, resolve the component's module ID against the ssr-manifest to find its client-side CSS and JS assets. Prepend `<link rel="stylesheet">` tags before the boundary's HTML chunk. The browser receives styles exactly when it receives the HTML that needs them — not before (wasted preload), not after (FOUC).
-
-*Vite plugin's actual job:* Ensure `lazy()` boundaries capture and expose their module ID in a form the server renderer can resolve at runtime, and load the ssr-manifest into the render context. The cross-referencing between client and server artifacts is Vite's responsibility via `ssrManifest` — the plugin's job is narrow: connect `lazy()` boundaries to the manifest lookup.
-
-*Hydration gating:* Before the client hydrates a boundary, both the CSS links and the JS chunk must be loaded. The `lazy()` import promise already gates on JS. CSS load events gate on the `<link>` tags emitted with the boundary flush.
+**Phase 3 — router preloading on hover/focus.** `<Link>` warms the next route's chunks when the user hovers or focuses it. To avoid double-loading assets the SSR already shipped, adopt the Loadable Components pattern: tag every emitted `<link>` and `<script>` with `data-stewie-id` so the router can read the DOM to know what's already loaded, then diff against the per-route manifest entries and only emit the missing ones. Vite's `manifest.json` is the URL map; the inline component-to-assets dep graph composes naturally with the existing per-boundary flush.
 
 **Why this is architecturally different:** Because `lazy()` is a first-class framework primitive and `renderToStream` already has a per-boundary flush hook, the ssr-manifest is a natural bridge between Vite's build-time output and the render-time boundary ordering. Libraries participate by importing CSS normally — they do not wrap the renderer.
+
+### SSR + Hydration Correctness for Suspense and Resources
+
+Two coupled gaps that show up the moment an SSR app uses `Suspense` around a `useResource` consumer.
+
+**Lazy hydration — fixed.** `renderLazy` previously claimed SSR nodes during hydration but only attached reactive effects when `loaded()` was already true on the first effect run — a near-impossible case, since the dynamic import is async. The factory then resolved, the SSR nodes were *removed* and re-rendered fresh: visible flicker, server work discarded. Now `renderLazy` tracks an explicit `needsHydration` flag and takes a hydration path (sub-cursor over the still-in-DOM SSR nodes) when `loaded` flips post-firstRun.
+
+**Suspense hydration — open.** `renderSuspense` does not engage the `HydrationCursor` at all (`packages/core/src/dom-renderer.ts:707`). It creates a fresh `<!--Suspense-->` anchor and re-renders children client-side. If children throw a Promise on hydration (because `useResource` data wasn't replayed from SSR), the fallback flashes back in even though SSR already streamed the resolved content. The fix has three coordinated parts and they have to land together to be meaningful:
+
+1. SSR emits `<!--Suspense-->` anchor at end of boundary content (both `renderToString` and `renderToStream`).
+2. `renderSuspense` claims via `collectUntilComment('Suspense')` and runs children with a sub-cursor (mirrors `renderShow`).
+3. `useResource` reads from a `DataRegistry` (see next item) so SSR-resolved data doesn't re-throw.
+
+**`DataRegistry` SPI — open.** Single primitive shared by SSR replay and client-side cache. Settled interface: `has` / `get` / `set` / `serialize` / `serializeByKey` / `hydrate` / `hydrateByKey`. Backed by a reactive `store()` so cache invalidation and devtools fall out for free. Key derivation is `${defId}:${stableSerialize(args)}`. SSR emits `serializeByKey` payloads inline near each consuming component (not in a single end-of-stream blob) so a Suspense boundary's data lands with its content and progressive hydration is preserved. Hydration cursor consumes the inline payloads and calls `hydrateByKey`. `useResource` checks the registry first on every call.
+
+Side benefits the registry gets us:
+
+- Three components hitting the same endpoint with the same args: one fetch, all share the result.
+- Back-navigation reusing recent results: works as long as the registry isn't cleared (lifetime: app instance).
+- Future cache features (TTL/staleTime, manual invalidation, refetch on focus, prefetch, background revalidation) layer onto the same primitive without breaking the contract.
+
+Out of scope for v1: any of those cache features. The minimum is the SPI plus inline replay, sized so the registry is comfortable to make a public export later.
+
+Long-term: route loaders should be expressed *via* `defineResource` so a loader fetching `/api/user/1` and a `useResource(fetchUser, () => 1)` share identity through the same registry entry. Today they sit in namespaced regions of the same registry (`route:${path}:${paramsHash}` vs `${defId}:${argsHash}`); the unification is a follow-on refactor that doesn't change the SPI.
 
 ### Diagnostics — dev-mode and build-time
 
@@ -285,7 +309,12 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 19. **Documentation site + decision-oriented guides** — API reference plus "the Stewie way" guides (signal vs store vs resource, route load vs resource, mutation patterns, etc.)
 20. **Form primitives** — settled: no `createForm()` in v1. Forms compose from existing primitives (signals for fields/touched, computeds for validation/dirty, `useAction` for submit lifecycle, `signal.peek()` for the submit snapshot). Tripwire: extract a `field(signal, initial)` helper only after 3+ Work Queue forms grow the same multi-field touched/dirty pattern.
 21. **Actions / mutations** — `defineAction` + `useAction` (settled spec above). Includes the parallel `defineResource` + `useResource` reshape of the existing flat `resource()`. New diagnostics STW005/STW006 for `useAction`/`useResource` outside component scope.
-22. **Head / metadata + progressive asset streaming** — `useTitle`/`useMeta`/`<Head>` as signal-driven core primitives; Vite plugin component-to-assets manifest; per-boundary CSS emission in `renderToStream`; hydration gating on CSS + JS load
-23. Edge-first testing phases 2–4
-24. Cloudflare adapter
-25. Typed route params and query
+22. ~~**Head / metadata primitives**~~ — done; `useTitle`/`useMeta`/`<Head>` ship in core; `renderToString` returns `headHtml`; `renderToStream` emits inline `<script>` patches for Suspense boundary flushes
+23. ~~**Progressive asset streaming — Phase 1**~~ — done; `@stewie-js/vite` injects manifest IDs into `lazy()` calls; `renderToStream` accepts a `manifest` and emits deduped per-boundary `<link rel="stylesheet">` before each lazy flush
+24. ~~**Lazy hydration preserves SSR DOM**~~ — done; `renderLazy` now late-hydrates the still-in-DOM SSR nodes when the factory resolves instead of removing and re-rendering
+25. **SSR + hydration correctness for Suspense and resources** — `DataRegistry` SPI (settled) + `useResource` integration + inline SSR payload emission + `renderSuspense` cursor claim. The three Suspense-fix sub-tasks and the registry land together; this is the next item
+26. **Progressive asset streaming — Phase 2** — `<link rel="modulepreload">` for JS chunks alongside the existing CSS links; client hydration gating on CSS load
+27. **Progressive asset streaming — Phase 3** — Loadable-style `data-stewie-id` attrs on emitted tags; router preloads next-route assets on hover/focus, diffing against what the DOM already has
+28. Edge-first testing phases 2–4
+29. Cloudflare adapter
+30. Typed route params and query
