@@ -18,6 +18,14 @@ export interface _LazyBoundaryProps {
   loaded: () => boolean;
   /** Renders the loaded component with the captured props. */
   render: () => JSXElement | null;
+  /**
+   * Manifest key for this lazy boundary's chunk — root-relative source path
+   * (e.g. `src/pages/foo.tsx`). Populated by the Vite plugin's lazy() transform
+   * when present; absent when lazy() is called directly without the compiler.
+   * SSR uses it to look up CSS/JS assets in Vite's `ssr-manifest.json` and
+   * emit progressive `<link>` hints inline with the boundary flush.
+   */
+  id?: string;
 }
 
 /**
@@ -40,7 +48,7 @@ export interface _LazyBoundaryProps {
  * <Route path="/page" component={MyPage} />
  * ```
  */
-export function lazy<T extends Component>(factory: () => Promise<T | { default: T }>): T {
+export function lazy<T extends Component>(factory: () => Promise<T | { default: T }>, id?: string): T {
   // Shared across all instances of this lazy component (one per lazy() call).
   let loadedComponent: T | null = null;
   let loadPromise: Promise<void> | null = null;
@@ -80,7 +88,8 @@ export function lazy<T extends Component>(factory: () => Promise<T | { default: 
     // instead, which is uniquely named and correctly scoped.
     const lazyProps: _LazyBoundaryProps = {
       loaded: () => loaded(),
-      render: () => (loadedComponent ? jsx(loadedComponent as unknown as Component, props) : null)
+      render: () => (loadedComponent ? jsx(loadedComponent as unknown as Component, props) : null),
+      id
     };
 
     return {

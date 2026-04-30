@@ -38,7 +38,7 @@ import {
 } from '@stewie-js/core';
 import type { HeadCollector } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot, _LazyBoundaryProps } from '@stewie-js/core';
-import type { RenderToStreamOptions } from './types.js';
+import type { RenderToStreamOptions, SSRManifest } from './types.js';
 import { createHydrationRegistry, HydrationRegistryContext } from './hydration.js';
 import type { HydrationRegistry } from './hydration.js';
 import { VOID_ELEMENTS, escapeHtml, serializeAttrs } from './serializer.js';
@@ -59,6 +59,31 @@ interface StreamOpts {
   defer: (work: () => Promise<void>) => void;
   /** Counter for unique Suspense boundary IDs. */
   suspenseId: { n: number };
+  /** Vite SSR manifest for progressive `<link>` emission per lazy boundary. */
+  manifest?: SSRManifest;
+  /** Asset URLs already emitted in this render — prevents duplicate `<link>` tags. */
+  emittedAssets: Set<string>;
+}
+
+// ---------------------------------------------------------------------------
+// Lazy boundary asset emission
+// ---------------------------------------------------------------------------
+
+/**
+ * Emit `<link rel="stylesheet">` tags for any CSS assets a lazy boundary's
+ * chunk pulls in, deduped against assets already emitted earlier in the stream.
+ * No-op when no manifest is configured or the boundary has no `id` (compiler-off).
+ */
+function emitLazyAssets(id: string | undefined, opts: StreamOpts): void {
+  if (!id || !opts.manifest) return;
+  const assets = opts.manifest[id];
+  if (!assets) return;
+  for (const href of assets) {
+    if (opts.emittedAssets.has(href)) continue;
+    if (!href.endsWith('.css')) continue;
+    opts.emittedAssets.add(href);
+    opts.flush(`<link rel="stylesheet" href="${escapeHtml(href)}">`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -142,9 +167,12 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
   // ClientOnly — skip on server
   if (type === (ClientOnly as unknown)) return;
 
-  // LazyBoundary — emit <!--Lazy--> anchor to match the string renderer and DOM renderer
+  // LazyBoundary — emit <!--Lazy--> anchor to match the string renderer and DOM renderer.
+  // CSS hints flush *before* the boundary content so the browser starts the stylesheet
+  // download in parallel with parsing the rendered HTML.
   if (type === (_LazyBoundary as unknown)) {
     const lazyProps = props as unknown as _LazyBoundaryProps;
+    emitLazyAssets(lazyProps.id, opts);
     if (lazyProps.loaded()) {
       await streamNode(lazyProps.render(), opts);
     }
@@ -332,7 +360,9 @@ export function renderToStream(root: JSXElement | (() => JSXElement | null), opt
             contextSnapshot,
             flush,
             defer: (work) => deferred.push(work),
-            suspenseId: { n: 0 }
+            suspenseId: { n: 0 },
+            manifest: options?.manifest,
+            emittedAssets: new Set<string>()
           };
 
           const rootEl = typeof root === 'function' ? root() : root;

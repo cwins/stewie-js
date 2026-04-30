@@ -71,6 +71,29 @@ describe('stewie vite plugin', () => {
     expect(result).toBeUndefined();
   });
 
+  it('transform: injects manifest ID for lazy(() => import("./X"))', async () => {
+    const plugin = stewie();
+    const configResolved = plugin.configResolved as Function;
+    configResolved({ root: '/proj' });
+    const transform = plugin.transform as Function;
+    const ctx = { error: vi.fn(), warn: vi.fn() };
+    const source = `import { lazy } from '@stewie-js/core'\nexport const Page = lazy(() => import('./pages/foo'))`;
+    const result = await transform.call(ctx, source, '/proj/src/app.tsx');
+    expect(result).not.toBeNull();
+    expect(result.code).toContain(`lazy(() => import('./pages/foo'), 'src/pages/foo')`);
+  });
+
+  it('transform: leaves non-arrow lazy() calls alone (no inline import)', async () => {
+    const plugin = stewie();
+    const configResolved = plugin.configResolved as Function;
+    configResolved({ root: '/proj' });
+    const transform = plugin.transform as Function;
+    const ctx = { error: vi.fn(), warn: vi.fn() };
+    const source = `import { lazy } from '@stewie-js/core'\nconst factory = () => import('./x')\nconst Page = lazy(factory)`;
+    const result = await transform.call(ctx, source, '/proj/src/app.tsx');
+    expect(result.code).not.toMatch(/lazy\(factory,/);
+  });
+
   it('options.jsxToDom is forwarded to the compiler', async () => {
     const plugin = stewie({ jsxToDom: true });
     const transform = plugin.transform as Function;

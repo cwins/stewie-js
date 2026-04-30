@@ -1,6 +1,51 @@
 import type { Plugin } from 'vite';
+import { resolve as resolvePath, relative as relativePath, dirname, extname } from 'node:path';
+import { existsSync } from 'node:fs';
 import { compile, createProjectProgram } from '@stewie-js/compiler';
 import type { TsProgram } from '@stewie-js/compiler';
+
+/**
+ * Stereotyped pattern: `lazy(() => import('SPEC'))` or with default-export
+ * unwrapping. The transform injects a second argument — the SPEC resolved to
+ * a root-relative source ID — so the SSR renderer can index Vite's
+ * `ssr-manifest.json` and emit progressive `<link>` hints.
+ *
+ * Idempotent: if a second arg is already present (string literal), skip.
+ * Plain `lazy()` calls without an inline arrow + import() get no transform —
+ * they fall back to the no-asset-hint path at SSR.
+ */
+const LAZY_IMPORT_RE = /\blazy\s*\(\s*\(\s*\)\s*=>\s*import\s*\(\s*(['"])([^'"]+)\1\s*\)\s*\)/g;
+
+// Vite's ssr-manifest keys include the source-file extension (e.g. `src/pages/foo.tsx`),
+// but module specifiers are commonly written without one (`./pages/foo`) or with the
+// runtime `.js` extension (`./pages/foo.js`). Resolve to the actual on-disk source file
+// so the injected id matches the manifest key the SSR renderer will look up.
+const SOURCE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js'];
+
+function resolveSourceExtension(absoluteWithoutExt: string, originalExt: string): string {
+  if (originalExt && existsSync(absoluteWithoutExt + originalExt)) return originalExt;
+  for (const ext of SOURCE_EXTENSIONS) {
+    if (existsSync(absoluteWithoutExt + ext)) return ext;
+  }
+  return originalExt;
+}
+
+function injectLazyIds(code: string, fileId: string, root: string): string {
+  return code.replace(LAZY_IMPORT_RE, (match, quote: string, spec: string) => {
+    let resolvedSpec = spec;
+    if (spec.startsWith('.')) {
+      const absolute = resolvePath(dirname(fileId), spec);
+      const originalExt = extname(absolute);
+      const stem = originalExt ? absolute.slice(0, -originalExt.length) : absolute;
+      const ext = resolveSourceExtension(stem, originalExt);
+      resolvedSpec = relativePath(root, stem + ext);
+      // Vite manifest keys use forward slashes regardless of platform
+      if (resolvedSpec.includes('\\')) resolvedSpec = resolvedSpec.replace(/\\/g, '/');
+    }
+    // Strip the trailing `)` and inject the second arg before it
+    return match.slice(0, -1) + `, ${quote}${resolvedSpec}${quote})`;
+  });
+}
 
 export interface StewiePluginOptions {
   /**
@@ -51,6 +96,11 @@ export function stewie(options?: StewiePluginOptions): Plugin {
     // Transform .tsx files through the Stewie compiler
     transform(code: string, id: string, transformOptions?: { ssr?: boolean }) {
       if (!id.endsWith('.tsx')) return null;
+
+      // Inject lazy() asset-manifest IDs before running the Stewie compiler.
+      // The same ID lands in both client and SSR builds, so the SSR renderer
+      // can look the chunk's CSS up in Vite's `ssr-manifest.json`.
+      code = injectLazyIds(code, id, viteRoot);
 
       const isDev = process.env.NODE_ENV !== 'production';
       // jsxToDom emits document.createElement() calls — DOM APIs don't exist on

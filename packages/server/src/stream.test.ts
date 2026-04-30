@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderToStream } from './stream.js';
-import { jsx, Suspense } from '@stewie-js/core';
-import type { Component, JSXElement } from '@stewie-js/core';
+import { jsx, Suspense, _LazyBoundary } from '@stewie-js/core';
+import type { Component, JSXElement, _LazyBoundaryProps } from '@stewie-js/core';
 
 // Collect all chunks from a ReadableStream into an array
 async function collectChunks(stream: ReadableStream<Uint8Array>): Promise<string[]> {
@@ -110,6 +110,37 @@ describe('renderToStream', () => {
     const stateIndex = html.indexOf('__STEWIE_STATE__');
     const divIndex = html.indexOf('<div>');
     expect(stateIndex).toBeGreaterThan(divIndex);
+  });
+
+  it('emits <link rel="stylesheet"> for lazy boundary assets via manifest, deduped', async () => {
+    function makeLazy(id: string): JSXElement {
+      const lazyProps: _LazyBoundaryProps = {
+        loaded: () => true,
+        render: () => jsx('span', { children: `body-${id}` }),
+        id
+      };
+      return { type: _LazyBoundary as unknown, props: lazyProps as unknown as Record<string, unknown>, key: null } as JSXElement;
+    }
+
+    const manifest = {
+      'src/pages/foo.tsx': ['/assets/foo.css', '/assets/foo.js'],
+      'src/pages/bar.tsx': ['/assets/foo.css', '/assets/bar.css']
+    };
+
+    const html = await collectAll(
+      renderToStream(
+        jsx('div', { children: [makeLazy('src/pages/foo.tsx'), makeLazy('src/pages/bar.tsx'), makeLazy('src/pages/foo.tsx')] }),
+        { manifest }
+      )
+    );
+
+    expect(html).toContain('<link rel="stylesheet" href="/assets/foo.css">');
+    expect(html).toContain('<link rel="stylesheet" href="/assets/bar.css">');
+    // JS assets are not emitted by Phase 1 (CSS-only).
+    expect(html).not.toContain('/assets/foo.js');
+    // Deduped — only one link tag for foo.css despite two boundaries referencing it.
+    const fooMatches = html.match(/\/assets\/foo\.css/g);
+    expect(fooMatches?.length).toBe(1);
   });
 
   it('escapes HTML entities in text content', async () => {
