@@ -78,3 +78,9 @@ export type {
   ClientOnlyProps
 } from './components.js';
 export { Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly } from './components.js';
+
+// Head / metadata primitives — useTitle, useMeta, <Head>
+// Server-side: HeadContext + createHeadCollector are used by @stewie-js/server
+// to collect and emit head entries during SSR.
+export type { HeadEntry, HeadCollector, HeadProps, UseMetaProps } from './head.js';
+export { useTitle, useMeta, Head, HeadContext, createHeadCollector } from './head.js';

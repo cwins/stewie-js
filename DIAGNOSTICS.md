@@ -84,6 +84,17 @@ Same shape as STW001 with `store`.
 
 ---
 
+### STW007 — `useTitle()` or `useMeta()` called outside a component or `reactiveScope()`
+**Detection:** compiler-static · **Severity:** error · **Dual:** dev-runtime
+
+**Message:** `useTitle() called outside a component or reactiveScope(). Head primitives create reactive effects that must be owned by a scope so they are disposed on unmount. Move the useTitle() call inside a component body or reactiveScope().`
+
+Same shape for `useMeta()` with `useMeta()` in the message.
+
+**Note:** Calling these at module scope during SSR would attach a persistent `document.title` write effect that leaks across request boundaries. There is no `defineTitle()`/`defineMeta()` counterpart — head primitives are inherently per-component and cannot be split into a safe-at-module-scope definition form.
+
+---
+
 ## Signal usage in JSX
 
 ### STW010 — Signal referenced but not called in JSX text child

@@ -114,6 +114,7 @@ These are the reasons Stewie exists rather than "just use X":
 - `Show`, `For` (keyed, LIS-based), `Switch`/`Match`, `Portal`, `ErrorBoundary`, `Suspense`, `ClientOnly`, `lazy()`
 - Context (`createContext`, `provide`, `consume`)
 - `renderToString` and `renderToStream` (streaming with progressive Suspense flushing)
+- `useTitle`, `useMeta`, `<Head>` — signal-driven head/metadata primitives; `renderToString` returns `headHtml`; `renderToStream` emits inline `<script>` patches for Suspense boundary flushes
 - True DOM-claiming hydration via `HydrationCursor`
 - Client router with guards, data loading, lazy routes, View Transitions, Navigation API, History API fallback
 - SSR router with guard execution and `renderToString` integration
@@ -127,7 +128,6 @@ These are the reasons Stewie exists rather than "just use X":
 
 ## What Is Not Yet Real
 
-- **Head / metadata primitives** — no `useTitle`, `useMeta`, or `<Head>`; managing `document.title` and meta tags requires raw DOM manipulation today
 - **Progressive asset streaming** — `renderToStream` does not yet emit per-boundary CSS `<link>` tags; no Vite plugin component-to-assets manifest; no hydration gating on CSS load
 - **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
 - **Typed route params/query** — `useParams` and `useQuery` return `Record<string, string>`, not inferred from route definition

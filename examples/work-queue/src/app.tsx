@@ -92,7 +92,7 @@ export async function renderApp(url: string = '/'): Promise<RenderResult & { red
     ssrRouter = await createSsrRouter(url, routeElements);
   } catch (err) {
     if (err instanceof RedirectError) {
-      return { html: '', stateScript: '', redirect: err.location };
+      return { html: '', stateScript: '', headHtml: '', redirect: err.location };
     }
     throw err;
   }

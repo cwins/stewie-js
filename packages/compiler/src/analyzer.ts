@@ -115,7 +115,7 @@ export interface AnalysisResult {
 // STW code via MODULE_SCOPE_CODES in the validator. `useAction` is included
 // because it instantiates pending/error signals; `defineAction` is NOT —
 // definitions create no signals and are encouraged at module scope.
-const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect', 'useAction', 'useResource']);
+const REACTIVE_CALLEES = new Set(['signal', 'store', 'computed', 'effect', 'useAction', 'useResource', 'useTitle', 'useMeta']);
 
 /**
  * Syntax-only heuristic (no type info): returns true if `node` or any

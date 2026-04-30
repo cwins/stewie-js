@@ -144,6 +144,35 @@ function App() { const user = useResource(fetchUser, () => '1'); return null }
     expect(diagnostics).toHaveLength(0);
   });
 
+  it('STW007 — module-scope useTitle()', () => {
+    const source = `useTitle('hello')\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const errors = diagnostics.filter((d) => d.code === 'STW007');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].message).toContain('useTitle()');
+    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW007');
+  });
+
+  it('STW007 — module-scope useMeta()', () => {
+    const source = `useMeta({ name: 'description', content: 'x' })\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+
+    const errors = diagnostics.filter((d) => d.code === 'STW007');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toContain('useMeta()');
+  });
+
+  it('STW007 — does not fire when called inside a component', () => {
+    const source = `function App() { useTitle('hi'); return null }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diagnostics = validateFile(parsed, analyzeFile(parsed));
+    expect(diagnostics).toHaveLength(0);
+  });
+
   it('STW004 — module-scope effect()', () => {
     const source = `effect(() => {})\n`;
     const parsed = parseFile(source, 'test.tsx');

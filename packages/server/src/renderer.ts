@@ -12,13 +12,17 @@ import {
   runWithContext,
   withRenderIsolation,
   reactiveScope,
-  _LazyBoundary
+  _LazyBoundary,
+  Head,
+  HeadContext,
+  createHeadCollector
 } from '@stewie-js/core';
 import type { _LazyBoundaryProps } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot } from '@stewie-js/core';
 import type { RenderToStringOptions, RenderResult } from './types.js';
 import { createHydrationRegistry, HydrationRegistryContext, type HydrationRegistry } from './hydration.js';
 import { VOID_ELEMENTS, escapeHtml, serializeAttrs } from './serializer.js';
+import { serializeHeadEntries } from './head-serializer.js';
 
 // ---------------------------------------------------------------------------
 // Internal render options passed through recursion
@@ -136,6 +140,13 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
 
   if (type === (Portal as unknown)) {
     // On server, just render children inline (ignore target)
+    return renderNode(props.children, opts);
+  }
+
+  if (type === (Head as unknown)) {
+    // On server, render Head children inline so intrinsic tags like <link> and
+    // <script> are emitted into the HTML. useTitle / useMeta inside Head children
+    // register with HeadContext directly — they do not double-emit here.
     return renderNode(props.children, opts);
   }
 
@@ -268,9 +279,14 @@ export async function renderToString(root: JSXElement | (() => JSXElement | null
   // leakage between concurrent renders during their synchronous portions.
   return withRenderIsolation(async () => {
     const registry = createHydrationRegistry();
-    // Seed the context snapshot with the hydration registry so any component can call
-    // useHydrationRegistry() / consume(HydrationRegistryContext) and get the registry.
-    const contextSnapshot: ContextSnapshot = new Map([[HydrationRegistryContext.id, registry]]);
+    const headCollector = createHeadCollector();
+    // Seed the context snapshot with the hydration registry and head collector so
+    // any component can call useHydrationRegistry() / consume(HydrationRegistryContext)
+    // and useTitle() / useMeta() / consume(HeadContext) and get the right instances.
+    const contextSnapshot: ContextSnapshot = new Map<symbol, unknown>([
+      [HydrationRegistryContext.id, registry],
+      [HeadContext.id, headCollector]
+    ]);
     const opts: InternalRenderOptions = { nonce: options?.nonce, registry, contextSnapshot };
 
     const rootEl = typeof root === 'function' ? root() : root;
@@ -281,6 +297,8 @@ export async function renderToString(root: JSXElement | (() => JSXElement | null
     const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : '';
     const stateScript = `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson}</script>`;
 
-    return { html, stateScript };
+    const headHtml = serializeHeadEntries(headCollector.entries());
+
+    return { html, stateScript, headHtml };
   }); // end withRenderIsolation
 }

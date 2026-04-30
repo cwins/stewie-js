@@ -31,13 +31,18 @@ import {
   runWithContext,
   withRenderIsolation,
   reactiveScope,
-  _LazyBoundary
+  _LazyBoundary,
+  Head,
+  HeadContext,
+  createHeadCollector
 } from '@stewie-js/core';
+import type { HeadCollector } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot, _LazyBoundaryProps } from '@stewie-js/core';
 import type { RenderToStreamOptions } from './types.js';
 import { createHydrationRegistry, HydrationRegistryContext } from './hydration.js';
 import type { HydrationRegistry } from './hydration.js';
 import { VOID_ELEMENTS, escapeHtml, serializeAttrs } from './serializer.js';
+import { serializeHeadEntries, serializeHeadPatch } from './head-serializer.js';
 
 // ---------------------------------------------------------------------------
 // Internal streaming render context
@@ -46,6 +51,7 @@ import { VOID_ELEMENTS, escapeHtml, serializeAttrs } from './serializer.js';
 interface StreamOpts {
   nonce?: string;
   registry: HydrationRegistry;
+  headCollector: HeadCollector;
   contextSnapshot: ContextSnapshot;
   /** Enqueue a chunk immediately — use for sync/ready content. */
   flush: (html: string) => void;
@@ -152,6 +158,12 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
+  // Head — render children inline; useTitle/useMeta inside them register with HeadContext
+  if (type === (Head as unknown)) {
+    await streamNode(props.children, opts);
+    return;
+  }
+
   // ErrorBoundary
   if (type === (ErrorBoundary as unknown)) {
     try {
@@ -200,8 +212,13 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     const id = opts.suspenseId.n++;
     const placeholderId = `__ss${id}`;
 
-    // Capture context snapshot now so the deferred render has the right context
+    // Capture context snapshot now so the deferred render has the right context.
+    // Create a boundary-local head collector so we can emit a head patch alongside
+    // the Suspense boundary's content flush — e.g. a lazy component that derives
+    // a page title from fetched data updates the title when its data resolves.
+    const boundaryHeadCollector = createHeadCollector();
     const deferredSnapshot = new Map(opts.contextSnapshot);
+    deferredSnapshot.set(HeadContext.id, boundaryHeadCollector);
 
     // Render fallback synchronously and flush it wrapped in a placeholder element
     const fallbackChunks: string[] = [];
@@ -220,6 +237,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
       try {
         await streamNode(props.children, {
           ...opts,
+          headCollector: boundaryHeadCollector,
           flush: realFlush,
           contextSnapshot: deferredSnapshot
         });
@@ -235,6 +253,10 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
 <template id="${placeholderId}t">${realHtml}</template>
 <script${nonceAttr}>(function(){var s=document.getElementById("${placeholderId}"),t=document.getElementById("${placeholderId}t");if(s&&t){s.outerHTML=t.innerHTML;t.remove()}})()</script>`;
       opts.flush(swapScript);
+
+      // Emit head patch — title / meta updates from within this Suspense boundary
+      const headPatch = serializeHeadPatch(boundaryHeadCollector.entries(), opts.nonce);
+      if (headPatch) opts.flush(headPatch);
     });
     return;
   }
@@ -295,13 +317,18 @@ export function renderToStream(root: JSXElement | (() => JSXElement | null), opt
       try {
         await withRenderIsolation(async () => {
           const registry = createHydrationRegistry();
-          const contextSnapshot: ContextSnapshot = new Map([[HydrationRegistryContext.id, registry]]);
+          const headCollector = createHeadCollector();
+          const contextSnapshot: ContextSnapshot = new Map<symbol, unknown>([
+            [HydrationRegistryContext.id, registry],
+            [HeadContext.id, headCollector]
+          ]);
 
           const deferred: Array<() => Promise<void>> = [];
 
           const opts: StreamOpts = {
             nonce: options?.nonce,
             registry,
+            headCollector,
             contextSnapshot,
             flush,
             defer: (work) => deferred.push(work),
@@ -310,6 +337,11 @@ export function renderToStream(root: JSXElement | (() => JSXElement | null), opt
 
           const rootEl = typeof root === 'function' ? root() : root;
           await streamNode(rootEl, opts);
+
+          // Emit shell-level head tags immediately after the main tree (before deferred work)
+          // so title / meta set by non-Suspense components land early in the stream.
+          const shellHeadHtml = serializeHeadEntries(headCollector.entries());
+          if (shellHeadHtml) flush(shellHeadHtml);
 
           // Resolve deferred Suspense boundaries in order
           for (const work of deferred) await work();

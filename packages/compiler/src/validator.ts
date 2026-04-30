@@ -14,7 +14,9 @@ const MODULE_SCOPE_CODES: Record<string, string> = {
   store: 'STW003',
   effect: 'STW004',
   useAction: 'STW005',
-  useResource: 'STW006'
+  useResource: 'STW006',
+  useTitle: 'STW007',
+  useMeta: 'STW007'
 };
 
 function moduleScopeMessage(callee: string): string {
@@ -26,6 +28,9 @@ function moduleScopeMessage(callee: string): string {
   }
   if (callee === 'useResource') {
     return `useResource() called at module scope. The instance creates per-call-site data/loading/error signals that must be owned by a scope so they can be disposed; calling it at module scope leaks state across SSR requests. Move the useResource() call inside a component body or reactiveScope(). (defineResource() at module scope is fine — it creates no signals.)`;
+  }
+  if (callee === 'useTitle' || callee === 'useMeta') {
+    return `${callee}() called at module scope. Head primitives create reactive effects that must be owned by a scope so they are disposed on unmount; calling at module scope attaches a persistent document.head write effect that leaks across SSR requests. Move the ${callee}() call inside a component body or reactiveScope().`;
   }
   return `${callee}() called at module scope. Reactive primitives must be created inside a component or reactiveScope() — module-scope ${callee}s leak state across SSR requests.`;
 }

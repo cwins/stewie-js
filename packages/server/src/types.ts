@@ -16,4 +16,9 @@ export interface RenderResult {
   html: string;
   /** The `<script>window.__STEWIE_STATE__ = ...</script>` tag. Inject just before `</body>`. */
   stateScript: string;
+  /**
+   * Serialized `<title>` and `<meta>` tags collected during the render via `useTitle` / `useMeta`.
+   * Inject into `<head>` of your HTML shell. Empty string when no head primitives were used.
+   */
+  headHtml: string;
 }
