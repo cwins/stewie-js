@@ -433,10 +433,7 @@ describe('useResource + DataRegistry', () => {
   });
 
   it('writes resolved data to the registry on a cache miss', async () => {
-    const def = defineResource(
-      (id: number, _opts: { signal: AbortSignal }) => Promise.resolve(`u${id}`),
-      { id: 'fetchUser' }
-    );
+    const def = defineResource((id: number, _opts: { signal: AbortSignal }) => Promise.resolve(`u${id}`), { id: 'fetchUser' });
     const registry = createDataRegistry();
 
     reactiveScope(() => {

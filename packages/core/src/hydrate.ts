@@ -9,10 +9,19 @@ import type { HydrationRegistry } from './hydration.js';
 import type { JSXElement } from './jsx-runtime.js';
 import type { Disposer } from './dom-renderer.js';
 import { HydrationCursor } from './hydration-cursor.js';
+import { createDataRegistry, DataRegistryContext } from './data-registry.js';
+import { reactiveScope } from './reactive.js';
 
 declare global {
   interface Window {
     __STEWIE_STATE__?: Record<string, unknown>;
+    /**
+     * Seed object populated by SSR — both renderToString (single end-of-document
+     * assignment) and renderToStream (per-Suspense-boundary patches via
+     * Object.assign). hydrate() copies these entries into a fresh DataRegistry
+     * before mounting.
+     */
+    __STEWIE_DATA__?: Record<string, unknown>;
   }
 }
 
@@ -114,9 +123,22 @@ export function hydrate(root: JSXElement | Node | (() => JSXElement | Node | nul
 
   const cursor = new HydrationCursor(container.childNodes);
 
+  // Build the DataRegistry from window.__STEWIE_DATA__ inside a reactiveScope so
+  // its store-backed implementation has an owning scope. The registry is then
+  // provided alongside HydrationRegistryContext for the lifetime of the mount.
+  const initialData = (typeof window !== 'undefined' ? (window.__STEWIE_DATA__ ?? {}) : {}) as Record<string, unknown>;
+
   let disposer!: Disposer;
-  provide(HydrationRegistryContext, registry, () => {
-    disposer = _hydrateInto(root, container, cursor);
+  reactiveScope(() => {
+    const dataRegistry = createDataRegistry();
+    for (const k of Object.keys(initialData)) dataRegistry.set(k, initialData[k]);
+    provide(HydrationRegistryContext, registry, () => {
+      provide(DataRegistryContext, dataRegistry, () => {
+        disposer = _hydrateInto(root, container, cursor);
+        return undefined;
+      });
+      return undefined;
+    });
   });
 
   // After mount, compare client output against server HTML.

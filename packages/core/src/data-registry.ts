@@ -21,6 +21,12 @@ export interface DataRegistry {
   get(key: string): unknown;
   set(key: string, value: unknown): void;
   /**
+   * Iterate the keys currently in the registry. Used by streaming SSR to
+   * diff which keys were written during a Suspense boundary so it can emit
+   * an inline payload for just the new entries.
+   */
+  keys(): string[];
+  /**
    * Serialize the entire registry to a JSON string. Used for end-of-stream
    * `__STEWIE_STATE__` payloads when inline-near-consumer emission isn't
    * possible (e.g. a renderToString call without Suspense flushes).
@@ -48,6 +54,9 @@ export function createDataRegistry(): DataRegistry {
     },
     set(key, value) {
       state.entries[key] = value;
+    },
+    keys() {
+      return Object.keys(state.entries);
     },
     serialize() {
       return JSON.stringify(state.entries);

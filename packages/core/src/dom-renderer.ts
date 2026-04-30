@@ -705,13 +705,20 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
  * The "seen" Set prevents infinite loops if the same Promise is thrown again.
  */
 function renderSuspense(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
-  const anchor = document.createComment('Suspense');
-  insertBefore(parent, anchor, before);
+  // Hydration: claim the SSR-rendered subtree bounded by the trailing
+  // <!--Suspense--> anchor. When the resource data is available in the
+  // DataRegistry (the common case for SSR-resolved boundaries), the children
+  // render synchronously without throwing, and we wire reactive effects onto
+  // the existing DOM nodes via a sub-cursor — zero mutation, no flash.
+  const claimed = _hydrationCursor?.collectUntilComment('Suspense');
+  const anchor = claimed?.anchor ?? document.createComment('Suspense');
+  if (!claimed) insertBefore(parent, anchor, before);
 
-  let activeNodes: ChildNode[] = [];
+  let activeNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
   let activeDisposer: Disposer = () => {};
   const seenPromises = new Set<Promise<unknown>>();
   let retryCount = 0;
+  let firstRun = true;
   const MAX_RETRIES = 10;
 
   function clearActive(): void {
@@ -722,34 +729,65 @@ function renderSuspense(props: Record<string, unknown>, parent: Node, before: No
   }
 
   function tryRenderContent(): void {
+    // First-run hydration path: try to claim SSR nodes via a sub-cursor so the
+    // children's effects attach to existing DOM rather than re-creating it.
+    // If hydration throws (a resource still unresolved), fall through to the
+    // fresh-render fallback path — but that's a degraded mode signaling either
+    // missing __STEWIE_DATA__ replay or an unresolved boundary mid-stream.
+    if (firstRun && claimed && activeNodes.length > 0) {
+      firstRun = false;
+      const subCursor = new HydrationCursor(activeNodes);
+      const frag = document.createDocumentFragment();
+      try {
+        activeDisposer = _withCursor(subCursor, () => renderChildren(props.children, frag, null));
+        // SSR nodes stay in place; any new DOM produced by the children render
+        // is appended before the anchor (rare — well-matched SSR produces no
+        // additions during hydration).
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
+        return;
+      } catch (thrown) {
+        // Hydration failed (likely resource not in registry) — drop SSR nodes
+        // and fall through to fresh-render path which handles the throw.
+        activeDisposer();
+        activeDisposer = () => {};
+        activeNodes.forEach((n) => n.parentNode?.removeChild(n));
+        activeNodes = [];
+        return handleFreshRenderError(thrown);
+      }
+    }
+    firstRun = false;
     try {
       const frag = document.createDocumentFragment();
       activeDisposer = renderChildren(props.children, frag, null);
       activeNodes = Array.from(frag.childNodes) as ChildNode[];
       anchor.parentNode?.insertBefore(frag, anchor);
     } catch (thrown) {
-      if (thrown instanceof Promise && !seenPromises.has(thrown) && retryCount < MAX_RETRIES) {
-        seenPromises.add(thrown);
-        retryCount++;
-        // Show fallback while the Promise is pending.
-        const frag = document.createDocumentFragment();
-        activeDisposer = renderChildren(props.fallback, frag, null);
-        activeNodes = Array.from(frag.childNodes) as ChildNode[];
-        anchor.parentNode?.insertBefore(frag, anchor);
+      handleFreshRenderError(thrown);
+    }
+  }
 
-        thrown.then(
-          () => {
-            clearActive();
-            tryRenderContent();
-          },
-          // On rejection leave fallback visible; let ErrorBoundary above handle errors.
-          () => {}
-        );
-      } else {
-        // Re-throw non-Promise throws, repeated Promises, or retry-limit exceeded.
-        anchor.parentNode?.removeChild(anchor);
-        throw thrown;
-      }
+  function handleFreshRenderError(thrown: unknown): void {
+    if (thrown instanceof Promise && !seenPromises.has(thrown) && retryCount < MAX_RETRIES) {
+      seenPromises.add(thrown);
+      retryCount++;
+      // Show fallback while the Promise is pending.
+      const frag = document.createDocumentFragment();
+      activeDisposer = renderChildren(props.fallback, frag, null);
+      activeNodes = Array.from(frag.childNodes) as ChildNode[];
+      anchor.parentNode?.insertBefore(frag, anchor);
+
+      thrown.then(
+        () => {
+          clearActive();
+          tryRenderContent();
+        },
+        // On rejection leave fallback visible; let ErrorBoundary above handle errors.
+        () => {}
+      );
+    } else {
+      // Re-throw non-Promise throws, repeated Promises, or retry-limit exceeded.
+      anchor.parentNode?.removeChild(anchor);
+      throw thrown;
     }
   }
 

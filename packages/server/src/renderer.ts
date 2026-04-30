@@ -15,9 +15,11 @@ import {
   _LazyBoundary,
   Head,
   HeadContext,
-  createHeadCollector
+  createHeadCollector,
+  createDataRegistry,
+  DataRegistryContext
 } from '@stewie-js/core';
-import type { _LazyBoundaryProps } from '@stewie-js/core';
+import type { DataRegistry, _LazyBoundaryProps } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot } from '@stewie-js/core';
 import type { RenderToStringOptions, RenderResult } from './types.js';
 import { createHydrationRegistry, HydrationRegistryContext, type HydrationRegistry } from './hydration.js';
@@ -31,6 +33,7 @@ import { serializeHeadEntries } from './head-serializer.js';
 interface InternalRenderOptions {
   nonce?: string;
   registry: HydrationRegistry;
+  dataRegistry: DataRegistry;
   /** Active context values for this render path — threaded through async boundaries. */
   contextSnapshot: ContextSnapshot;
 }
@@ -189,7 +192,11 @@ async function renderNode(node: unknown, opts: InternalRenderOptions): Promise<s
         return renderNode(props.fallback, opts);
       }
     };
-    return tryRender();
+    // Trailing <!--Suspense--> anchor lets HydrationCursor.collectUntilComment('Suspense')
+    // claim the boundary's SSR-rendered subtree on the client, so renderSuspense doesn't
+    // wipe the server's output and re-render — preserving zero-mutation hydration.
+    const inner = await tryRender();
+    return `${inner}<!--Suspense-->`;
   }
 
   if (type === (Switch as unknown)) {
@@ -280,22 +287,29 @@ export async function renderToString(root: JSXElement | (() => JSXElement | null
   return withRenderIsolation(async () => {
     const registry = createHydrationRegistry();
     const headCollector = createHeadCollector();
+    // The DataRegistry is created inside the render isolation scope so its
+    // store() is owned by this request — no cross-request leakage. The same
+    // instance is provided via context (so useResource consults it) and is
+    // serialized at end-of-render into window.__STEWIE_DATA__ for the client.
+    const dataRegistry = createDataRegistry();
     // Seed the context snapshot with the hydration registry and head collector so
     // any component can call useHydrationRegistry() / consume(HydrationRegistryContext)
     // and useTitle() / useMeta() / consume(HeadContext) and get the right instances.
     const contextSnapshot: ContextSnapshot = new Map<symbol, unknown>([
       [HydrationRegistryContext.id, registry],
-      [HeadContext.id, headCollector]
+      [HeadContext.id, headCollector],
+      [DataRegistryContext.id, dataRegistry]
     ]);
-    const opts: InternalRenderOptions = { nonce: options?.nonce, registry, contextSnapshot };
+    const opts: InternalRenderOptions = { nonce: options?.nonce, registry, dataRegistry, contextSnapshot };
 
     const rootEl = typeof root === 'function' ? root() : root;
     const html = await renderNode(rootEl, opts);
 
     // Serialize hydration state — escape </script> to prevent XSS breakout
     const stateJson = registry.serialize().replace(/<\//g, '<\\/');
+    const dataJson = dataRegistry.serialize().replace(/<\//g, '<\\/');
     const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : '';
-    const stateScript = `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson}</script>`;
+    const stateScript = `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson};window.__STEWIE_DATA__ = ${dataJson}</script>`;
 
     const headHtml = serializeHeadEntries(headCollector.entries());
 

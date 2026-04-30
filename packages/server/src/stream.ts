@@ -34,9 +34,11 @@ import {
   _LazyBoundary,
   Head,
   HeadContext,
-  createHeadCollector
+  createHeadCollector,
+  createDataRegistry,
+  DataRegistryContext
 } from '@stewie-js/core';
-import type { HeadCollector } from '@stewie-js/core';
+import type { DataRegistry, HeadCollector } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot, _LazyBoundaryProps } from '@stewie-js/core';
 import type { RenderToStreamOptions, SSRManifest } from './types.js';
 import { createHydrationRegistry, HydrationRegistryContext } from './hydration.js';
@@ -51,6 +53,7 @@ import { serializeHeadEntries, serializeHeadPatch } from './head-serializer.js';
 interface StreamOpts {
   nonce?: string;
   registry: HydrationRegistry;
+  dataRegistry: DataRegistry;
   headCollector: HeadCollector;
   contextSnapshot: ContextSnapshot;
   /** Enqueue a chunk immediately — use for sync/ready content. */
@@ -235,10 +238,18 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Suspense — stream fallback immediately, resolve content as a deferred chunk
+  // Suspense — stream fallback immediately, resolve content as a deferred chunk.
+  //
+  // Inline data emission per boundary: snapshot the DataRegistry keys before the
+  // boundary's deferred work starts; after the work resolves, diff to find any
+  // new keys and emit `window.__STEWIE_DATA__["k"]=v` patches inline alongside
+  // the swap script. The patches land in the global registry object before the
+  // swap replaces the fallback DOM, so any reactive read triggered by the swap
+  // sees the cached data immediately.
   if (type === (Suspense as unknown)) {
     const id = opts.suspenseId.n++;
     const placeholderId = `__ss${id}`;
+    const keysBeforeBoundary = new Set(opts.dataRegistry.keys());
 
     // Capture context snapshot now so the deferred render has the right context.
     // Create a boundary-local head collector so we can emit a head patch alongside
@@ -248,7 +259,11 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     const deferredSnapshot = new Map(opts.contextSnapshot);
     deferredSnapshot.set(HeadContext.id, boundaryHeadCollector);
 
-    // Render fallback synchronously and flush it wrapped in a placeholder element
+    // Render fallback synchronously and flush it wrapped in a placeholder element.
+    // The trailing <!--Suspense--> anchor sits *outside* the placeholder div so it
+    // survives the eventual outerHTML swap that replaces the div — HydrationCursor
+    // walks the DOM looking for the anchor regardless of whether hydration runs
+    // before or after the swap script fires.
     const fallbackChunks: string[] = [];
     const fallbackFlush = (html: string) => fallbackChunks.push(html);
     try {
@@ -256,7 +271,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     } catch {
       // If fallback fails, stream nothing
     }
-    opts.flush(`<div id="${placeholderId}">${fallbackChunks.join('')}</div>`);
+    opts.flush(`<div id="${placeholderId}">${fallbackChunks.join('')}</div><!--Suspense-->`);
 
     // Defer resolution of real content — runs after the main tree is flushed
     opts.defer(async () => {
@@ -275,9 +290,23 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
 
       const realHtml = realChunks.join('');
       const nonceAttr = opts.nonce ? ` nonce="${escapeHtml(opts.nonce)}"` : '';
+
+      // Emit DataRegistry patch for keys written during this boundary's render.
+      // Lands in window.__STEWIE_DATA__ before the swap script so registry-aware
+      // hydration logic that runs after the swap (e.g. nested Suspense reads
+      // inside the swapped content) sees the cached data synchronously.
+      const newKeys = opts.dataRegistry.keys().filter((k) => !keysBeforeBoundary.has(k));
+      let dataPatchScript = '';
+      if (newKeys.length > 0) {
+        const patchObj: Record<string, unknown> = {};
+        for (const k of newKeys) patchObj[k] = opts.dataRegistry.get(k);
+        const patchJson = JSON.stringify(patchObj).replace(/<\//g, '<\\/');
+        dataPatchScript = `<script${nonceAttr}>(window.__STEWIE_DATA__=window.__STEWIE_DATA__||{});Object.assign(window.__STEWIE_DATA__,${patchJson})</script>`;
+      }
+
       // Inject content and swap out the placeholder via an inline script.
       // Using textContent assignment avoids issues with scripts inside innerHTML.
-      const swapScript = `
+      const swapScript = `${dataPatchScript}
 <template id="${placeholderId}t">${realHtml}</template>
 <script${nonceAttr}>(function(){var s=document.getElementById("${placeholderId}"),t=document.getElementById("${placeholderId}t");if(s&&t){s.outerHTML=t.innerHTML;t.remove()}})()</script>`;
       opts.flush(swapScript);
@@ -346,9 +375,11 @@ export function renderToStream(root: JSXElement | (() => JSXElement | null), opt
         await withRenderIsolation(async () => {
           const registry = createHydrationRegistry();
           const headCollector = createHeadCollector();
+          const dataRegistry = createDataRegistry();
           const contextSnapshot: ContextSnapshot = new Map<symbol, unknown>([
             [HydrationRegistryContext.id, registry],
-            [HeadContext.id, headCollector]
+            [HeadContext.id, headCollector],
+            [DataRegistryContext.id, dataRegistry]
           ]);
 
           const deferred: Array<() => Promise<void>> = [];
@@ -356,6 +387,7 @@ export function renderToStream(root: JSXElement | (() => JSXElement | null), opt
           const opts: StreamOpts = {
             nonce: options?.nonce,
             registry,
+            dataRegistry,
             headCollector,
             contextSnapshot,
             flush,
@@ -376,10 +408,17 @@ export function renderToStream(root: JSXElement | (() => JSXElement | null), opt
           // Resolve deferred Suspense boundaries in order
           for (const work of deferred) await work();
 
-          // Flush hydration state last — escape </script> to prevent XSS breakout
+          // Flush hydration state last — escape </script> to prevent XSS breakout.
+          // __STEWIE_DATA__ accumulates per-boundary patches during streaming; the
+          // final assignment merges any not-yet-emitted entries (e.g. from a
+          // synchronous useResource call outside a Suspense boundary) into the
+          // global object that hydrate() reads at boot.
           const stateJson = registry.serialize().replace(/<\//g, '<\\/');
+          const dataJson = dataRegistry.serialize().replace(/<\//g, '<\\/');
           const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : '';
-          flush(`<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson}</script>`);
+          flush(
+            `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson};window.__STEWIE_DATA__ = Object.assign(${dataJson}, window.__STEWIE_DATA__ || {})</script>`
+          );
         });
 
         controller.close();

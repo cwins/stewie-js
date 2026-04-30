@@ -12,8 +12,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { jsx, signal, computed, reactiveScope, Show, For } from '@stewie-js/core';
-import type { JSXElement } from '@stewie-js/core';
+import { jsx, signal, computed, reactiveScope, Show, For, Suspense, defineResource, useResource } from '@stewie-js/core';
+import type { JSXElement, Resource } from '@stewie-js/core';
 import { hydrate } from '@stewie-js/core';
 import { renderToString } from './renderer.js';
 import { useHydrationRegistry } from './hydration.js';
@@ -24,7 +24,18 @@ import { useHydrationRegistry } from './hydration.js';
 
 /** Parse window.__STEWIE_STATE__ JSON out of the emitted stateScript tag. */
 function extractState(stateScript: string): Record<string, unknown> {
-  const match = stateScript.match(/window\.__STEWIE_STATE__\s*=\s*(\{[\s\S]*?\})\s*<\/script>/);
+  const match = stateScript.match(/window\.__STEWIE_STATE__\s*=\s*(\{[\s\S]*?\});window\.__STEWIE_DATA__/);
+  if (!match) return {};
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return {};
+  }
+}
+
+/** Parse window.__STEWIE_DATA__ JSON out of the emitted stateScript tag. */
+function extractData(stateScript: string): Record<string, unknown> {
+  const match = stateScript.match(/window\.__STEWIE_DATA__\s*=\s*(\{[\s\S]*?\})\s*<\/script>/);
   if (!match) return {};
   try {
     return JSON.parse(match[1]);
@@ -44,6 +55,7 @@ async function ssrThenHydrate(factory: () => JSXElement, container: HTMLElement)
   const { html, stateScript } = await renderToString(factory());
   container.innerHTML = html;
   window.__STEWIE_STATE__ = extractState(stateScript);
+  window.__STEWIE_DATA__ = extractData(stateScript);
   let dispose!: () => void;
   reactiveScope(() => {
     dispose = hydrate(factory(), container);
@@ -57,9 +69,11 @@ async function ssrThenHydrate(factory: () => JSXElement, container: HTMLElement)
 
 beforeEach(() => {
   delete window.__STEWIE_STATE__;
+  delete window.__STEWIE_DATA__;
 });
 afterEach(() => {
   delete window.__STEWIE_STATE__;
+  delete window.__STEWIE_DATA__;
 });
 
 // ---------------------------------------------------------------------------
@@ -367,5 +381,74 @@ describe('SSR → hydrate: mismatch detection', () => {
     await ssrThenHydrate(() => jsx('p', { children: 'consistent' }), container);
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SSR → hydrate: Suspense + DataRegistry replay
+// ---------------------------------------------------------------------------
+
+describe('SSR → hydrate: Suspense + DataRegistry', () => {
+  it('useResource data resolved on server is replayed without refetch on hydration', async () => {
+    let serverFetchCount = 0;
+    let clientFetchCount = 0;
+    let phase: 'server' | 'client' = 'server';
+
+    const fetchUser = defineResource(
+      (id: number) => {
+        if (phase === 'server') {
+          serverFetchCount++;
+          return Promise.resolve({ id, name: `User ${id}` });
+        }
+        clientFetchCount++;
+        return Promise.resolve({ id, name: 'CLIENT' });
+      },
+      { id: 'fetchUserHydrationTest' }
+    );
+
+    function UserView(): JSXElement {
+      // Resource created outside the inner component so the Suspense retry on
+      // server reuses the same instance — the standard SSR pattern.
+      let res!: Resource<{ id: number; name: string }>;
+      reactiveScope(() => {
+        res = useResource(fetchUser, () => 7);
+      });
+      function Inner() {
+        const data = res.read();
+        return jsx('span', { children: data.name });
+      }
+      return jsx(Suspense as unknown as () => JSXElement, {
+        fallback: jsx('span', { children: 'Loading...' }),
+        children: jsx(Inner, {})
+      } as unknown as Record<string, unknown>);
+    }
+
+    // Server render — should fetch once, place data in __STEWIE_DATA__
+    const { html, stateScript } = await renderToString(jsx(UserView, {}));
+    expect(serverFetchCount).toBe(1);
+    expect(html).toContain('User 7');
+    expect(html).not.toContain('Loading...');
+
+    const data = extractData(stateScript);
+    // The DataRegistry serialized at least one entry under fetchUserHydrationTest.
+    const keys = Object.keys(data);
+    expect(keys.some((k) => k.startsWith('fetchUserHydrationTest:'))).toBe(true);
+
+    // Switch to client phase and hydrate. If the registry replay worked, the
+    // client fetcher must NOT run, the fallback must NOT flash in.
+    phase = 'client';
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    window.__STEWIE_STATE__ = extractState(stateScript);
+    window.__STEWIE_DATA__ = data;
+
+    reactiveScope(() => {
+      hydrate(jsx(UserView, {}), container);
+    });
+
+    expect(clientFetchCount).toBe(0);
+    expect(container.textContent).toContain('User 7');
+    expect(container.textContent).not.toContain('CLIENT');
+    expect(container.textContent).not.toContain('Loading...');
   });
 });
