@@ -777,6 +777,19 @@ function renderLazy(props: _LazyBoundaryProps, parent: Node, before: Node | null
   let childDisposer: Disposer = () => {};
   let currentNodes: ChildNode[] = claimed ? claimed.contentNodes.slice() : [];
   let firstRun = !!claimed;
+  // True while SSR-claimed nodes are still in the DOM unwired. The factory's
+  // dynamic import almost always resolves *after* the first effect run, so we
+  // hold onto the SSR nodes and hydrate them when `loaded` flips — instead of
+  // removing them and re-rendering, which would flicker and discard SSR work.
+  let needsHydration = !!claimed;
+
+  function hydrateExistingNodes(): void {
+    const subCursor = new HydrationCursor(currentNodes);
+    const frag = document.createDocumentFragment();
+    childDisposer = _withCursor(subCursor, () => renderChildren(props.render(), frag, null));
+    if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
+    needsHydration = false;
+  }
 
   if (isDev) _setNextEffectMeta({ type: 'children' });
   const disposeEffect = effect(() => {
@@ -784,18 +797,19 @@ function renderLazy(props: _LazyBoundaryProps, parent: Node, before: Node | null
 
     if (firstRun) {
       firstRun = false;
-      if (isLoaded) {
-        // Wire reactive effects onto existing SSR nodes — no DOM insertions.
-        const subCursor = new HydrationCursor(claimed!.contentNodes);
-        const frag = document.createDocumentFragment();
-        childDisposer = _withCursor(subCursor, () => renderChildren(props.render(), frag, null));
-        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
-      }
-      // !isLoaded: placeholder — nothing to render, anchor marks empty region.
+      if (isLoaded) hydrateExistingNodes();
+      // !isLoaded: leave SSR nodes visible; hydrate when `loaded` flips below.
       return;
     }
 
-    // After firstRun: loaded changed (false → true). Re-render.
+    // Late-hydrate path: factory resolved after first effect run. Wire reactive
+    // effects onto the still-in-DOM SSR nodes — no flicker, no removal.
+    if (needsHydration && isLoaded) {
+      hydrateExistingNodes();
+      return;
+    }
+
+    // Standard re-render path (no SSR nodes, or post-hydration update).
     childDisposer();
     childDisposer = () => {};
     currentNodes.forEach((n) => n.parentNode?.removeChild(n));
