@@ -2,10 +2,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { jsx } from './jsx-runtime.js';
 import { reactiveScope } from './reactive.js';
+import { provide } from './context.js';
 import { Suspense } from './components.js';
 import { mount } from './dom-renderer.js';
 import { defineResource, useResource } from './resource.js';
 import type { Resource } from './resource.js';
+import { createDataRegistry, DataRegistryContext, dataRegistryKey } from './data-registry.js';
 import { renderToString } from '@stewie-js/server';
 
 // ---------------------------------------------------------------------------
@@ -396,5 +398,108 @@ describe('useResource() AbortSignal and cancellation', () => {
     expect(receivedSignal.aborted).toBe(false);
     dispose();
     expect(receivedSignal.aborted).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DataRegistry integration — cache hit short-circuits the fetcher; cache
+// miss writes the result so a later useResource() with the same args
+// short-circuits too. This is what makes SSR replay work: the server
+// pre-populates the registry, the client reads it on hydration.
+// ---------------------------------------------------------------------------
+
+describe('useResource + DataRegistry', () => {
+  it('seeds from a pre-populated registry without calling the fetcher', () => {
+    const fetcher = vi.fn((_src: number, _opts: { signal: AbortSignal }) => Promise.resolve('FRESH'));
+    const def = defineResource(fetcher, { id: 'fetchSeeded' });
+
+    const registry = createDataRegistry();
+    reactiveScope(() => {
+      registry.set(dataRegistryKey('fetchSeeded', 1), 'CACHED');
+    });
+
+    let res!: Resource<string>;
+    reactiveScope(() => {
+      provide(DataRegistryContext, registry, () => {
+        res = useResource(def, () => 1);
+        return undefined;
+      });
+    });
+
+    // Synchronously seeded — no microtask needed.
+    expect(res.loading()).toBe(false);
+    expect(res.data()).toBe('CACHED');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('writes resolved data to the registry on a cache miss', async () => {
+    const def = defineResource(
+      (id: number, _opts: { signal: AbortSignal }) => Promise.resolve(`u${id}`),
+      { id: 'fetchUser' }
+    );
+    const registry = createDataRegistry();
+
+    reactiveScope(() => {
+      provide(DataRegistryContext, registry, () => {
+        useResource(def, () => 42);
+        return undefined;
+      });
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const key = dataRegistryKey('fetchUser', 42);
+    expect(registry.has(key)).toBe(true);
+    expect(registry.get(key)).toBe('u42');
+  });
+
+  it('a second useResource with the same args reads from the cache', async () => {
+    const fetcher = vi.fn((id: number, _opts: { signal: AbortSignal }) => Promise.resolve(`u${id}`));
+    const def = defineResource(fetcher, { id: 'fetchShared' });
+    const registry = createDataRegistry();
+
+    reactiveScope(() => {
+      provide(DataRegistryContext, registry, () => {
+        useResource(def, () => 7);
+        return undefined;
+      });
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    let res2!: Resource<string>;
+    reactiveScope(() => {
+      provide(DataRegistryContext, registry, () => {
+        res2 = useResource(def, () => 7);
+        return undefined;
+      });
+    });
+
+    // Synchronous cache hit — no microtask, no second fetcher call.
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(res2.loading()).toBe(false);
+    expect(res2.data()).toBe('u7');
+  });
+
+  it('without a registry provider, behaves exactly as before (no cache)', async () => {
+    const fetcher = vi.fn((_src: void, _opts: { signal: AbortSignal }) => Promise.resolve('X'));
+    const def = defineResource(fetcher, { id: 'fetchNoRegistry' });
+
+    reactiveScope(() => {
+      useResource(def, () => undefined);
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    reactiveScope(() => {
+      useResource(def, () => undefined);
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 });

@@ -11,8 +11,9 @@
 //   - actions fire on .run()
 // These are different primitives; the asymmetry is not incidental.
 
-import { signal, effect, onCleanup } from './reactive.js';
+import { signal, effect, onCleanup, untrack } from './reactive.js';
 import type { Signal } from './reactive.js';
+import { useDataRegistry, dataRegistryKey } from './data-registry.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,10 +35,14 @@ export interface ResourceDefinition<S, T> {
 // Internal runtime carrier. The brand symbol is type-only; the actual fetcher
 // is held under a private symbol so userland cannot read or replace it.
 const FN = Symbol('stewie.resource.fn');
+const ID = Symbol('stewie.resource.id');
 
 interface InternalResourceDefinition<S, T> extends ResourceDefinition<S, T> {
   readonly [FN]: (source: S, opts: { signal: AbortSignal }) => Promise<T> | T;
+  readonly [ID]: string;
 }
+
+let _resourceCounter = 0;
 
 export interface Resource<T> {
   /**
@@ -98,8 +103,24 @@ export interface Resource<T> {
  * Use `useResource(def, source)` inside a component to create the per-component
  * reactive instance.
  */
-export function defineResource<S, T>(fn: (source: S, opts: { signal: AbortSignal }) => Promise<T> | T): ResourceDefinition<S, T> {
-  return { [FN]: fn } as InternalResourceDefinition<S, T>;
+export interface DefineResourceOptions {
+  /**
+   * Stable id for this resource, used to namespace its DataRegistry entries.
+   * Required for SSR replay to work — server and client must agree on the id
+   * so the client can find the SSR-resolved data under the same key. Without
+   * an explicit id an auto-counter id is assigned which is *not* stable
+   * across SSR and CSR builds; client-side caching still works within a
+   * single runtime, but SSR-resolved data will be refetched on hydration.
+   */
+  id?: string;
+}
+
+export function defineResource<S, T>(
+  fn: (source: S, opts: { signal: AbortSignal }) => Promise<T> | T,
+  options?: DefineResourceOptions
+): ResourceDefinition<S, T> {
+  const id = options?.id ?? `r${++_resourceCounter}`;
+  return { [FN]: fn, [ID]: id } as InternalResourceDefinition<S, T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +167,17 @@ export function defineResource<S, T>(fn: (source: S, opts: { signal: AbortSignal
  * data fetching after the initial page load.
  */
 export function useResource<S, T>(def: ResourceDefinition<S, T>, source: () => S): Resource<T> {
-  const fn = (def as InternalResourceDefinition<S, T>)[FN];
+  const internal = def as InternalResourceDefinition<S, T>;
+  const fn = internal[FN];
+  const defId = internal[ID];
+
+  // The DataRegistry — if present in context — is consulted for cache hits
+  // before each fetch and written on every successful resolve. On the
+  // server it captures resolved data for SSR replay; on the client it
+  // dedupes fetches across components and is seeded from the SSR payload
+  // before this useResource call runs. Absent (no provider), the resource
+  // behaves exactly as before — no caching, no replay.
+  const registry = useDataRegistry();
 
   // Signals are created in the enclosing reactive scope (e.g. a component's
   // reactiveScope) — no need for a wrapper reactiveScope here.
@@ -168,6 +199,21 @@ export function useResource<S, T>(def: ResourceDefinition<S, T>, source: () => S
     _controller = new AbortController();
     const abortSignal = _controller.signal;
 
+    // Registry hit short-circuit: if the SSR payload (or a prior client
+    // fetch) has already cached this (defId, source) pair, seed the
+    // signals synchronously and skip the fetcher entirely. Reads under
+    // untrack so the registry's reactive backing doesn't subscribe the
+    // calling effect to every entry.
+    const cacheKey = registry ? dataRegistryKey(defId, sourceValue) : null;
+    if (registry && cacheKey !== null && untrack(() => registry.has(cacheKey))) {
+      const cached = untrack(() => registry.get(cacheKey)) as T;
+      _data.set(cached);
+      _loading.set(false);
+      _error.set(null);
+      _currentPromise = Promise.resolve();
+      return _currentPromise;
+    }
+
     _loading.set(true);
     _error.set(null);
 
@@ -186,6 +232,7 @@ export function useResource<S, T>(def: ResourceDefinition<S, T>, source: () => S
       (data) => {
         // Ignore results from a request that was cancelled (stale refetch or unmount).
         if (abortSignal.aborted) return;
+        if (registry && cacheKey !== null) registry.set(cacheKey, data);
         _data.set(data);
         _loading.set(false);
         resolve();

@@ -45,6 +45,13 @@ export type { Disposer } from './dom-renderer.js';
 export { mount } from './dom-renderer.js';
 export type { HydrationRegistry } from './hydration.js';
 export { HydrationRegistryContext, useHydrationRegistry } from './hydration.js';
+
+// DataRegistry — keyed cache + SSR replay primitive backing useResource and
+// (eventually) route loaders. Server emits per-key payloads inline alongside
+// each Suspense flush; client seeds the registry before the consumer's
+// first read. Resource fetches consult the registry first, write on success.
+export type { DataRegistry } from './data-registry.js';
+export { createDataRegistry, DataRegistryContext, useDataRegistry, dataRegistryKey } from './data-registry.js';
 export { hydrate } from './hydrate.js';
 
 // Lazy-loaded components
