@@ -215,6 +215,8 @@ This is the category that caught us in Work Queue — static prop destructuring 
 
 Previously this warned when a component destructured an accessor-typed prop (`() => T`) and read fields of it non-reactively in JSX. Removed in 0.8.0 because the type-aware autowrap was extended to plain accessors: `containsReactiveRead` now treats any zero-arg call whose callee is `() => T` (no `.peek`) as a reactive read, so `<span>{task().title}</span>` is wrapped automatically. The diagnostic became impossible to trigger in compiler-on builds and only nagged authors of compiler-off code that the runtime cannot enforce.
 
+A dev-runtime equivalent (warn when a signal is read with no tracking scope during synchronous JSX argument evaluation) was scoped and deferred. The clean detection point requires either compiler-emitted instrumentation or distinguishing JSX-time reads from event-handler reads at the signal-getter level — both are non-trivial and could be invalidated by the parked "Reactive props across component boundaries" decision in CLAUDE.md (proxy props or compiler-rewritten access would change what the read site even looks like). Revisit once that decision lands.
+
 ### STW031 — Signal passed to a prop typed as a plain value
 **Detection:** compiler-type-aware · **Severity:** error
 
