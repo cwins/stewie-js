@@ -417,10 +417,13 @@ describe('SSR → hydrate: Suspense + DataRegistry', () => {
         const data = res.read();
         return jsx('span', { children: data.name });
       }
-      return jsx(Suspense as unknown as () => JSXElement, {
-        fallback: jsx('span', { children: 'Loading...' }),
-        children: jsx(Inner, {})
-      } as unknown as Record<string, unknown>);
+      return jsx(
+        Suspense as unknown as () => JSXElement,
+        {
+          fallback: jsx('span', { children: 'Loading...' }),
+          children: jsx(Inner, {})
+        } as unknown as Record<string, unknown>
+      );
     }
 
     // Server render — should fetch once, place data in __STEWIE_DATA__

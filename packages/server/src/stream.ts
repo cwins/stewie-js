@@ -73,9 +73,16 @@ interface StreamOpts {
 // ---------------------------------------------------------------------------
 
 /**
- * Emit `<link rel="stylesheet">` tags for any CSS assets a lazy boundary's
- * chunk pulls in, deduped against assets already emitted earlier in the stream.
- * No-op when no manifest is configured or the boundary has no `id` (compiler-off).
+ * Emit `<link>` hints for any assets a lazy boundary's chunk pulls in:
+ *   - CSS    → `<link rel="stylesheet">`  (blocks paint until loaded — required
+ *              for unstyled-content avoidance when the chunk is also styled)
+ *   - JS/MJS → `<link rel="modulepreload">` (warms the module graph in parallel
+ *              with the rest of the stream so the dynamic import() the client
+ *              issues at hydration is already in cache)
+ *
+ * Deduped against assets already emitted earlier in the stream so two Lazy
+ * boundaries that share a chunk only emit one tag for it. No-op when no
+ * manifest is configured or the boundary has no `id` (compiler-off).
  */
 function emitLazyAssets(id: string | undefined, opts: StreamOpts): void {
   if (!id || !opts.manifest) return;
@@ -83,9 +90,13 @@ function emitLazyAssets(id: string | undefined, opts: StreamOpts): void {
   if (!assets) return;
   for (const href of assets) {
     if (opts.emittedAssets.has(href)) continue;
-    if (!href.endsWith('.css')) continue;
-    opts.emittedAssets.add(href);
-    opts.flush(`<link rel="stylesheet" href="${escapeHtml(href)}">`);
+    if (href.endsWith('.css')) {
+      opts.emittedAssets.add(href);
+      opts.flush(`<link rel="stylesheet" href="${escapeHtml(href)}">`);
+    } else if (href.endsWith('.js') || href.endsWith('.mjs')) {
+      opts.emittedAssets.add(href);
+      opts.flush(`<link rel="modulepreload" href="${escapeHtml(href)}">`);
+    }
   }
 }
 
