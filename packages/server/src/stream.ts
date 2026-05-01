@@ -72,6 +72,12 @@ interface StreamOpts {
   /** Asset URLs already emitted in this render — prevents duplicate `<link>` tags. */
   emittedAssets: Set<string>;
   /**
+   * Lazy boundary ids that were visited during this render. Populated by
+   * emitLazyAssets. Used to emit a filtered __STEWIE_MANIFEST__ global
+   * containing only the boundaries actually rendered (not the full manifest).
+   */
+  renderedLazyIds: Set<string>;
+  /**
    * Suspense strategy: when true, await children inline (with throw-Promise
    * retry); when false, defer children and emit a swap script. Set by the
    * public entry point — `renderToString` uses true, `renderToStream` uses false.
@@ -110,6 +116,8 @@ function emitLazyAssets(id: string | undefined, opts: StreamOpts): void {
   if (!id || !opts.manifest) return;
   const assets = opts.manifest[id];
   if (!assets) return;
+  // Track this id so buildStateScript can emit a filtered __STEWIE_MANIFEST__.
+  opts.renderedLazyIds.add(id);
   for (const href of assets) {
     if (opts.emittedAssets.has(href)) continue;
     let tag: string | null = null;
@@ -437,6 +445,8 @@ interface RenderHandle {
   registry: HydrationRegistry;
   dataRegistry: DataRegistry;
   headCollector: HeadCollector;
+  renderedLazyIds: Set<string>;
+  manifest?: SSRManifest;
 }
 
 async function runRender(
@@ -466,6 +476,7 @@ async function runRender(
 
     const deferred: Array<() => Promise<void>> = [];
 
+    const renderedLazyIds = new Set<string>();
     const opts: StreamOpts = {
       nonce: options?.nonce,
       registry,
@@ -477,6 +488,7 @@ async function runRender(
       suspenseId: { n: 0 },
       manifest: options?.manifest,
       emittedAssets: new Set<string>(),
+      renderedLazyIds,
       awaitSuspense,
       assetSink
     };
@@ -494,7 +506,7 @@ async function runRender(
       for (const work of deferred) await work();
     }
 
-    return { registry, dataRegistry, headCollector };
+    return { registry, dataRegistry, headCollector, renderedLazyIds, manifest: options?.manifest };
   });
 }
 
@@ -507,7 +519,22 @@ function buildStateScript(handle: RenderHandle, nonce: string | undefined, merge
   // before this final assignment lands, so merge into any existing object.
   // Await mode: this is the only assignment, so a plain set is correct.
   const dataExpr = mergeExisting ? `Object.assign(${dataJson}, window.__STEWIE_DATA__ || {})` : dataJson;
-  return `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson};window.__STEWIE_DATA__ = ${dataExpr}</script>`;
+
+  // Emit a filtered manifest containing only lazy boundary ids visited during
+  // this render. The client uses this to know which CSS/JS URLs belong to each
+  // boundary id — needed for Phase 2 hydration gating. Emitting only rendered
+  // ids (not the full manifest) keeps the payload proportional to actual output.
+  let manifestExpr = '';
+  if (handle.manifest && handle.renderedLazyIds.size > 0) {
+    const filtered: SSRManifest = {};
+    for (const id of handle.renderedLazyIds) {
+      if (handle.manifest[id]) filtered[id] = handle.manifest[id];
+    }
+    const manifestJson = JSON.stringify(filtered).replace(/<\//g, '<\\/');
+    manifestExpr = `;window.__STEWIE_MANIFEST__ = ${manifestJson}`;
+  }
+
+  return `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson};window.__STEWIE_DATA__ = ${dataExpr}${manifestExpr}</script>`;
 }
 
 // ---------------------------------------------------------------------------

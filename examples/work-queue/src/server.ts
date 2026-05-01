@@ -31,6 +31,13 @@ if (isProd) {
   const clientDir = resolve(root, 'client');
   const template = readFileSync(resolve(clientDir, 'index.html'), 'utf-8');
 
+  // Read the Vite SSR manifest once at startup. This is the CLIENT build's
+  // ssr-manifest.json — its values are hashed client asset URLs (e.g.
+  // /static/assets/AdminPage.sY5zl16Z.js) rather than the server build's
+  // unhashed SSR bundle paths. Keys are root-relative source module ids.
+  const manifestPath = resolve(clientDir, '.vite', 'ssr-manifest.json');
+  const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf-8')) : undefined;
+
   const server = createHttpServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
 
@@ -45,13 +52,16 @@ if (isProd) {
 
     // SSR render
     try {
-      const result = await renderApp(req.url ?? '/');
+      const result = await renderApp(req.url ?? '/', manifest);
       if (result.redirect) {
         res.writeHead(302, { location: result.redirect });
         res.end();
         return;
       }
-      const html = template.replace('<!--ssr-outlet-->', result.html).replace('</body>', `  ${result.stateScript}\n  </body>`);
+      const html = template
+        .replace('<!--ssr-head-outlet-->', result.headHtml ?? '')
+        .replace('<!--ssr-outlet-->', result.html)
+        .replace('</body>', `  ${result.stateScript}\n  </body>`);
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(html);
     } catch (e) {
@@ -78,7 +88,7 @@ if (isProd) {
       (async () => {
         try {
           const { renderApp } = (await vite.ssrLoadModule('/src/app.tsx')) as {
-            renderApp: (url: string) => Promise<{ html: string; stateScript: string; redirect?: string }>;
+            renderApp: (url: string) => Promise<{ html: string; stateScript: string; headHtml?: string; redirect?: string }>;
           };
 
           const rawTemplate = readFileSync(resolve(root, 'index.html'), 'utf-8');
@@ -90,7 +100,11 @@ if (isProd) {
             res.end();
             return;
           }
-          const html = template.replace('<!--ssr-outlet-->', result.html).replace('</body>', `  ${result.stateScript}\n  </body>`);
+          // No SSR manifest in dev; headHtml still injected (title/meta from useTitle/useMeta).
+          const html = template
+            .replace('<!--ssr-head-outlet-->', result.headHtml ?? '')
+            .replace('<!--ssr-outlet-->', result.html)
+            .replace('</body>', `  ${result.stateScript}\n  </body>`);
 
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
           res.end(html);

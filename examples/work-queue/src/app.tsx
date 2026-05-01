@@ -18,7 +18,7 @@ import type { JSXElement } from '@stewie-js/core';
 import { lazy } from '@stewie-js/core';
 import { Router, Route, createSsrRouter, RedirectError } from '@stewie-js/router';
 import { renderToString } from '@stewie-js/server';
-import type { RenderResult } from '@stewie-js/server';
+import type { RenderResult, SSRManifest } from '@stewie-js/server';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { ProjectsPage } from './pages/ProjectsPage.js';
 import { ProjectDetailPage } from './pages/ProjectDetailPage.js';
@@ -92,7 +92,7 @@ export function App({
 // before rendering so the HTML reflects the loaded data at response time.
 // ---------------------------------------------------------------------------
 
-export async function renderApp(url: string = '/'): Promise<RenderResult & { redirect?: string }> {
+export async function renderApp(url: string = '/', manifest?: SSRManifest): Promise<RenderResult & { redirect?: string }> {
   let ssrRouter: Awaited<ReturnType<typeof createSsrRouter>>;
   try {
     ssrRouter = await createSsrRouter(url, routeElements);
@@ -103,6 +103,6 @@ export async function renderApp(url: string = '/'): Promise<RenderResult & { red
     throw err;
   }
 
-  const result = await renderToString(<App initialUrl={url} router={ssrRouter} />);
+  const result = await renderToString(<App initialUrl={url} router={ssrRouter} />, { manifest });
   return result;
 }

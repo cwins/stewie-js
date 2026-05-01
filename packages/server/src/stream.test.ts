@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { renderToStream } from './stream.js';
+import { renderToStream, renderToString } from './stream.js';
 import { jsx, Suspense, _LazyBoundary } from '@stewie-js/core';
 import type { Component, JSXElement, _LazyBoundaryProps } from '@stewie-js/core';
+import type { SSRManifest } from './types.js';
 
 // Collect all chunks from a ReadableStream into an array
 async function collectChunks(stream: ReadableStream<Uint8Array>): Promise<string[]> {
@@ -140,16 +141,99 @@ describe('renderToStream', () => {
     // module graph in parallel with the streamed HTML.
     expect(html).toContain('<link rel="modulepreload" href="/assets/foo.js">');
     expect(html).toContain('<link rel="modulepreload" href="/assets/bar.mjs">');
-    // Deduped — only one link tag for shared assets across boundaries.
-    const fooCssMatches = html.match(/\/assets\/foo\.css/g);
-    expect(fooCssMatches?.length).toBe(1);
-    const fooJsMatches = html.match(/\/assets\/foo\.js/g);
-    expect(fooJsMatches?.length).toBe(1);
+    // Deduped — only one <link> tag for shared assets across boundaries.
+    // (The asset URL also appears in __STEWIE_MANIFEST__ JSON, so match specifically on <link> tags.)
+    const fooCssLinkMatches = html.match(/<link rel="stylesheet" href="\/assets\/foo\.css">/g);
+    expect(fooCssLinkMatches?.length).toBe(1);
+    const fooJsLinkMatches = html.match(/<link rel="modulepreload" href="\/assets\/foo\.js">/g);
+    expect(fooJsLinkMatches?.length).toBe(1);
   });
 
   it('escapes HTML entities in text content', async () => {
     const html = await collectAll(renderToStream(jsx('p', { children: '<script>evil</script>' })));
     expect(html).toContain('&lt;script&gt;');
     expect(html).not.toContain('<script>evil</script>');
+  });
+
+  it('emits __STEWIE_MANIFEST__ with only rendered lazy ids (renderToStream)', async () => {
+    function makeLazy(id: string): JSXElement {
+      const lazyProps: _LazyBoundaryProps = {
+        loaded: () => true,
+        render: () => jsx('span', { children: id }),
+        id
+      };
+      return { type: _LazyBoundary as unknown, props: lazyProps as unknown as Record<string, unknown>, key: null } as JSXElement;
+    }
+
+    const manifest: SSRManifest = {
+      'src/pages/AdminPage.tsx': ['/assets/AdminPage.css', '/assets/AdminPage.js'],
+      'src/pages/NotRendered.tsx': ['/assets/NotRendered.css']
+    };
+
+    const html = await collectAll(renderToStream(jsx('div', { children: makeLazy('src/pages/AdminPage.tsx') }), { manifest }));
+
+    // __STEWIE_MANIFEST__ must be present and contain only the rendered boundary
+    expect(html).toContain('__STEWIE_MANIFEST__');
+    const manifestMatch = html.match(/window\.__STEWIE_MANIFEST__ = ({.*?})/);
+    expect(manifestMatch).not.toBeNull();
+    const parsed = JSON.parse(manifestMatch![1]);
+    expect(parsed).toHaveProperty('src/pages/AdminPage.tsx');
+    expect(parsed['src/pages/AdminPage.tsx']).toEqual(['/assets/AdminPage.css', '/assets/AdminPage.js']);
+    // Non-rendered id must be absent
+    expect(parsed).not.toHaveProperty('src/pages/NotRendered.tsx');
+  });
+
+  it('emits no __STEWIE_MANIFEST__ when no lazy boundaries are rendered', async () => {
+    const manifest: SSRManifest = {
+      'src/pages/AdminPage.tsx': ['/assets/AdminPage.css']
+    };
+    const html = await collectAll(renderToStream(jsx('div', { children: 'no lazy here' }), { manifest }));
+    expect(html).not.toContain('__STEWIE_MANIFEST__');
+  });
+});
+
+describe('renderToString — manifest emission', () => {
+  function makeLazy(id: string): JSXElement {
+    const lazyProps: _LazyBoundaryProps = {
+      loaded: () => true,
+      render: () => jsx('span', { children: id }),
+      id
+    };
+    return { type: _LazyBoundary as unknown, props: lazyProps as unknown as Record<string, unknown>, key: null } as JSXElement;
+  }
+
+  it('lifts lazy boundary <link> tags into headHtml', async () => {
+    const manifest: SSRManifest = {
+      'src/pages/AdminPage.tsx': ['/assets/AdminPage.css', '/assets/AdminPage.js']
+    };
+    const result = await renderToString(jsx('div', { children: makeLazy('src/pages/AdminPage.tsx') }), { manifest });
+
+    expect(result.headHtml).toContain('<link rel="stylesheet" href="/assets/AdminPage.css">');
+    expect(result.headHtml).toContain('<link rel="modulepreload" href="/assets/AdminPage.js">');
+    // Link tags should NOT be in the body html
+    expect(result.html).not.toContain('<link rel="stylesheet"');
+  });
+
+  it('emits __STEWIE_MANIFEST__ in stateScript with only rendered ids', async () => {
+    const manifest: SSRManifest = {
+      'src/pages/AdminPage.tsx': ['/assets/AdminPage.css', '/assets/AdminPage.js'],
+      'src/pages/Other.tsx': ['/assets/Other.css']
+    };
+    const result = await renderToString(jsx('div', { children: makeLazy('src/pages/AdminPage.tsx') }), { manifest });
+
+    expect(result.stateScript).toContain('__STEWIE_MANIFEST__');
+    const manifestMatch = result.stateScript.match(/window\.__STEWIE_MANIFEST__ = ({.*?})/);
+    expect(manifestMatch).not.toBeNull();
+    const parsed = JSON.parse(manifestMatch![1]);
+    expect(parsed).toHaveProperty('src/pages/AdminPage.tsx');
+    expect(parsed).not.toHaveProperty('src/pages/Other.tsx');
+  });
+
+  it('emits no __STEWIE_MANIFEST__ when manifest has no rendered boundaries', async () => {
+    const manifest: SSRManifest = {
+      'src/pages/AdminPage.tsx': ['/assets/AdminPage.css']
+    };
+    const result = await renderToString(jsx('div', { children: 'plain content, no lazy' }), { manifest });
+    expect(result.stateScript).not.toContain('__STEWIE_MANIFEST__');
   });
 });
