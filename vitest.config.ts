@@ -19,7 +19,7 @@ export default defineConfig({
   },
   test: {
     include: ['packages/*/src/**/*.test.ts', 'packages/*/src/**/*.test.tsx', 'examples/*/src/**/*.test.ts', 'examples/*/src/**/*.test.tsx'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/*.browser.test.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.browser.test.ts', '**/*.gating.test.ts'],
     environment: 'node',
     globalSetup: ['examples/ssr-and-routing/vitest.setup.ts']
   }

@@ -133,7 +133,7 @@ These are the reasons Stewie exists rather than "just use X":
 
 ## What Is Not Yet Real
 
-- **Progressive asset streaming — Phase 2+** — Phase 1 ships per-boundary CSS `<link>` emission via Vite's `ssr-manifest.json` (no custom manifest needed). Still missing: `<link rel="modulepreload">` for JS chunks (Phase 2), client-side hydration gating on CSS load (Phase 2), router preloading on hover/focus with Loadable-style `data-stewie-id` attrs (Phase 3)
+- **Progressive asset streaming — Phase 3** — Phases 1 and 2 are complete: per-boundary `<link rel="stylesheet">` and `<link rel="modulepreload">` emission via Vite's `ssr-manifest.json` (no custom manifest needed), and client-side gating in `lazy()` so the boundary's content does not flip until its CSS chunk loads. Still missing: router preloading on hover/focus with Loadable-style `data-stewie-id` attrs (Phase 3)
 - **Suspense hydration is not load-bearing yet** — `renderSuspense` does not engage the `HydrationCursor`; it creates a fresh `<!--Suspense-->` anchor and re-renders children client-side. If children re-throw on hydration (e.g. because `useResource` data wasn't replayed from SSR), the fallback flashes back in even though SSR streamed the resolved content. Fix is in flight: see "Resource state replay via DataRegistry" below
 - **Resource state replay (DataRegistry)** — `useResource` doesn't read from any registry on the client, so SSR-resolved data is refetched on hydration. Designed but not yet shipped: a `DataRegistry` SPI (see Decisions Still Open) that backs `useResource` lookups, replays SSR data inline, and dedupes client-side fetches across components
 - **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
