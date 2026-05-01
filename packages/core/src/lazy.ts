@@ -64,8 +64,7 @@ function awaitStyles(id: string | undefined): Promise<void> {
   // No-op path: no id, or no manifest on window.
   if (!id) return Promise.resolve();
 
-  const manifest =
-    typeof window !== 'undefined' ? (window as Window).__STEWIE_MANIFEST__ : undefined;
+  const manifest = typeof window !== 'undefined' ? (window as Window).__STEWIE_MANIFEST__ : undefined;
   if (!manifest) return Promise.resolve();
 
   const urls = manifest[id];
@@ -102,9 +101,7 @@ function awaitStyles(id: string | undefined): Promise<void> {
 function awaitOneStylesheet(href: string): Promise<void> {
   return new Promise<void>((resolve) => {
     // Look for an existing <link> with this href.
-    let link = document.querySelector<HTMLLinkElement>(
-      `link[rel="stylesheet"][href="${CSS.escape(href)}"]`
-    );
+    let link = document.querySelector<HTMLLinkElement>(`link[rel="stylesheet"][href="${CSS.escape(href)}"]`);
 
     if (link) {
       // Fast path: sheet is already populated → already loaded.
@@ -176,10 +173,7 @@ export function lazy<T extends Component>(factory: () => Promise<T | { default: 
   function startLoad(): Promise<void> {
     if (!loadPromise) {
       const factoryDone = factory().then((mod) => {
-        loadedComponent =
-          mod !== null && typeof mod === 'object' && 'default' in mod
-            ? (mod as { default: T }).default
-            : (mod as T);
+        loadedComponent = mod !== null && typeof mod === 'object' && 'default' in mod ? (mod as { default: T }).default : (mod as T);
       });
       loadPromise = Promise.all([factoryDone, awaitStyles(id)]) as unknown as Promise<void>;
     }

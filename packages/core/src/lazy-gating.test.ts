@@ -24,13 +24,11 @@ async function flush(ticks = 4) {
 }
 
 function setManifest(manifest: Record<string, string[]> | undefined) {
-  (window as Window & { __STEWIE_MANIFEST__?: Record<string, string[]> }).__STEWIE_MANIFEST__ =
-    manifest;
+  (window as Window & { __STEWIE_MANIFEST__?: Record<string, string[]> }).__STEWIE_MANIFEST__ = manifest;
 }
 
 function clearManifest() {
-  delete (window as Window & { __STEWIE_MANIFEST__?: Record<string, string[]> })
-    .__STEWIE_MANIFEST__;
+  delete (window as Window & { __STEWIE_MANIFEST__?: Record<string, string[]> }).__STEWIE_MANIFEST__;
 }
 
 /** Dispatch a synthetic load or error event on a link element. */
@@ -40,9 +38,7 @@ function fireEvent(el: EventTarget, type: 'load' | 'error') {
 
 /** Find a <link rel="stylesheet" href="X"> in document.head. */
 function findLink(href: string): HTMLLinkElement | null {
-  return document.head.querySelector<HTMLLinkElement>(
-    `link[rel="stylesheet"][href="${CSS.escape(href)}"]`
-  );
+  return document.head.querySelector<HTMLLinkElement>(`link[rel="stylesheet"][href="${CSS.escape(href)}"]`);
 }
 
 // ---------------------------------------------------------------------------
@@ -64,7 +60,9 @@ function immediateFactory() {
 // Factory that we control the resolution of.
 function deferredFactory(): [() => Promise<{ default: Component }>, (mod: { default: Component }) => void] {
   let resolve!: (mod: { default: Component }) => void;
-  const promise = new Promise<{ default: Component }>((r) => { resolve = r; });
+  const promise = new Promise<{ default: Component }>((r) => {
+    resolve = r;
+  });
   return [() => promise, resolve];
 }
 
@@ -87,7 +85,9 @@ describe('lazy() CSS-load gating', () => {
     clearManifest();
     const LazyComp = lazy(immediateFactory, 'src/pages/Foo.tsx');
     const container = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyComp, {}), container); });
+    reactiveScope(() => {
+      mount(jsx(LazyComp, {}), container);
+    });
     await flush();
     expect(container.textContent).toContain('gated');
   });
@@ -96,7 +96,9 @@ describe('lazy() CSS-load gating', () => {
     setManifest({ 'src/pages/Other.tsx': ['/assets/other.css'] });
     const LazyComp = lazy(immediateFactory, 'src/pages/Foo.tsx');
     const container = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyComp, {}), container); });
+    reactiveScope(() => {
+      mount(jsx(LazyComp, {}), container);
+    });
     await flush();
     expect(container.textContent).toContain('gated');
   });
@@ -106,7 +108,9 @@ describe('lazy() CSS-load gating', () => {
     // No id argument — compiler-off path.
     const LazyComp = lazy(immediateFactory);
     const container = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyComp, {}), container); });
+    reactiveScope(() => {
+      mount(jsx(LazyComp, {}), container);
+    });
     await flush();
     expect(container.textContent).toContain('gated');
   });
@@ -125,7 +129,9 @@ describe('lazy() CSS-load gating', () => {
 
     const LazyComp = lazy(immediateFactory, 'src/pages/Foo.tsx');
     const container = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyComp, {}), container); });
+    reactiveScope(() => {
+      mount(jsx(LazyComp, {}), container);
+    });
     await flush();
     expect(container.textContent).toContain('gated');
   });
@@ -144,7 +150,9 @@ describe('lazy() CSS-load gating', () => {
     const [factory, resolveFactory] = deferredFactory();
     const LazyComp = lazy(factory, 'src/pages/Bar.tsx');
     const container = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyComp, {}), container); });
+    reactiveScope(() => {
+      mount(jsx(LazyComp, {}), container);
+    });
 
     // Resolve factory first.
     resolveFactory({ default: RealComp });
@@ -169,7 +177,9 @@ describe('lazy() CSS-load gating', () => {
     const [factory, resolveFactory] = deferredFactory();
     const LazyComp = lazy(factory, 'src/pages/Baz.tsx');
     const container = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyComp, {}), container); });
+    reactiveScope(() => {
+      mount(jsx(LazyComp, {}), container);
+    });
 
     resolveFactory({ default: RealComp });
     await flush();
@@ -194,7 +204,9 @@ describe('lazy() CSS-load gating', () => {
     const [factory, resolveFactory] = deferredFactory();
     const LazyComp = lazy(factory, 'src/pages/Err.tsx');
     const container = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyComp, {}), container); });
+    reactiveScope(() => {
+      mount(jsx(LazyComp, {}), container);
+    });
 
     resolveFactory({ default: RealComp });
     await flush();
@@ -224,17 +236,19 @@ describe('lazy() CSS-load gating', () => {
 
     const cA = document.createElement('div');
     const cB = document.createElement('div');
-    reactiveScope(() => { mount(jsx(LazyA, {}), cA); });
-    reactiveScope(() => { mount(jsx(LazyB, {}), cB); });
+    reactiveScope(() => {
+      mount(jsx(LazyA, {}), cA);
+    });
+    reactiveScope(() => {
+      mount(jsx(LazyB, {}), cB);
+    });
 
     resolveA({ default: RealComp });
     resolveB({ default: RealComp });
     await flush();
 
     // Both are waiting on the shared CSS — still only one link in the DOM.
-    const links = document.head.querySelectorAll<HTMLLinkElement>(
-      `link[rel="stylesheet"][href="${CSS.escape(sharedCss)}"]`
-    );
+    const links = document.head.querySelectorAll<HTMLLinkElement>(`link[rel="stylesheet"][href="${CSS.escape(sharedCss)}"]`);
     expect(links.length).toBe(1);
 
     fireEvent(links[0], 'load');
