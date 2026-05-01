@@ -28,6 +28,126 @@ export interface _LazyBoundaryProps {
   id?: string;
 }
 
+// ---------------------------------------------------------------------------
+// CSS-load gating
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-id cache of stylesheet-ready promises. Once all stylesheets for a given
+ * lazy boundary id have loaded (or errored), subsequent mounts of the same
+ * boundary reuse the already-resolved Promise and skip redundant DOM work.
+ *
+ * Keyed by the manifest id (e.g. `src/pages/AdminPage.tsx`). Entries are
+ * never evicted — the lifetime is the app instance, which is correct: once
+ * styles for a boundary have been loaded they stay loaded.
+ */
+const stylesReadyCache = new Map<string, Promise<void>>();
+
+/**
+ * Wait for all CSS assets associated with a lazy boundary id to be loaded
+ * before resolving.
+ *
+ * Cases:
+ * - No manifest, no id, or id not in manifest → resolves immediately (dev
+ *   path, compiler-off path, plain lazy() without the Vite plugin).
+ * - Manifest present, link already in DOM with link.sheet !== null → resolves
+ *   immediately (SSR emitted the <link> and it loaded before JS ran).
+ * - Manifest present, link in DOM but still loading → attaches a load listener.
+ * - Manifest present, link absent from DOM → injects a fresh <link> into
+ *   <head> and waits for it to load (client-nav to a non-SSR'd route).
+ * - Error event on a stylesheet → resolves anyway (better unstyled than stalled).
+ *
+ * Only CSS URLs are awaited; JS modulepreload hints are ignored here (JS
+ * gating is implicit in factory() resolving).
+ */
+function awaitStyles(id: string | undefined): Promise<void> {
+  // No-op path: no id, or no manifest on window.
+  if (!id) return Promise.resolve();
+
+  const manifest =
+    typeof window !== 'undefined' ? (window as Window).__STEWIE_MANIFEST__ : undefined;
+  if (!manifest) return Promise.resolve();
+
+  const urls = manifest[id];
+  if (!urls || urls.length === 0) return Promise.resolve();
+
+  // Filter to CSS only — JS chunks are already handled by factory() resolution.
+  const cssUrls = urls.filter((u) => u.endsWith('.css'));
+  if (cssUrls.length === 0) return Promise.resolve();
+
+  // Serve from cache if this boundary's styles have been awaited before.
+  const cached = stylesReadyCache.get(id);
+  if (cached) return cached;
+
+  const promise = Promise.all(cssUrls.map(awaitOneStylesheet)).then(() => undefined);
+  stylesReadyCache.set(id, promise);
+  return promise;
+}
+
+/**
+ * Wait for a single stylesheet URL to be ready in the browser.
+ *
+ * Checks whether a matching <link> already exists in the document and, if so,
+ * whether it has already loaded. If the link is absent it is injected. In all
+ * cases the returned promise resolves on load or error — never permanently
+ * stalls.
+ *
+ * The "already loaded" heuristic is `link.sheet !== null`. This is synchronous
+ * and works for same-origin sheets in all browsers. Cross-origin sheets that
+ * block CORS will have `link.sheet === null` even after loading (the browser
+ * gives no access to the sheet object). In that case the runtime falls through
+ * to attaching a load listener, which will fire correctly — only the
+ * synchronous fast-path is unavailable for cross-origin sheets.
+ */
+function awaitOneStylesheet(href: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    // Look for an existing <link> with this href.
+    let link = document.querySelector<HTMLLinkElement>(
+      `link[rel="stylesheet"][href="${CSS.escape(href)}"]`
+    );
+
+    if (link) {
+      // Fast path: sheet is already populated → already loaded.
+      // Accessing link.sheet can throw for cross-origin stylesheets when the
+      // browser enforces CORS. We treat that as "not yet readable", i.e. fall
+      // through to the listener path.
+      try {
+        if (link.sheet !== null) {
+          resolve();
+          return;
+        }
+      } catch {
+        // cross-origin CORS block — fall through to listener
+      }
+    } else {
+      // Client-nav case: inject a fresh <link>.
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+    }
+
+    // Attach load/error listeners. Both resolve — error means render unstyled
+    // rather than stall the boundary permanently.
+    const onLoad = () => {
+      link!.removeEventListener('load', onLoad);
+      link!.removeEventListener('error', onError);
+      resolve();
+    };
+    const onError = () => {
+      link!.removeEventListener('load', onLoad);
+      link!.removeEventListener('error', onError);
+      resolve();
+    };
+    link.addEventListener('load', onLoad);
+    link.addEventListener('error', onError);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
  * Creates a lazily-loaded component. The `factory` is a function that returns
  * a dynamic import — the bundler code-splits at this boundary.
@@ -55,9 +175,13 @@ export function lazy<T extends Component>(factory: () => Promise<T | { default: 
 
   function startLoad(): Promise<void> {
     if (!loadPromise) {
-      loadPromise = factory().then((mod) => {
-        loadedComponent = mod !== null && typeof mod === 'object' && 'default' in mod ? (mod as { default: T }).default : (mod as T);
+      const factoryDone = factory().then((mod) => {
+        loadedComponent =
+          mod !== null && typeof mod === 'object' && 'default' in mod
+            ? (mod as { default: T }).default
+            : (mod as T);
       });
+      loadPromise = Promise.all([factoryDone, awaitStyles(id)]) as unknown as Promise<void>;
     }
     return loadPromise;
   }

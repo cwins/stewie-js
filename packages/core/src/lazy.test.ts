@@ -49,7 +49,9 @@ describe('lazy()', () => {
 
     // Resolve the import
     resolveLoad({ default: RealComp });
-    // Flush microtasks so the then() callback and the reactive effect run
+    // Flush microtasks: factory resolves (tick 1) → Promise.all resolves (tick 2)
+    // → loaded.set(true) fires → effect re-runs (tick 3).
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
 
@@ -70,6 +72,7 @@ describe('lazy()', () => {
       mount(jsx(LazyComp, {}), c1);
     });
     resolveLoad({ default: RealComp });
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
     expect(c1.textContent).toContain('loaded');
@@ -109,6 +112,7 @@ describe('lazy()', () => {
     resolveLoad({ default: RealComp });
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
 
     // After hydration the same span node is still in the DOM (reactive effects
     // were attached, not re-rendered).
@@ -131,6 +135,7 @@ describe('lazy()', () => {
 
     // Resolve as ES module with .default property
     resolveLoad({ default: RealComp });
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
 

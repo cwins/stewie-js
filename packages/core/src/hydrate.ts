@@ -22,6 +22,14 @@ declare global {
      * before mounting.
      */
     __STEWIE_DATA__?: Record<string, unknown>;
+    /**
+     * Manifest populated by SSR — maps each rendered lazy boundary id
+     * (root-relative source path, e.g. `src/pages/AdminPage.tsx`) to the list
+     * of asset URLs (CSS and JS) that were emitted for that boundary.
+     * Used by lazy() on the client to gate boundary activation until its
+     * stylesheets have loaded, preventing unstyled-content flash.
+     */
+    __STEWIE_MANIFEST__?: Record<string, string[]>;
   }
 }
 
