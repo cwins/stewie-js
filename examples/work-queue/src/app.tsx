@@ -15,6 +15,7 @@
 //   - JSX import source / component function signature
 
 import type { JSXElement } from '@stewie-js/core';
+import { lazy } from '@stewie-js/core';
 import { Router, Route, createSsrRouter, RedirectError } from '@stewie-js/router';
 import { renderToString } from '@stewie-js/server';
 import type { RenderResult } from '@stewie-js/server';
@@ -25,7 +26,12 @@ import { NewProjectPage } from './pages/NewProjectPage.js';
 import { EditProjectPage } from './pages/EditProjectPage.js';
 import { TaskDetailPage } from './pages/TaskDetailPage.js';
 import { LoginPage } from './pages/LoginPage.js';
-import { AdminPage } from './pages/AdminPage.js';
+// AdminPage is loaded lazily so its scoped CSS (pages/AdminPage.css) becomes
+// a per-boundary asset. The Vite plugin rewrites the import below with the
+// source-relative manifest id so renderToStream emits the boundary's
+// <link rel="stylesheet"> and <link rel="modulepreload"> hints when the
+// route SSRs, and the client gates hydration on the stylesheet load event.
+const AdminPage = lazy(() => import('./pages/AdminPage'));
 import { dashboardLoader } from './loaders/dashboard.js';
 import { projectsLoader } from './loaders/projects.js';
 import { projectDetailLoader } from './loaders/project-detail.js';

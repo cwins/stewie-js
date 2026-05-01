@@ -13,7 +13,14 @@ import { useRouter } from '@stewie-js/router';
 import { AppShell } from '../components/AppShell.js';
 import { getSession } from '../data/mocks/auth.js';
 import { logoutAction } from '../actions/auth.js';
+import './AdminPage.css';
 
+// Default export so the route can dynamically import this module via lazy().
+// The route in app.tsx uses `lazy(() => import('./pages/AdminPage'))`, which
+// the Vite plugin rewrites with the source-relative id 'src/pages/AdminPage.tsx'
+// — keying into ssr-manifest.json so renderToStream can emit the boundary's
+// CSS/JS hints when the route is server-rendered.
+export default AdminPage;
 export function AdminPage(): JSXElement {
   const router = useRouter();
   // getSession() is safe to call here: on the server it reflects the current

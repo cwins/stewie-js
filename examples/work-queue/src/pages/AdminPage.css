@@ -1,0 +1,31 @@
+/* AdminPage scoped styles
+ *
+ * Imported only by AdminPage.tsx. With AdminPage as a lazy() boundary, Vite's
+ * build emits this stylesheet as part of the AdminPage chunk and the SSR asset
+ * manifest lists it under that boundary id — letting renderToStream emit a
+ * <link rel="stylesheet"> for the boundary and the client gate hydration on
+ * the link's load event.
+ */
+
+.admin-welcome {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.admin-welcome p + p {
+  margin-top: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.admin-section {
+  margin-bottom: 1.5rem;
+}
+
+.admin-actions {
+  margin-top: 2rem;
+}
