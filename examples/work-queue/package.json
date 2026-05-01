@@ -11,7 +11,8 @@
     "preview": "NODE_ENV=production tsx src/server.ts",
     "start": "NODE_ENV=production node dist/server/server.js",
     "test": "vitest run --config vitest.config.ts",
-    "test:browser": "vitest run --config vitest.browser.config.ts"
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "test:gating": "vitest run --config vitest.gating.config.ts"
   },
   "dependencies": {
     "@stewie-js/adapter-node": "workspace:*",
