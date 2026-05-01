@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { jsx, signal, computed, reactiveScope, Show, For, Suspense, defineResource, useResource } from '@stewie-js/core';
 import type { JSXElement, Resource } from '@stewie-js/core';
 import { hydrate } from '@stewie-js/core';
-import { renderToString } from './renderer.js';
+import { renderToString } from './stream.js';
 import { useHydrationRegistry } from './hydration.js';
 
 // ---------------------------------------------------------------------------

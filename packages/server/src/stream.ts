@@ -1,20 +1,26 @@
 /**
- * stream.ts — progressive streaming SSR renderer
+ * stream.ts — SSR renderer.
  *
- * Produces a ReadableStream<Uint8Array> that sends chunks to the browser
- * incrementally as they become available:
+ * One walker, two delivery modes. The walker is `streamNode`; the public
+ * entry points are `renderToStream` (progressive) and `renderToString`
+ * (buffered). They share registries, head collection, asset emission, and
+ * control-flow handling — the only behavioural fork is at Suspense:
  *
- *   1. Native element opening tags are flushed immediately, so the browser
- *      can start parsing structure and loading linked resources (<link>, <script>)
- *      without waiting for the full page render.
+ *   - streaming mode: flush the fallback wrapped in a placeholder div, defer
+ *     the boundary's children, and emit a swap script + per-boundary data
+ *     patch when the children resolve. Above-the-fold content streams before
+ *     slow data-fetching subtrees finish.
  *
- *   2. Suspense boundaries stream their fallback content first, then inject
- *      the resolved content inline via a small <script> swap once it's ready.
- *      This means above-the-fold content (nav, hero) streams before slow
- *      data-fetching subtrees finish.
+ *   - await mode: render the boundary's children inline; if a child throws a
+ *     Promise, await and retry up to MAX_RETRIES, falling back on persistent
+ *     suspension. No defer, no swap script, no per-boundary patch — the
+ *     end-of-render `__STEWIE_DATA__` assignment carries everything.
  *
- *   3. The __STEWIE_STATE__ hydration script is flushed last, after all
- *      Suspense boundaries have resolved.
+ * `renderToString` runs the walker in await mode against a string buffer and
+ * pulls the head/state pieces out separately. `renderToStream` runs the
+ * walker in streaming mode against a `ReadableStream<Uint8Array>` and flushes
+ * head/state inline. Both use the same chunk-flush callback shape, so any
+ * walker change applies uniformly.
  */
 
 import type { JSXElement } from '@stewie-js/core';
@@ -40,14 +46,13 @@ import {
 } from '@stewie-js/core';
 import type { DataRegistry, HeadCollector } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot, _LazyBoundaryProps } from '@stewie-js/core';
-import type { RenderToStreamOptions, SSRManifest } from './types.js';
-import { createHydrationRegistry, HydrationRegistryContext } from './hydration.js';
-import type { HydrationRegistry } from './hydration.js';
+import type { RenderToStreamOptions, RenderToStringOptions, RenderResult, SSRManifest } from './types.js';
+import { createHydrationRegistry, HydrationRegistryContext, type HydrationRegistry } from './hydration.js';
 import { VOID_ELEMENTS, escapeHtml, serializeAttrs } from './serializer.js';
 import { serializeHeadEntries, serializeHeadPatch } from './head-serializer.js';
 
 // ---------------------------------------------------------------------------
-// Internal streaming render context
+// Internal render context
 // ---------------------------------------------------------------------------
 
 interface StreamOpts {
@@ -58,14 +63,26 @@ interface StreamOpts {
   contextSnapshot: ContextSnapshot;
   /** Enqueue a chunk immediately — use for sync/ready content. */
   flush: (html: string) => void;
-  /** Queue an async boundary to run after the main tree. */
+  /** Queue an async boundary to run after the main tree (streaming mode only). */
   defer: (work: () => Promise<void>) => void;
-  /** Counter for unique Suspense boundary IDs. */
+  /** Counter for unique Suspense boundary IDs (streaming mode only). */
   suspenseId: { n: number };
   /** Vite SSR manifest for progressive `<link>` emission per lazy boundary. */
   manifest?: SSRManifest;
   /** Asset URLs already emitted in this render — prevents duplicate `<link>` tags. */
   emittedAssets: Set<string>;
+  /**
+   * Suspense strategy: when true, await children inline (with throw-Promise
+   * retry); when false, defer children and emit a swap script. Set by the
+   * public entry point — `renderToString` uses true, `renderToStream` uses false.
+   */
+  awaitSuspense: boolean;
+  /**
+   * When set, lazy-boundary `<link>` hints push here instead of flushing
+   * inline. `renderToString` uses this to lift hints into the returned
+   * `headHtml` so callers can inject them into `<head>` rather than the body.
+   */
+  assetSink?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -83,6 +100,11 @@ interface StreamOpts {
  * Deduped against assets already emitted earlier in the stream so two Lazy
  * boundaries that share a chunk only emit one tag for it. No-op when no
  * manifest is configured or the boundary has no `id` (compiler-off).
+ *
+ * Routing: by default flushes inline (streaming mode places hints just before
+ * the boundary in body order, which the browser tolerates for `<link>`); when
+ * `assetSink` is set (await mode), pushes there instead so the caller can
+ * relocate the tags into `<head>` of the page shell.
  */
 function emitLazyAssets(id: string | undefined, opts: StreamOpts): void {
   if (!id || !opts.manifest) return;
@@ -90,18 +112,21 @@ function emitLazyAssets(id: string | undefined, opts: StreamOpts): void {
   if (!assets) return;
   for (const href of assets) {
     if (opts.emittedAssets.has(href)) continue;
+    let tag: string | null = null;
     if (href.endsWith('.css')) {
-      opts.emittedAssets.add(href);
-      opts.flush(`<link rel="stylesheet" href="${escapeHtml(href)}">`);
+      tag = `<link rel="stylesheet" href="${escapeHtml(href)}">`;
     } else if (href.endsWith('.js') || href.endsWith('.mjs')) {
-      opts.emittedAssets.add(href);
-      opts.flush(`<link rel="modulepreload" href="${escapeHtml(href)}">`);
+      tag = `<link rel="modulepreload" href="${escapeHtml(href)}">`;
     }
+    if (!tag) continue;
+    opts.emittedAssets.add(href);
+    if (opts.assetSink) opts.assetSink.push(tag);
+    else opts.flush(tag);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Streaming node renderer
+// Walker
 // ---------------------------------------------------------------------------
 
 async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
@@ -147,8 +172,8 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Show — emit trailing anchor to match the string renderer and the DOM renderer's
-  // comment node so that HydrationCursor.collectUntilComment('Show') finds it.
+  // Show — emit trailing anchor to match the DOM renderer's comment node so that
+  // HydrationCursor.collectUntilComment('Show') finds it.
   if (type === (Show as unknown)) {
     const when = typeof props.when === 'function' ? (props.when as () => unknown)() : props.when;
     if (when) {
@@ -181,9 +206,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
   // ClientOnly — skip on server
   if (type === (ClientOnly as unknown)) return;
 
-  // LazyBoundary — emit <!--Lazy--> anchor to match the string renderer and DOM renderer.
-  // CSS hints flush *before* the boundary content so the browser starts the stylesheet
-  // download in parallel with parsing the rendered HTML.
+  // LazyBoundary — emit <!--Lazy--> anchor to match the DOM renderer.
   if (type === (_LazyBoundary as unknown)) {
     const lazyProps = props as unknown as _LazyBoundaryProps;
     emitLazyAssets(lazyProps.id, opts);
@@ -194,7 +217,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Portal — render children inline
+  // Portal — render children inline (target is client-only)
   if (type === (Portal as unknown)) {
     await streamNode(props.children, opts);
     return;
@@ -217,8 +240,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Switch / Match — emit <!--Switch--> anchor on every path to match the string
-  // renderer and DOM renderer so HydrationCursor.collectUntilComment('Switch') works.
+  // Switch / Match — emit <!--Switch--> anchor on every path so HydrationCursor can claim.
   if (type === (Switch as unknown)) {
     const children = Array.isArray(props.children) ? props.children : [props.children];
     for (const child of children as JSXElement[]) {
@@ -249,23 +271,64 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Suspense — stream fallback immediately, resolve content as a deferred chunk.
-  //
-  // Inline data emission per boundary: snapshot the DataRegistry keys before the
-  // boundary's deferred work starts; after the work resolves, diff to find any
-  // new keys and emit `window.__STEWIE_DATA__["k"]=v` patches inline alongside
-  // the swap script. The patches land in the global registry object before the
-  // swap replaces the fallback DOM, so any reactive read triggered by the swap
-  // sees the cached data immediately.
+  // Suspense — two strategies, branch on opts.awaitSuspense.
   if (type === (Suspense as unknown)) {
+    if (opts.awaitSuspense) {
+      // Await mode: render children inline; on a thrown Promise (suspended
+      // resource read), await it and retry up to MAX_RETRIES. Buffer the
+      // children's flushes so a partial render that ends up suspending
+      // doesn't leak into the output before the retry.
+      //
+      // Important: For retry to terminate, the resource() that throws must be
+      // created OUTSIDE the component function so the same instance is reused
+      // on retry. When created inside, each retry creates a new resource and
+      // a new Promise — retries are capped and the fallback is rendered.
+      const MAX_RETRIES = 3;
+      let retries = 0;
+      const seenPromises = new Set<Promise<unknown>>();
+      const tryRender = async (): Promise<void> => {
+        const captured: string[] = [];
+        const localFlush = (s: string) => captured.push(s);
+        try {
+          await streamNode(props.children, { ...opts, flush: localFlush });
+          opts.flush(captured.join(''));
+        } catch (thrown) {
+          if (thrown instanceof Promise && !seenPromises.has(thrown) && retries < MAX_RETRIES) {
+            seenPromises.add(thrown);
+            retries++;
+            try {
+              await thrown;
+            } catch {
+              // Promise rejected — render fallback inline.
+              await streamNode(props.fallback, opts);
+              return;
+            }
+            return tryRender();
+          }
+          // Non-Promise throw, repeated Promise, or retry limit reached → fallback.
+          await streamNode(props.fallback, opts);
+        }
+      };
+      await tryRender();
+      opts.flush('<!--Suspense-->');
+      return;
+    }
+
+    // Streaming mode: flush fallback immediately, resolve content as a deferred chunk.
+    //
+    // Inline data emission per boundary: snapshot the DataRegistry keys before the
+    // boundary's deferred work starts; after the work resolves, diff to find any
+    // new keys and emit `Object.assign(window.__STEWIE_DATA__, ...)` patches inline
+    // alongside the swap script. The patches land before the swap replaces the
+    // fallback DOM, so any reactive read triggered by the swap sees cached data.
     const id = opts.suspenseId.n++;
     const placeholderId = `__ss${id}`;
     const keysBeforeBoundary = new Set(opts.dataRegistry.keys());
 
     // Capture context snapshot now so the deferred render has the right context.
-    // Create a boundary-local head collector so we can emit a head patch alongside
-    // the Suspense boundary's content flush — e.g. a lazy component that derives
-    // a page title from fetched data updates the title when its data resolves.
+    // Boundary-local head collector lets us emit a head patch alongside the
+    // boundary's content flush — e.g. a lazy component that derives a page title
+    // from fetched data updates the title when its data resolves.
     const boundaryHeadCollector = createHeadCollector();
     const deferredSnapshot = new Map(opts.contextSnapshot);
     deferredSnapshot.set(HeadContext.id, boundaryHeadCollector);
@@ -303,9 +366,9 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
       const nonceAttr = opts.nonce ? ` nonce="${escapeHtml(opts.nonce)}"` : '';
 
       // Emit DataRegistry patch for keys written during this boundary's render.
-      // Lands in window.__STEWIE_DATA__ before the swap script so registry-aware
-      // hydration logic that runs after the swap (e.g. nested Suspense reads
-      // inside the swapped content) sees the cached data synchronously.
+      // Lands in window.__STEWIE_DATA__ before the swap so registry-aware
+      // hydration logic (e.g. nested Suspense reads inside the swapped content)
+      // sees cached data synchronously.
       const newKeys = opts.dataRegistry.keys().filter((k) => !keysBeforeBoundary.has(k));
       let dataPatchScript = '';
       if (newKeys.length > 0) {
@@ -315,8 +378,6 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
         dataPatchScript = `<script${nonceAttr}>(window.__STEWIE_DATA__=window.__STEWIE_DATA__||{});Object.assign(window.__STEWIE_DATA__,${patchJson})</script>`;
       }
 
-      // Inject content and swap out the placeholder via an inline script.
-      // Using textContent assignment avoids issues with scripts inside innerHTML.
       const swapScript = `${dataPatchScript}
 <template id="${placeholderId}t">${realHtml}</template>
 <script${nonceAttr}>(function(){var s=document.getElementById("${placeholderId}"),t=document.getElementById("${placeholderId}t");if(s&&t){s.outerHTML=t.innerHTML;t.remove()}})()</script>`;
@@ -329,7 +390,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Context.Provider
+  // Context.Provider — extend the snapshot with the new value for child rendering
   if (
     type != null &&
     (typeof type === 'function' || typeof type === 'object') &&
@@ -354,8 +415,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
     return;
   }
 
-  // Native HTML element — flush opening tag immediately so the browser can
-  // start parsing structure and loading resources without waiting for children.
+  // Native HTML element
   if (typeof type === 'string') {
     const attrs = serializeAttrs(props);
     if (VOID_ELEMENTS.has(type)) {
@@ -370,7 +430,88 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Public renderToStream
+// Shared setup — used by both renderToStream and renderToString.
+// ---------------------------------------------------------------------------
+
+interface RenderHandle {
+  registry: HydrationRegistry;
+  dataRegistry: DataRegistry;
+  headCollector: HeadCollector;
+}
+
+async function runRender(
+  root: JSXElement | (() => JSXElement | null),
+  options: RenderToStreamOptions | RenderToStringOptions | undefined,
+  flush: (html: string) => void,
+  awaitSuspense: boolean,
+  assetSink?: string[]
+): Promise<RenderHandle> {
+  // withRenderIsolation clears reactive module-level globals (scopeStack, batchDepth,
+  // pendingEffects) and sets allowReactiveCreation=true for the synchronous setup phase,
+  // then restores them when the async function returns its Promise. Prevents state
+  // leakage between concurrent renders during their synchronous portions.
+  return withRenderIsolation(async () => {
+    const registry = createHydrationRegistry();
+    const headCollector = createHeadCollector();
+    // The DataRegistry is created inside the render isolation scope so its
+    // store() is owned by this request — no cross-request leakage. The same
+    // instance is provided via context (so useResource consults it) and
+    // serialized at end-of-render into window.__STEWIE_DATA__ for the client.
+    const dataRegistry = createDataRegistry();
+    const contextSnapshot: ContextSnapshot = new Map<symbol, unknown>([
+      [HydrationRegistryContext.id, registry],
+      [HeadContext.id, headCollector],
+      [DataRegistryContext.id, dataRegistry]
+    ]);
+
+    const deferred: Array<() => Promise<void>> = [];
+
+    const opts: StreamOpts = {
+      nonce: options?.nonce,
+      registry,
+      dataRegistry,
+      headCollector,
+      contextSnapshot,
+      flush,
+      defer: (work) => deferred.push(work),
+      suspenseId: { n: 0 },
+      manifest: options?.manifest,
+      emittedAssets: new Set<string>(),
+      awaitSuspense,
+      assetSink
+    };
+
+    const rootEl = typeof root === 'function' ? root() : root;
+    await streamNode(rootEl, opts);
+
+    // Streaming-only post-walk steps. Await mode never enqueues to `deferred`
+    // (Suspense renders inline) and emits head/state via the wrapper instead.
+    if (!awaitSuspense) {
+      // Shell-level head tags emitted immediately after the main tree (before
+      // deferred work) so title/meta set by non-Suspense components land early.
+      const shellHeadHtml = serializeHeadEntries(headCollector.entries());
+      if (shellHeadHtml) flush(shellHeadHtml);
+      for (const work of deferred) await work();
+    }
+
+    return { registry, dataRegistry, headCollector };
+  });
+}
+
+function buildStateScript(handle: RenderHandle, nonce: string | undefined, mergeExisting: boolean): string {
+  // Escape </script> to prevent XSS breakout.
+  const stateJson = handle.registry.serialize().replace(/<\//g, '<\\/');
+  const dataJson = handle.dataRegistry.serialize().replace(/<\//g, '<\\/');
+  const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : '';
+  // Streaming mode: per-boundary patches may have populated window.__STEWIE_DATA__
+  // before this final assignment lands, so merge into any existing object.
+  // Await mode: this is the only assignment, so a plain set is correct.
+  const dataExpr = mergeExisting ? `Object.assign(${dataJson}, window.__STEWIE_DATA__ || {})` : dataJson;
+  return `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson};window.__STEWIE_DATA__ = ${dataExpr}</script>`;
+}
+
+// ---------------------------------------------------------------------------
+// Public renderToStream — progressive delivery.
 // ---------------------------------------------------------------------------
 
 export function renderToStream(root: JSXElement | (() => JSXElement | null), options?: RenderToStreamOptions): ReadableStream<Uint8Array> {
@@ -383,59 +524,35 @@ export function renderToStream(root: JSXElement | (() => JSXElement | null), opt
       };
 
       try {
-        await withRenderIsolation(async () => {
-          const registry = createHydrationRegistry();
-          const headCollector = createHeadCollector();
-          const dataRegistry = createDataRegistry();
-          const contextSnapshot: ContextSnapshot = new Map<symbol, unknown>([
-            [HydrationRegistryContext.id, registry],
-            [HeadContext.id, headCollector],
-            [DataRegistryContext.id, dataRegistry]
-          ]);
-
-          const deferred: Array<() => Promise<void>> = [];
-
-          const opts: StreamOpts = {
-            nonce: options?.nonce,
-            registry,
-            dataRegistry,
-            headCollector,
-            contextSnapshot,
-            flush,
-            defer: (work) => deferred.push(work),
-            suspenseId: { n: 0 },
-            manifest: options?.manifest,
-            emittedAssets: new Set<string>()
-          };
-
-          const rootEl = typeof root === 'function' ? root() : root;
-          await streamNode(rootEl, opts);
-
-          // Emit shell-level head tags immediately after the main tree (before deferred work)
-          // so title / meta set by non-Suspense components land early in the stream.
-          const shellHeadHtml = serializeHeadEntries(headCollector.entries());
-          if (shellHeadHtml) flush(shellHeadHtml);
-
-          // Resolve deferred Suspense boundaries in order
-          for (const work of deferred) await work();
-
-          // Flush hydration state last — escape </script> to prevent XSS breakout.
-          // __STEWIE_DATA__ accumulates per-boundary patches during streaming; the
-          // final assignment merges any not-yet-emitted entries (e.g. from a
-          // synchronous useResource call outside a Suspense boundary) into the
-          // global object that hydrate() reads at boot.
-          const stateJson = registry.serialize().replace(/<\//g, '<\\/');
-          const dataJson = dataRegistry.serialize().replace(/<\//g, '<\\/');
-          const nonceAttr = options?.nonce ? ` nonce="${escapeHtml(options.nonce)}"` : '';
-          flush(
-            `<script${nonceAttr}>window.__STEWIE_STATE__ = ${stateJson};window.__STEWIE_DATA__ = Object.assign(${dataJson}, window.__STEWIE_DATA__ || {})</script>`
-          );
-        });
-
+        const handle = await runRender(root, options, flush, /*awaitSuspense*/ false);
+        flush(buildStateScript(handle, options?.nonce, /*mergeExisting*/ true));
         controller.close();
       } catch (err) {
         controller.error(err);
       }
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Public renderToString — buffered delivery.
+// ---------------------------------------------------------------------------
+
+export async function renderToString(root: JSXElement | (() => JSXElement | null), options?: RenderToStringOptions): Promise<RenderResult> {
+  const chunks: string[] = [];
+  const assetLinks: string[] = [];
+  const flush = (s: string) => {
+    if (s) chunks.push(s);
+  };
+
+  const handle = await runRender(root, options, flush, /*awaitSuspense*/ true, assetLinks);
+
+  const html = chunks.join('');
+  const stateScript = buildStateScript(handle, options?.nonce, /*mergeExisting*/ false);
+  // headHtml carries shell head tags (title/meta) plus any per-lazy-boundary
+  // <link> hints captured during the walk. Callers inject this into <head>
+  // of the page shell.
+  const headHtml = serializeHeadEntries(handle.headCollector.entries()) + assetLinks.join('');
+
+  return { html, stateScript, headHtml };
 }

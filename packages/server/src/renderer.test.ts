@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderToString } from './renderer.js';
+import { renderToString } from './stream.js';
 // Import JSX runtime to construct test elements
 import { jsx, Fragment, Show, For, ClientOnly, ErrorBoundary, createContext, consume } from '@stewie-js/core';
 import { useHydrationRegistry } from './hydration.js';

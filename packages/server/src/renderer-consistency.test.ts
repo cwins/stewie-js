@@ -1,8 +1,11 @@
 /**
  * renderer-consistency.test.ts
  *
- * Verifies that renderToString and renderToStream produce byte-for-byte identical
- * HTML for every anchor-producing construct that HydrationCursor relies on:
+ * renderToString and renderToStream share a single walker — `renderToString`
+ * runs it in awaitSuspense mode against a string buffer, `renderToStream`
+ * runs it in streaming mode against a ReadableStream. These tests lock that
+ * the awaitSuspense branch does not affect body output for any of the
+ * anchor-producing constructs HydrationCursor relies on:
  *
  *   <!---->      function children
  *   <!--Show-->  Show / Match
@@ -10,19 +13,18 @@
  *   <!--Switch--> Switch
  *   <!--Lazy-->  _LazyBoundary (lazy())
  *
- * Each test asserts:
- *   1. The exact expected HTML string (documents the contract).
- *   2. Both renderers produce the same string (no divergence).
+ * If a future change branches non-Suspense behavior on awaitSuspense, these
+ * tests catch it.
  *
- * Suspense is intentionally excluded: renderToStream uses a placeholder-div +
- * swap-script mechanism that is structurally different from renderToString by
- * design. Suspense consistency is covered in stream.test.ts separately.
+ * Suspense is intentionally excluded: streaming uses a placeholder-div +
+ * swap-script mechanism that is structurally different from awaiting inline
+ * by design. Suspense behavior is covered in stream.test.ts separately.
  */
 
 import { describe, it, expect } from 'vitest';
 import { jsx, Show, For, Switch, Match, _LazyBoundary } from '@stewie-js/core';
 import type { JSXElement, Component } from '@stewie-js/core';
-import { renderToString } from './renderer.js';
+import { renderToString } from './stream.js';
 import { renderToStream } from './stream.js';
 
 // ---------------------------------------------------------------------------

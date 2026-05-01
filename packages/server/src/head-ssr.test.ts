@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderToString } from './renderer.js';
+import { renderToString } from './stream.js';
 import { renderToStream } from './stream.js';
 import { jsx, Suspense, useTitle, useMeta } from '@stewie-js/core';
 

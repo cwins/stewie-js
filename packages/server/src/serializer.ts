@@ -1,9 +1,7 @@
-// serializer.ts — shared HTML serialization utilities
-//
-// Single source of truth consumed by both renderer.ts (renderToString) and
-// stream.ts (renderToStream). Having one implementation ensures both renderers
-// produce byte-identical attribute output and anchor comment semantics, which
-// is required for the HydrationCursor to claim SSR nodes correctly.
+// serializer.ts — shared HTML serialization utilities used by stream.ts.
+// Both renderToStream and renderToString go through the same walker, so they
+// already produce byte-identical attribute output and anchor comment semantics
+// — required for the HydrationCursor to claim SSR nodes correctly.
 
 // ---------------------------------------------------------------------------
 // Void elements — self-closing in HTML
