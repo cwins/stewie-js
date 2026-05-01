@@ -15,6 +15,17 @@ const root = resolve(__dirname, '..');
 const isProd = process.env.NODE_ENV === 'production';
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 
+// STEWIE_CSS_DELAY=NN delays every CSS response by NN milliseconds so the
+// Phase 2 CSS-load gating in lazy() is observable in a real browser. Affects
+// any URL whose pathname ends in `.css` — covers prod static assets and Vite's
+// dev-mode CSS modules. No-op when unset or 0.
+const CSS_DELAY = parseInt(process.env.STEWIE_CSS_DELAY ?? '0', 10);
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const isCssRequest = (url: string) => {
+  const path = url.split('?')[0] ?? url;
+  return path.endsWith('.css');
+};
+
 const MIME: Record<string, string> = {
   '.js': 'text/javascript',
   '.mjs': 'text/javascript',
@@ -40,6 +51,8 @@ if (isProd) {
 
   const server = createHttpServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
+
+    if (CSS_DELAY > 0 && isCssRequest(url.pathname)) await sleep(CSS_DELAY);
 
     // Static asset first
     const assetPath = resolve(clientDir, url.pathname.slice(1));
@@ -83,7 +96,8 @@ if (isProd) {
     appType: 'custom'
   });
 
-  const server = createHttpServer((req, res) => {
+  const server = createHttpServer(async (req, res) => {
+    if (CSS_DELAY > 0 && isCssRequest(req.url ?? '')) await sleep(CSS_DELAY);
     vite.middlewares(req, res, () => {
       (async () => {
         try {
