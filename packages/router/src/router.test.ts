@@ -366,7 +366,12 @@ describe('popstate guard execution', () => {
 // ---------------------------------------------------------------------------
 
 describe('Route data loading (load)', () => {
-  it('stores loaded data in _routeData signal after navigation', async () => {
+  /** Helper: read the route data signal for the given path from the router's map. */
+  function getRouteData(router: ReturnType<typeof createRouter>, path: string): unknown {
+    return router._routeDataMap.get(path)?.();
+  }
+
+  it('stores loaded data in _routeDataMap after navigation', async () => {
     const router = createRouter('/');
     router._routes = [
       {
@@ -376,10 +381,10 @@ describe('Route data loading (load)', () => {
       }
     ];
     await router.navigate('/data');
-    expect(router._routeData()).toEqual({ items: [1, 2, 3] });
+    expect(getRouteData(router, '/data')).toEqual({ items: [1, 2, 3] });
   });
 
-  it('resets _routeData to undefined before loading', async () => {
+  it('resets route data to undefined before loading', async () => {
     const router = createRouter('/');
     let duringLoad: unknown = 'not-checked';
     router._routes = [
@@ -387,27 +392,28 @@ describe('Route data loading (load)', () => {
         path: '/a',
         component: null as any,
         load: async () => {
-          duringLoad = router._routeData();
+          duringLoad = getRouteData(router, '/a');
           return 'done';
         }
       }
     ];
     await router.navigate('/a');
     expect(duringLoad).toBeUndefined();
-    expect(router._routeData()).toBe('done');
+    expect(getRouteData(router, '/a')).toBe('done');
   });
 
-  it('clears _routeData when navigating to a route with no loader', async () => {
+  it('clears route data when navigating to a route with no loader', async () => {
     const router = createRouter('/');
     router._routes = [
       { path: '/with-data', component: null as any, load: async () => ({ value: 42 }) },
       { path: '/no-data', component: null as any }
     ];
     await router.navigate('/with-data');
-    expect(router._routeData()).toEqual({ value: 42 });
+    expect(getRouteData(router, '/with-data')).toEqual({ value: 42 });
 
     await router.navigate('/no-data');
-    // Stale data from the previous route must not bleed through
-    expect(router._routeData()).toBeUndefined();
+    // Stale data from the previous route must not bleed through.
+    // The /with-data signal is reset to undefined when navigating away.
+    expect(getRouteData(router, '/with-data')).toBeUndefined();
   });
 });

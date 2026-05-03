@@ -10,7 +10,6 @@
 import type { JSXElement } from '@stewie-js/core';
 import { useAction } from '@stewie-js/core';
 import { useRouter } from '@stewie-js/router';
-import { AppShell } from '../components/AppShell.js';
 import { getSession } from '../data/mocks/auth.js';
 import { logoutAction } from '../actions/auth.js';
 import './AdminPage.css';
@@ -38,38 +37,36 @@ export function AdminPage(): JSXElement {
   };
 
   return (
-    <AppShell>
-      <main class="page" data-testid="admin-page">
-        <div class="page-header">
-          <h1 class="page-title">Admin</h1>
-        </div>
+    <main class="page" data-testid="admin-page">
+      <div class="page-header">
+        <h1 class="page-title">Admin</h1>
+      </div>
 
-        <div class="admin-welcome" data-testid="admin-welcome">
-          <p>
-            Welcome, <strong data-testid="admin-username">{session.username}</strong>. You have access to the admin area.
-          </p>
-          <p class="text-muted">
-            This page is protected by a <code>beforeEnter</code> guard. On hard reload, the guard runs server-side inside{' '}
-            <code>createSsrRouter()</code>. On client-side navigation, it runs in the browser before the route renders.
-          </p>
-        </div>
+      <div class="admin-welcome" data-testid="admin-welcome">
+        <p>
+          Welcome, <strong data-testid="admin-username">{session.username}</strong>. You have access to the admin area.
+        </p>
+        <p class="text-muted">
+          This page is protected by a <code>beforeEnter</code> guard. On hard reload, the guard runs server-side inside{' '}
+          <code>createSsrRouter()</code>. On client-side navigation, it runs in the browser before the route renders.
+        </p>
+      </div>
 
-        <div class="admin-section">
-          <h2 class="section-title">Session</h2>
-          <dl class="detail-list">
-            <dt>Username</dt>
-            <dd data-testid="session-username">{session.username}</dd>
-            <dt>Authenticated</dt>
-            <dd>{session.isAuthenticated ? 'Yes' : 'No'}</dd>
-          </dl>
-        </div>
+      <div class="admin-section">
+        <h2 class="section-title">Session</h2>
+        <dl class="detail-list">
+          <dt>Username</dt>
+          <dd data-testid="session-username">{session.username}</dd>
+          <dt>Authenticated</dt>
+          <dd>{session.isAuthenticated ? 'Yes' : 'No'}</dd>
+        </dl>
+      </div>
 
-        <div class="admin-actions">
-          <button type="button" class="btn btn-destructive-outline" onClick={handleLogout} data-testid="logout-btn">
-            Log out
-          </button>
-        </div>
-      </main>
-    </AppShell>
+      <div class="admin-actions">
+        <button type="button" class="btn btn-destructive-outline" onClick={handleLogout} data-testid="logout-btn">
+          Log out
+        </button>
+      </div>
+    </main>
   );
 }

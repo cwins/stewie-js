@@ -6,6 +6,7 @@ import { reactiveScope, provide } from '@stewie-js/core';
 import { HydrationRegistryContext } from '@stewie-js/core';
 import { renderToString } from '@stewie-js/server';
 import { Router, Route, Link, createSsrRouter } from './components.js';
+import { useRouteData } from './hooks.js';
 import { RedirectError } from './router.js';
 import { createRouter, RouterContext, useRouter } from './router.js';
 import { matchRoute } from './matcher.js';
@@ -393,12 +394,11 @@ describe('Router initial render: beforeEnter guard', () => {
 });
 
 describe('Router initial render: load function', () => {
-  it('runs load before rendering and data is available via _routeData', async () => {
+  it('runs load before rendering and data is available via useRouteData', async () => {
     let capturedData: unknown = 'not-yet';
 
     function DataPage() {
-      const router = useRouter();
-      capturedData = router._routeData();
+      capturedData = useRouteData();
       return jsx('div', { children: 'ready' });
     }
 
@@ -477,7 +477,7 @@ describe('createSsrRouter', () => {
     expect(router.location.pathname).toBe('/');
   });
 
-  it('returns a Router with _routeData populated from load()', async () => {
+  it('returns a Router with _routeDataMap populated from load()', async () => {
     const routeElements = [
       jsx(Route as any, {
         path: '/data',
@@ -486,7 +486,7 @@ describe('createSsrRouter', () => {
       })
     ];
     const router = await createSsrRouter('/data', routeElements);
-    expect(router._routeData()).toEqual({ message: 'hello from loader' });
+    expect(router._routeDataMap.get('/data')?.()).toEqual({ message: 'hello from loader' });
   });
 
   it('throws RedirectError when a beforeEnter guard returns a redirect URL', async () => {
@@ -529,7 +529,7 @@ describe('createSsrRouter', () => {
 
 describe('Router SSR hydration state', () => {
   function DataPage() {
-    const data = useRouter()._routeData() as { count: number } | undefined;
+    const data = useRouteData<{ count: number } | undefined>();
     return jsx('div', { children: data ? `count=${data.count}` : 'no-data' });
   }
 
@@ -545,16 +545,17 @@ describe('Router SSR hydration state', () => {
     const { stateScript } = await renderToString(jsx(Router as any, { router: ssrRouter, children: routeChildren }));
 
     // The route data must appear in the serialized state so the client can pick it up.
-    expect(stateScript).toContain('"__stewie_route_data__"');
+    // Key format is now __stewie_route_data__:<fullPath>
+    expect(stateScript).toContain('"__stewie_route_data__:/data"');
     expect(stateScript).toContain('"count":7');
   });
 
   it('Router renders synchronously when mounted with pre-loaded hydration state', () => {
     // Simulate the client hydration scenario: a registry pre-populated with route data
-    // (as if read from window.__STEWIE_STATE__).
+    // (as if read from window.__STEWIE_STATE__). Key format: __stewie_route_data__:<path>
     const preloadedData = { count: 42 };
     const fakeRegistry = {
-      get: (key: string) => (key === '__stewie_route_data__' ? preloadedData : undefined),
+      get: (key: string) => (key === '__stewie_route_data__:/data' ? preloadedData : undefined),
       set: () => {},
       serialize: () => '{}'
     };

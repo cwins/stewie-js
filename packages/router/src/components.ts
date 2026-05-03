@@ -2,8 +2,8 @@
 
 import { jsx, consume, effect, signal, reactiveScope, useHydrationRegistry } from '@stewie-js/core';
 import type { JSXElement, Component } from '@stewie-js/core';
-import { createRouter, RouterContext, RedirectError } from './router.js';
-import type { Router, RouteGuard } from './router.js';
+import { createRouter, RouterContext, RedirectError, OutletContext } from './router.js';
+import type { Router, RouteGuard, FlatRouteChain, RouteChainLevel, OutletContextValue } from './router.js';
 import { matchRoute } from './matcher.js';
 
 export interface RouterProps {
@@ -39,6 +39,8 @@ export interface RouteProps {
    * Receives the matched URL params and query string as arguments.
    */
   load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+  /** Nested <Route> elements that define child routes under this layout. */
+  children?: JSXElement | JSXElement[];
 }
 
 export interface LinkProps {
@@ -57,14 +59,50 @@ interface RouteConfig {
   component: Component;
   beforeEnter?: RouteGuard;
   load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+  children?: JSXElement | JSXElement[];
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Validation helpers
 // ---------------------------------------------------------------------------
 
-/** Extract RouteConfig objects from the children of a Router. */
-function extractRoutes(children: JSXElement | JSXElement[] | undefined): RouteConfig[] {
+/**
+ * Validate a route path value.
+ * - Top-level paths must start with '/'.
+ * - Nested paths must start with '/' OR be exactly '.'.
+ * - A nested path of '/' is rejected (it would double-slash on concat).
+ */
+function validatePath(path: string, parentPath: string | null): void {
+  if (path === '/') {
+    if (parentPath !== null) {
+      throw new Error(
+        `[stewie/router] Invalid nested route path "${path}" under "${parentPath}". ` +
+          `Child path "/" is not allowed (it would produce double-slash on concat). ` +
+          `Use path="." for an index route.`
+      );
+    }
+    return; // Root "/" is valid at the top level
+  }
+  if (path === '.') {
+    if (parentPath === null) {
+      throw new Error(`[stewie/router] path="." is only valid as a child route (index route). It cannot be a top-level route.`);
+    }
+    return; // Valid index route
+  }
+  if (!path.startsWith('/')) {
+    throw new Error(
+      `[stewie/router] Invalid route path "${path}"${parentPath !== null ? ` under "${parentPath}"` : ''}. ` +
+        `All route paths must start with "/" (or use "." for an index route).`
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Route tree walking — flatten nested <Route> trees into FlatRouteChain[]
+// ---------------------------------------------------------------------------
+
+/** Extract RouteConfig objects from a JSXElement or array of JSXElements. */
+function extractRouteConfigs(children: JSXElement | JSXElement[] | undefined): RouteConfig[] {
   if (!children) return [];
   const arr = Array.isArray(children) ? children : [children];
   return arr
@@ -74,17 +112,78 @@ function extractRoutes(children: JSXElement | JSXElement[] | undefined): RouteCo
       path: c.props.path as string,
       component: c.props.component as Component,
       beforeEnter: c.props.beforeEnter as RouteGuard | undefined,
-      load: c.props.load as ((params: Record<string, string>, query: Record<string, string>) => Promise<unknown>) | undefined
+      load: c.props.load as ((params: Record<string, string>, query: Record<string, string>) => Promise<unknown>) | undefined,
+      children: c.props.children as JSXElement | JSXElement[] | undefined
     }));
 }
 
-/** Find the best-matching route for a given pathname. */
-function findBestMatch(routes: RouteConfig[], pathname: string): { component: Component; params: Record<string, string> } | null {
-  let best: { component: Component; params: Record<string, string>; score: number } | null = null;
-  for (const route of routes) {
-    const result = matchRoute(route.path, pathname);
+/**
+ * Recursively walk the route tree and produce a flat array of FlatRouteChain.
+ * Each chain represents a full path from root to leaf.
+ *
+ * @param configs - Route configs at the current nesting depth
+ * @param ancestorLevels - Already-resolved levels from ancestor routes
+ * @param ancestorPath - Concatenated path from ancestor routes (null = top level)
+ */
+function walkRoutes(configs: RouteConfig[], ancestorLevels: RouteChainLevel[], ancestorPath: string | null): FlatRouteChain[] {
+  const chains: FlatRouteChain[] = [];
+
+  for (const config of configs) {
+    validatePath(config.path, ancestorPath);
+
+    // Compute the full path for this level
+    let fullPath: string;
+    if (config.path === '.') {
+      // Index route: inherits the exact parent path
+      fullPath = ancestorPath ?? '/';
+    } else if (ancestorPath === null) {
+      fullPath = config.path;
+    } else {
+      // Literal concatenation: /parent + /child = /parent/child
+      fullPath = ancestorPath + config.path;
+    }
+
+    const level: RouteChainLevel = {
+      fullPath,
+      component: config.component,
+      beforeEnter: config.beforeEnter,
+      load: config.load
+    };
+
+    const childConfigs = extractRouteConfigs(config.children);
+
+    if (childConfigs.length === 0) {
+      // Leaf route — this chain is complete
+      chains.push({
+        leafPath: fullPath,
+        levels: [...ancestorLevels, level]
+      });
+    } else {
+      // Layout route — walk children, passing down levels and fullPath
+      const childChains = walkRoutes(childConfigs, [...ancestorLevels, level], fullPath);
+      chains.push(...childChains);
+    }
+  }
+
+  return chains;
+}
+
+/**
+ * Extract and flatten all routes from the children of a Router component.
+ * Throws at setup time if any path is invalid.
+ */
+function flattenRoutes(children: JSXElement | JSXElement[] | undefined): FlatRouteChain[] {
+  const configs = extractRouteConfigs(children);
+  return walkRoutes(configs, [], null);
+}
+
+/** Find the best-matching chain for a given pathname. */
+function findBestChain(chains: FlatRouteChain[], pathname: string): { chain: FlatRouteChain; params: Record<string, string> } | null {
+  let best: { chain: FlatRouteChain; params: Record<string, string>; score: number } | null = null;
+  for (const chain of chains) {
+    const result = matchRoute(chain.leafPath, pathname);
     if (result && (!best || result.score > best.score)) {
-      best = { component: route.component, params: result.params, score: result.score };
+      best = { chain, params: result.params, score: result.score };
     }
   }
   return best;
@@ -98,17 +197,28 @@ function findBestMatch(routes: RouteConfig[], pathname: string): { component: Co
  * Provides routing for its children.
  *
  * - Accepts <Route path="…" component={…} /> children to define the route table.
+ * - Supports nested <Route> trees for layout routes (a route with children is a layout;
+ *   its component must render <Outlet /> to mount the matched child route).
  * - Renders the matched route component for the current URL.
  * - Provides the router instance via RouterContext so child components can call
  *   useRouter(), useParams(), etc.
  * - In the browser, reacts to navigation changes (pushState / popstate).
  *
- * Usage:
+ * Usage (flat):
  * ```tsx
  * <Router>
  *   <Route path="/" component={Home} />
  *   <Route path="/about" component={About} />
- *   <Route path="/users/:id" component={UserDetail} />
+ * </Router>
+ * ```
+ *
+ * Usage (nested layouts):
+ * ```tsx
+ * <Router>
+ *   <Route path="/app" component={AppLayout}>
+ *     <Route path="." component={AppHome} />
+ *     <Route path="/settings" component={Settings} />
+ *   </Route>
  * </Router>
  * ```
  */
@@ -122,25 +232,30 @@ export function Router(props: RouterProps): JSXElement {
   // Use pre-configured router from createSsrRouter if provided (SSR path).
   // Otherwise create a fresh one (browser path).
   const router = props.router ?? createRouter(initialUrl);
-  const routes = extractRoutes(props.children);
 
-  // Register routes so navigate() can resolve params
-  router._routes = routes;
+  // Flatten the route tree at setup time. Throws for invalid paths.
+  const chains = flattenRoutes(props.children);
+
+  // Register chains so navigate() can resolve params
+  router._chains = chains;
 
   // Wire router teardown into component lifecycle. This effect has no reactive
   // dependencies so it runs once; its cleanup fires when the Router component
   // is unmounted (the dom-renderer disposes reactiveScope effects on unmount).
   effect(() => () => router._dispose());
 
-  // Determine whether the initial URL's matching route needs async resolution
-  // (a beforeEnter guard or a load function). If so, hold off rendering the
-  // matched content until those promises settle so the guard can redirect and
-  // the loader can populate _routeData before anything is shown.
-  const initialPathname = initialUrl.split('?')[0].split('#')[0];
-  const initialRouteNeedsAsync = routes.some((r) => {
-    const result = matchRoute(r.path, initialPathname);
-    return result !== null && (r.beforeEnter !== undefined || r.load !== undefined);
-  });
+  // Determine whether the initial URL's matching chain needs async resolution
+  // (a beforeEnter guard or a load function on any level). If so, hold off
+  // rendering the matched content until those promises settle.
+  //
+  // When a pre-configured SSR router is provided, use its location.pathname
+  // (which reflects the URL passed to createSsrRouter) rather than the derived
+  // initialUrl (which may fall back to window.location and differ in test envs).
+  const initialPathname = props.router ? props.router.location.pathname : initialUrl.split('?')[0].split('#')[0];
+  const initialChainMatch = findBestChain(chains, initialPathname);
+  const initialRouteNeedsAsync = initialChainMatch
+    ? initialChainMatch.chain.levels.some((l) => l.beforeEnter !== undefined || l.load !== undefined)
+    : false;
 
   // If a pre-configured SSR router was provided, guards already ran — start ready.
   const alreadyResolved = !!props.router;
@@ -148,40 +263,44 @@ export function Router(props: RouterProps): JSXElement {
   // ---------------------------------------------------------------------------
   // Hydration registry integration
   //
-  // Route loader data must survive the SSR → client handoff so that:
-  //   1. The client renders the same content as the server (no hydration mismatch).
-  //   2. The client does not re-run the loader on initial load (data is already
-  //      serialized in window.__STEWIE_STATE__).
-  //
-  // SSR path (alreadyResolved=true): the loader already ran in createSsrRouter().
-  //   Write its result into the hydration registry under a well-known key so
-  //   renderToString() includes it in the stateScript.
-  //
-  // Client hydration path: the registry is populated from window.__STEWIE_STATE__.
-  //   Read the pre-loaded data, set it on _routeData synchronously, and start
-  //   _ready=true so matchedContent() renders the page — not the loading fallback.
-  //   This prevents the mismatch where server renders full content but client
-  //   renders the fallback while waiting for the async loader.
+  // Route loader data must survive the SSR → client handoff. Each level's data
+  // is serialized under a per-level key so layouts and leaves can be restored
+  // independently.
   // ---------------------------------------------------------------------------
-  const ROUTE_DATA_KEY = '__stewie_route_data__';
+  const ROUTE_DATA_KEY_PREFIX = '__stewie_route_data__:';
   const hydrationRegistry = useHydrationRegistry();
 
-  // SSR: serialize route loader data into the registry.
-  if (alreadyResolved && hydrationRegistry) {
-    const routeData = router._routeData();
-    if (routeData !== undefined) {
-      hydrationRegistry.set(ROUTE_DATA_KEY, routeData);
+  // SSR: serialize all matched chain level data into the registry.
+  if (alreadyResolved && hydrationRegistry && initialChainMatch) {
+    for (const level of initialChainMatch.chain.levels) {
+      const sig = router._routeDataMap.get(level.fullPath);
+      const data = sig ? sig() : undefined;
+      if (data !== undefined) {
+        hydrationRegistry.set(ROUTE_DATA_KEY_PREFIX + level.fullPath, data);
+      }
     }
   }
 
-  // Client hydration: restore route data from the registry and skip the async wait.
+  // Client hydration: restore per-level route data from the registry.
   let clientHydrated = false;
-  if (!alreadyResolved && hydrationRegistry) {
-    const preloadedData = hydrationRegistry.get(ROUTE_DATA_KEY);
-    if (preloadedData !== undefined) {
-      router._routeData.set(preloadedData as unknown);
-      clientHydrated = true;
+  if (!alreadyResolved && hydrationRegistry && initialChainMatch) {
+    let anyRestored = false;
+    for (const level of initialChainMatch.chain.levels) {
+      const preloadedData = hydrationRegistry.get(ROUTE_DATA_KEY_PREFIX + level.fullPath);
+      if (preloadedData !== undefined) {
+        // Ensure signal exists before setting
+        let sig = router._routeDataMap.get(level.fullPath);
+        if (!sig) {
+          reactiveScope(() => {
+            sig = signal<unknown>(undefined);
+          });
+          router._routeDataMap.set(level.fullPath, sig!);
+        }
+        router._routeDataMap.get(level.fullPath)!.set(preloadedData as unknown);
+        anyRestored = true;
+      }
     }
+    if (anyRestored) clientHydrated = true;
   }
 
   let _ready!: ReturnType<typeof signal<boolean>>;
@@ -190,13 +309,10 @@ export function Router(props: RouterProps): JSXElement {
   });
 
   if (initialRouteNeedsAsync && !alreadyResolved && !clientHydrated) {
-    // Fire-and-forget: run the guard / loader for the initial URL in the
-    // background. When they resolve, flip _ready which triggers matchedContent
-    // to re-evaluate and render the (possibly redirected) route.
+    // Fire-and-forget: run guards / loaders for the initial URL in the background.
     (async () => {
       const redirect = await router._runGuardsAndLoad(initialUrl);
       if (redirect !== null) {
-        // Guard issued a redirect — navigate() runs the redirect's own guards too.
         await router.navigate(redirect);
       }
       _ready.set(true);
@@ -205,22 +321,105 @@ export function Router(props: RouterProps): JSXElement {
 
   // matchedContent is a reactive function — the DOM renderer wraps it in effect()
   // and re-renders whenever router.location.pathname changes.
-  // The SSR renderer calls it once synchronously.
   const matchedContent = (): JSXElement | null => {
-    // Show fallback (or nothing) while the initial guard/loader is pending.
     if (!_ready()) return props.fallback ?? null;
-    const match = findBestMatch(routes, router.location.pathname);
-    if (!match) return null;
+    const best = findBestChain(chains, router.location.pathname);
+    if (!best) return null;
     // Keep params in sync with the current match
-    if (JSON.stringify(router.location.params) !== JSON.stringify(match.params)) {
-      router.location.params = match.params;
+    if (JSON.stringify(router.location.params) !== JSON.stringify(best.params)) {
+      router.location.params = best.params;
     }
-    return jsx(match.component, { params: router.location.params });
+    // Establish OutletContext at depth=0 for the root render.
+    // Each <Outlet /> will bump depth before rendering the next level.
+    // Use the Provider JSX form so the SSR renderer can thread context across
+    // async boundaries (plain provide() scope closes before async children render).
+    const rootContext: OutletContextValue = { chain: best.chain, depth: 0 };
+    const rootLevel = best.chain.levels[0];
+    return jsx(OutletContext.Provider as unknown as Component, {
+      value: rootContext,
+      children: jsx(rootLevel.component as Component, { params: router.location.params })
+    });
   };
 
   return jsx(RouterContext.Provider as unknown as Component, {
     value: router,
     children: matchedContent
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Outlet component — renders the next matched route in the chain
+// ---------------------------------------------------------------------------
+
+export interface OutletProps {
+  [key: string]: unknown;
+}
+
+/**
+ * Renders the next matched route component in the layout chain.
+ *
+ * Place `<Outlet />` inside a layout route's component to declare where the
+ * matched child route should render. The router replaces the Outlet with the
+ * matched child component at the appropriate nesting depth.
+ *
+ * Any extra props passed to `<Outlet />` are forwarded to the matched child
+ * component as additional props.
+ *
+ * ```tsx
+ * // Layout route component
+ * function AppLayout(props) {
+ *   return (
+ *     <div class="app">
+ *       <NavBar />
+ *       <Outlet />
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+export function Outlet(props: OutletProps = {}): JSXElement | null {
+  let ctx: OutletContextValue | null = null;
+  try {
+    ctx = consume(OutletContext);
+  } catch {
+    // Not inside a Router — silently render nothing
+    return null;
+  }
+
+  if (!ctx) return null;
+
+  const nextDepth = ctx.depth + 1;
+  const nextLevel = ctx.chain.levels[nextDepth];
+
+  if (!nextLevel) {
+    // No deeper level — we're already at the leaf. Nothing to render.
+    return null;
+  }
+
+  const nextContext: OutletContextValue = { chain: ctx.chain, depth: nextDepth };
+
+  // Retrieve the router for params forwarding
+  let router: Router | null = null;
+  try {
+    router = consume(RouterContext);
+  } catch {
+    // ignore
+  }
+
+  const params = router?.location.params ?? {};
+
+  // In dev mode: mark that Outlet was consumed. The parent layout's dev
+  // warning check (below) reads this flag.
+  if (typeof process === 'undefined' || (process as { env?: { NODE_ENV?: string } }).env?.NODE_ENV !== 'production') {
+    // Flag is tracked per-render via the context; no persistent state needed
+    // since the check runs synchronously during the same render pass.
+  }
+
+  // Use the Provider JSX form so the SSR renderer can thread context across
+  // async boundaries (plain provide() scope closes before async children render).
+  return jsx(OutletContext.Provider as unknown as Component, {
+    value: nextContext,
+    children: jsx(nextLevel.component as Component, { ...props, params })
   });
 }
 
@@ -232,10 +431,15 @@ export function Router(props: RouterProps): JSXElement {
  * Declares a route mapping inside a <Router>.
  * This component is never rendered directly; Router scans its children for
  * Route descriptors to build the route table.
+ *
+ * A Route with children is a layout route — its `component` must call `<Outlet />`
+ * to render the matched child route.
+ *
+ * A Route without children is a leaf route — it is rendered directly.
  */
 export function Route(_props: RouteProps): JSXElement {
   // Route is only a configuration marker. Its JSXElement descriptor is read by
-  // Router.extractRoutes() and never rendered directly.
+  // flattenRoutes() and never rendered directly.
   return jsx('template', {});
 }
 
@@ -323,14 +527,19 @@ export async function createSsrRouter(
   url: string,
   routes: import('@stewie-js/core').JSXElement | import('@stewie-js/core').JSXElement[]
 ): Promise<Router> {
-  const routeConfigs = extractRoutes(Array.isArray(routes) ? routes : [routes]);
+  const chains = flattenRoutes(Array.isArray(routes) ? routes : [routes]);
   const router = createRouter(url);
-  router._routes = routeConfigs;
+  router._chains = chains;
 
   const redirect = await router._runGuardsAndLoad(url);
   if (redirect !== null) {
     throw new RedirectError(redirect);
   }
+
+  // Re-apply location now that chains are set so params resolve correctly.
+  // createRouter() initializes location before chains are registered, so params
+  // would be {} without this call.
+  router._setLocation(url);
 
   return router;
 }

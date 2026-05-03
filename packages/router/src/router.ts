@@ -1,8 +1,8 @@
 // router.ts — router context + navigation
 
-import { signal, reactiveScope, store } from '@stewie-js/core';
+import { signal, reactiveScope, store, createContext } from '@stewie-js/core';
 import type { Signal } from '@stewie-js/core';
-import { createContext, consume } from '@stewie-js/core';
+import { consume } from '@stewie-js/core';
 import { createLocationStore, parseUrl } from './location.js';
 import type { RouterStore } from './location.js';
 import type { StewieRouterSPI, NavigateOptions, RouteMatch, NavigationStatus } from '@stewie-js/router-spi';
@@ -66,8 +66,46 @@ export class RedirectError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Router types
+// Flat route chain types
 // ---------------------------------------------------------------------------
+
+/** One level in a matched route chain (layout or leaf). */
+export interface RouteChainLevel {
+  /** Concatenated full path for this level (e.g. '/projects' for layout, '/projects/:id' for leaf). */
+  fullPath: string;
+  component: unknown;
+  beforeEnter?: RouteGuard;
+  load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+}
+
+/**
+ * A fully-flattened route chain from root to leaf.
+ * Each entry in `levels` is one nesting depth; `leafPath` is the full
+ * concatenated path of the deepest level (used for matching).
+ */
+export interface FlatRouteChain {
+  /** Full concatenated path of the leaf (used as the pattern for matchRoute). */
+  leafPath: string;
+  levels: RouteChainLevel[];
+}
+
+// ---------------------------------------------------------------------------
+// Outlet context — tracks the matched chain and current rendering depth
+// ---------------------------------------------------------------------------
+
+export interface OutletContextValue {
+  /** The currently matched flat route chain. */
+  chain: FlatRouteChain;
+  /** The depth of the level currently being rendered (0 = root). */
+  depth: number;
+}
+
+/**
+ * Context providing the current matched chain and depth to `<Outlet />` and
+ * `useRouteData()`. Established by the Router at the root (depth=0) and bumped
+ * by each `<Outlet />` before rendering the next level's component.
+ */
+export const OutletContext = createContext<OutletContextValue | null>(null);
 
 /** Internal route config stored on the router (includes guards and load fn). */
 export interface RouterRouteConfig {
@@ -80,10 +118,15 @@ export interface RouterRouteConfig {
 export interface Router extends StewieRouterSPI {
   // Internal: update location store with optional explicit params
   _setLocation(url: string, params?: Record<string, string>): void;
-  // Internal: list of registered route configs (set by Router component)
+  // Internal: flat route chains (set by Router component after flattening)
+  _chains: FlatRouteChain[];
+  /**
+   * @deprecated Internal compatibility shim. Use _chains for nested routes.
+   * Setting _routes converts each entry to a single-level FlatRouteChain.
+   */
   _routes: RouterRouteConfig[];
-  // Internal: signal holding the most recent route load() result
-  _routeData: Signal<unknown>;
+  // Internal: per-level data signals keyed by fullPath of each chain level
+  _routeDataMap: Map<string, Signal<unknown>>;
   // Internal: remove browser event listeners attached by createRouter()
   _dispose(): void;
   // Internal: run guards + loader for the given URL, returns redirect URL or null
@@ -93,22 +136,19 @@ export interface Router extends StewieRouterSPI {
 export const RouterContext = createContext<Router | null>(null);
 
 export function createRouter(initialUrl?: string): Router {
-  // _routeData is created inside reactiveScope() so signal creation is allowed.
-  let _routeData!: Signal<unknown>;
-  reactiveScope(() => {
-    _routeData = signal<unknown>(undefined);
-  });
+  // _routeDataMap is created inside reactiveScope() so signal creation is allowed.
+  const _routeDataMap = new Map<string, Signal<unknown>>();
 
   const location: RouterStore = createLocationStore(initialUrl ?? '/');
 
   const status: NavigationStatus = reactiveScope(() => store<NavigationStatus>({ phase: 'idle' }));
 
-  /** Compute params for a URL against the registered routes. */
+  /** Compute params for a URL against the registered chains. */
   function resolveParams(pathname: string): Record<string, string> {
     let params: Record<string, string> = {};
     let bestScore = -1;
-    for (const route of router._routes) {
-      const result = matchRoute(route.path, pathname);
+    for (const chain of router._chains) {
+      const result = matchRoute(chain.leafPath, pathname);
       if (result && result.score > bestScore) {
         params = result.params;
         bestScore = result.score;
@@ -126,9 +166,21 @@ export function createRouter(initialUrl?: string): Router {
     location.params = params ?? resolveParams(parsed.pathname);
   }
 
+  /** Ensure a signal exists in _routeDataMap for the given key and return it. */
+  function getOrCreateDataSignal(key: string): Signal<unknown> {
+    let sig = _routeDataMap.get(key);
+    if (!sig) {
+      reactiveScope(() => {
+        sig = signal<unknown>(undefined);
+      });
+      _routeDataMap.set(key, sig!);
+    }
+    return _routeDataMap.get(key)!;
+  }
+
   /**
-   * Find the best-matching route for a URL and run its guard + load fn.
-   * Returns the redirect URL if a guard blocks, or null to proceed.
+   * Find the best-matching chain for a URL and run its guards (outermost→inner)
+   * and loaders (in parallel). Returns the redirect URL if a guard blocks, or null to proceed.
    */
   async function runGuardsAndLoad(url: string, updateStatus = true): Promise<string | null> {
     const parsed = parseUrl(url);
@@ -139,43 +191,55 @@ export function createRouter(initialUrl?: string): Router {
       status.to = parsed.pathname;
     }
 
-    let bestRoute: RouterRouteConfig | null = null;
+    // Find best-matching chain
+    let bestChain: FlatRouteChain | null = null;
     let bestScore = -1;
     let matchedParams: Record<string, string> = {};
-    for (const route of router._routes) {
-      const result = matchRoute(route.path, parsed.pathname);
+    for (const chain of router._chains) {
+      const result = matchRoute(chain.leafPath, parsed.pathname);
       if (result && result.score > bestScore) {
-        bestRoute = route;
+        bestChain = chain;
         bestScore = result.score;
         matchedParams = result.params;
       }
     }
 
-    if (!bestRoute) {
+    if (!bestChain) {
       if (updateStatus) status.phase = 'idle';
       return null;
     }
 
-    // Run beforeEnter guard
-    if (bestRoute.beforeEnter) {
-      if (updateStatus) status.phase = 'guarding';
-      const result = await bestRoute.beforeEnter(url, location.pathname);
-      if (result !== true) {
-        if (updateStatus) status.phase = 'idle';
-        return result as string;
+    // Run beforeEnter guards outermost → inner; first redirect wins.
+    for (const level of bestChain.levels) {
+      if (level.beforeEnter) {
+        if (updateStatus) status.phase = 'guarding';
+        const result = await level.beforeEnter(url, location.pathname);
+        if (result !== true) {
+          if (updateStatus) status.phase = 'idle';
+          return result as string;
+        }
       }
     }
 
-    // Run route-level data loader.
-    // Always reset _routeData on route change: if the incoming route has no
-    // loader the previous route's data should not bleed through.
+    // Reset ALL per-level data signals before loading the new chain.
+    // This ensures stale data from a previous route does not bleed through
+    // when navigating to a route whose path has a different fullPath key.
     if (updateStatus) {
       status.phase = 'loading';
-      _routeData.set(undefined);
+      for (const sig of _routeDataMap.values()) {
+        sig.set(undefined);
+      }
     }
-    if (bestRoute.load) {
-      const data = await bestRoute.load(matchedParams, parsed.query);
-      if (updateStatus) _routeData.set(data);
+
+    // Run loaders in parallel.
+    if (updateStatus) {
+      const loadPromises = bestChain.levels
+        .filter((level) => level.load)
+        .map(async (level) => {
+          const data = await level.load!(matchedParams, parsed.query);
+          getOrCreateDataSignal(level.fullPath).set(data);
+        });
+      await Promise.all(loadPromises);
     }
 
     return null;
@@ -201,8 +265,35 @@ export function createRouter(initialUrl?: string): Router {
   const router: Router = {
     location,
     status,
-    _routes: [],
-    _routeData,
+    _chains: [],
+    _routeDataMap,
+
+    // Compatibility shim: setting _routes converts to single-level chains.
+    set _routes(configs: RouterRouteConfig[]) {
+      router._chains = configs.map((cfg) => ({
+        leafPath: cfg.path,
+        levels: [
+          {
+            fullPath: cfg.path,
+            component: cfg.component,
+            beforeEnter: cfg.beforeEnter,
+            load: cfg.load
+          }
+        ]
+      }));
+    },
+    get _routes(): RouterRouteConfig[] {
+      // Reconstruct a flat list from chains for backward compat reads.
+      return router._chains.map((chain) => {
+        const leaf = chain.levels[chain.levels.length - 1];
+        return {
+          path: chain.leafPath,
+          component: leaf.component,
+          beforeEnter: leaf.beforeEnter,
+          load: leaf.load
+        };
+      });
+    },
 
     _dispose() {
       _listenersDisposer();
@@ -216,9 +307,8 @@ export function createRouter(initialUrl?: string): Router {
       const url = typeof to === 'string' ? to : to.to;
       const replace = typeof to !== 'string' && !!to.replace;
 
-      // Synchronous fast path — no guards or loaders registered on any route.
-      // Keeps simple navigations fully synchronous and avoids microtask overhead.
-      const hasGuardsOrLoaders = router._routes.some((r) => r.beforeEnter || r.load);
+      // Synchronous fast path — no guards or loaders registered on any chain level.
+      const hasGuardsOrLoaders = router._chains.some((chain) => chain.levels.some((l) => l.beforeEnter || l.load));
       if (!hasGuardsOrLoaders) {
         status.phase = 'committing';
         status.from = location.pathname;
@@ -294,7 +384,7 @@ export function createRouter(initialUrl?: string): Router {
 
     async preload(to: string | NavigateOptions): Promise<void> {
       const url = typeof to === 'string' ? to : to.to;
-      // Run guards and loader without committing — side effects on _routeData
+      // Run guards and loader without committing — side effects on _routeDataMap
       // and status are suppressed so the current view is unaffected.
       await runGuardsAndLoad(url, false);
     },

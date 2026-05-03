@@ -15,7 +15,6 @@
 import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, Show, useAction } from '@stewie-js/core';
 import { useRouteData, useParams, useRouter, Link } from '@stewie-js/router';
-import { AppShell } from '../components/AppShell.js';
 import { StatusBadge, PriorityBadge } from '../components/lib/Badge.js';
 import { updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { TaskDetailData } from '../loaders/task-detail.js';
@@ -77,160 +76,158 @@ export function TaskDetailPage(): JSXElement {
   };
 
   return (
-    <AppShell>
-      <main class="page" data-testid={`task-detail-${taskId}`}>
-        <div class="page-header">
-          <Link to={`/projects/${project.id}`} class="back-link" data-testid="back-link">
-            {`← ${project.name}`}
-          </Link>
-          <h1 class="page-title" data-testid="task-title-heading">
-            {task.title}
-          </h1>
-          <div class="page-header-badges">
-            <PriorityBadge priority={task.priority} />
-            <StatusBadge status={task.status} />
-          </div>
+    <main class="page" data-testid={`task-detail-${taskId}`}>
+      <div class="page-header">
+        <Link to={`/projects/${project.id}`} class="back-link" data-testid="back-link">
+          {`← ${project.name}`}
+        </Link>
+        <h1 class="page-title" data-testid="task-title-heading">
+          {task.title}
+        </h1>
+        <div class="page-header-badges">
+          <PriorityBadge priority={task.priority} />
+          <StatusBadge status={task.status} />
         </div>
+      </div>
 
-        <div class="form-card">
-          <form onSubmit={handleSubmit} data-testid="edit-task-form">
-            <Show when={() => $displayError() !== ''}>
-              {() => (
-                <p class="form-error" role="alert">
-                  {() => $displayError()}
-                </p>
-              )}
-            </Show>
+      <div class="form-card">
+        <form onSubmit={handleSubmit} data-testid="edit-task-form">
+          <Show when={() => $displayError() !== ''}>
+            {() => (
+              <p class="form-error" role="alert">
+                {() => $displayError()}
+              </p>
+            )}
+          </Show>
+
+          <div class="field-group">
+            <label class="field-label" for="task-title">
+              Title <span aria-hidden="true">*</span>
+            </label>
+            <input
+              id="task-title"
+              class="field-input"
+              type="text"
+              value={$title()}
+              onInput={(e: InputEvent) => $title.set((e.target as HTMLInputElement).value)}
+              data-testid="task-title-input"
+              required
+            />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="task-description">
+              Description
+            </label>
+            <textarea
+              id="task-description"
+              class="field-input field-textarea"
+              value={$description()}
+              onInput={(e: InputEvent) => $description.set((e.target as HTMLTextAreaElement).value)}
+              data-testid="task-description-input"
+            />
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="task-status">
+                Status
+              </label>
+              <select
+                id="task-status"
+                class="field-select"
+                value={$status()}
+                onChange={(e: Event) => $status.set((e.target as HTMLSelectElement).value as TaskStatus)}
+                data-testid="task-status-select"
+              >
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
 
             <div class="field-group">
-              <label class="field-label" for="task-title">
-                Title <span aria-hidden="true">*</span>
+              <label class="field-label" for="task-priority">
+                Priority
+              </label>
+              <select
+                id="task-priority"
+                class="field-select"
+                value={$priority()}
+                onChange={(e: Event) => $priority.set((e.target as HTMLSelectElement).value as typeof task.priority)}
+                data-testid="task-priority-select"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="task-due">
+                Due Date
               </label>
               <input
-                id="task-title"
+                id="task-due"
                 class="field-input"
-                type="text"
-                value={$title()}
-                onInput={(e: InputEvent) => $title.set((e.target as HTMLInputElement).value)}
-                data-testid="task-title-input"
-                required
+                type="date"
+                value={$dueDate()}
+                onInput={(e: InputEvent) => $dueDate.set((e.target as HTMLInputElement).value)}
+                data-testid="task-due-input"
               />
             </div>
-
-            <div class="field-group">
-              <label class="field-label" for="task-description">
-                Description
-              </label>
-              <textarea
-                id="task-description"
-                class="field-input field-textarea"
-                value={$description()}
-                onInput={(e: InputEvent) => $description.set((e.target as HTMLTextAreaElement).value)}
-                data-testid="task-description-input"
-              />
-            </div>
-
-            <div class="field-row">
-              <div class="field-group">
-                <label class="field-label" for="task-status">
-                  Status
-                </label>
-                <select
-                  id="task-status"
-                  class="field-select"
-                  value={$status()}
-                  onChange={(e: Event) => $status.set((e.target as HTMLSelectElement).value as TaskStatus)}
-                  data-testid="task-status-select"
-                >
-                  <option value="todo">To Do</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="done">Done</option>
-                </select>
-              </div>
-
-              <div class="field-group">
-                <label class="field-label" for="task-priority">
-                  Priority
-                </label>
-                <select
-                  id="task-priority"
-                  class="field-select"
-                  value={$priority()}
-                  onChange={(e: Event) => $priority.set((e.target as HTMLSelectElement).value as typeof task.priority)}
-                  data-testid="task-priority-select"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-
-              <div class="field-group">
-                <label class="field-label" for="task-due">
-                  Due Date
-                </label>
-                <input
-                  id="task-due"
-                  class="field-input"
-                  type="date"
-                  value={$dueDate()}
-                  onInput={(e: InputEvent) => $dueDate.set((e.target as HTMLInputElement).value)}
-                  data-testid="task-due-input"
-                />
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button
-                type="submit"
-                class="btn btn-primary"
-                disabled={() => !isValid() || !hasChanges() || save.pending()}
-                data-testid="save-task-btn"
-              >
-                {() => (save.pending() ? 'Saving\u2026' : 'Save Changes')}
-              </button>
-              <Link to={`/projects/${project.id}`} class="btn btn-ghost">
-                Cancel
-              </Link>
-            </div>
-          </form>
-        </div>
-
-        <div class="danger-zone" data-testid="danger-zone">
-          <h2 class="danger-zone-title">Danger Zone</h2>
-          <div class="danger-zone-row">
-            <div>
-              <p class="danger-zone-label">Delete this task</p>
-              <p class="danger-zone-desc">This action cannot be undone.</p>
-            </div>
-            <Show
-              when={$confirmDelete}
-              fallback={
-                <button
-                  type="button"
-                  class="btn btn-destructive-outline"
-                  onClick={() => $confirmDelete.set(true)}
-                  data-testid="delete-task-btn"
-                >
-                  Delete
-                </button>
-              }
-            >
-              {() => (
-                <div class="confirm-row">
-                  <span class="confirm-label">Are you sure?</span>
-                  <button type="button" class="btn btn-destructive" onClick={handleDelete} data-testid="confirm-delete-btn">
-                    Yes, delete
-                  </button>
-                  <button type="button" class="btn btn-ghost" onClick={() => $confirmDelete.set(false)} data-testid="cancel-delete-btn">
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </Show>
           </div>
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="btn btn-primary"
+              disabled={() => !isValid() || !hasChanges() || save.pending()}
+              data-testid="save-task-btn"
+            >
+              {() => (save.pending() ? 'Saving\u2026' : 'Save Changes')}
+            </button>
+            <Link to={`/projects/${project.id}`} class="btn btn-ghost">
+              Cancel
+            </Link>
+          </div>
+        </form>
+      </div>
+
+      <div class="danger-zone" data-testid="danger-zone">
+        <h2 class="danger-zone-title">Danger Zone</h2>
+        <div class="danger-zone-row">
+          <div>
+            <p class="danger-zone-label">Delete this task</p>
+            <p class="danger-zone-desc">This action cannot be undone.</p>
+          </div>
+          <Show
+            when={$confirmDelete}
+            fallback={
+              <button
+                type="button"
+                class="btn btn-destructive-outline"
+                onClick={() => $confirmDelete.set(true)}
+                data-testid="delete-task-btn"
+              >
+                Delete
+              </button>
+            }
+          >
+            {() => (
+              <div class="confirm-row">
+                <span class="confirm-label">Are you sure?</span>
+                <button type="button" class="btn btn-destructive" onClick={handleDelete} data-testid="confirm-delete-btn">
+                  Yes, delete
+                </button>
+                <button type="button" class="btn btn-ghost" onClick={() => $confirmDelete.set(false)} data-testid="cancel-delete-btn">
+                  Cancel
+                </button>
+              </div>
+            )}
+          </Show>
         </div>
-      </main>
-    </AppShell>
+      </div>
+    </main>
   );
 }

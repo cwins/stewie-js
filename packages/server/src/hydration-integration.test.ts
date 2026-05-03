@@ -17,6 +17,8 @@ import type { JSXElement, Resource } from '@stewie-js/core';
 import { hydrate } from '@stewie-js/core';
 import { renderToString } from './stream.js';
 import { useHydrationRegistry } from './hydration.js';
+import { Router, Route, Outlet, createSsrRouter } from '@stewie-js/router';
+import { useRouteData } from '@stewie-js/router';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -453,5 +455,85 @@ describe('SSR → hydrate: Suspense + DataRegistry', () => {
     expect(container.textContent).toContain('User 7');
     expect(container.textContent).not.toContain('CLIENT');
     expect(container.textContent).not.toContain('Loading...');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SSR → hydrate: nested layout routes
+// ---------------------------------------------------------------------------
+
+describe('SSR → hydrate: nested layout routes', () => {
+  it('SSR round-trip with layout + leaf renders correct HTML and hydrates cleanly', async () => {
+    function Layout(): JSXElement {
+      return jsx('div', { class: 'layout', children: jsx(Outlet as any, {}) });
+    }
+    function Page(): JSXElement {
+      return jsx('span', { children: 'page-content' });
+    }
+
+    const routeEl = jsx(Route as any, {
+      path: '/app',
+      component: Layout,
+      children: jsx(Route as any, { path: '/page', component: Page })
+    });
+
+    const ssrRouter = await createSsrRouter('/app/page', [routeEl]);
+    const { html } = await renderToString(jsx(Router as any, { router: ssrRouter, children: [routeEl] }));
+
+    // SSR output should contain both layout and leaf content
+    expect(html).toContain('class="layout"');
+    expect(html).toContain('page-content');
+
+    // Hydration should not throw and should produce correct DOM
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    window.__STEWIE_STATE__ = {};
+    window.__STEWIE_DATA__ = {};
+
+    expect(() => {
+      reactiveScope(() => {
+        hydrate(jsx(Router as any, { router: ssrRouter, children: [routeEl] }), container);
+      });
+    }).not.toThrow();
+
+    expect(container.querySelector('.layout')).not.toBeNull();
+    expect(container.textContent).toContain('page-content');
+
+    delete window.__STEWIE_STATE__;
+    delete window.__STEWIE_DATA__;
+  });
+
+  it('SSR round-trip with per-level loaders serializes both data entries', async () => {
+    let layoutData: unknown;
+    let pageData: unknown;
+
+    function Layout(): JSXElement {
+      layoutData = useRouteData();
+      return jsx('div', { class: 'layout', children: jsx(Outlet as any, {}) });
+    }
+    function Page(): JSXElement {
+      pageData = useRouteData();
+      return jsx('span', { children: 'ok' });
+    }
+
+    const routeEl = jsx(Route as any, {
+      path: '/app',
+      component: Layout,
+      load: async () => ({ level: 'layout' }),
+      children: jsx(Route as any, {
+        path: '/page',
+        component: Page,
+        load: async () => ({ level: 'page' })
+      })
+    });
+
+    const ssrRouter = await createSsrRouter('/app/page', [routeEl]);
+    const { stateScript } = await renderToString(jsx(Router as any, { router: ssrRouter, children: [routeEl] }));
+
+    // Both levels' data should be serialized
+    expect(stateScript).toContain('"__stewie_route_data__:/app"');
+    expect(stateScript).toContain('"__stewie_route_data__:/app/page"');
+    expect(layoutData).toEqual({ level: 'layout' });
+    expect(pageData).toEqual({ level: 'page' });
   });
 });

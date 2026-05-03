@@ -16,7 +16,6 @@
 import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, For, Show } from '@stewie-js/core';
 import { useRouteData, Link } from '@stewie-js/router';
-import { AppShell } from '../components/AppShell.js';
 import type { ProjectsData } from '../loaders/projects.js';
 import { EmptyState } from '../components/lib/EmptyState.js';
 
@@ -35,80 +34,76 @@ export function ProjectsPage(): JSXElement {
   });
 
   return (
-    <AppShell>
-      <main class="page" data-testid="projects-page">
-        <div class="page-header">
-          <h1 class="page-title">Projects</h1>
-          <Link to="/projects/new" class="btn btn-primary" data-testid="new-project-btn">
-            New Project
-          </Link>
-        </div>
+    <main class="page" data-testid="projects-page">
+      <div class="page-header">
+        <h1 class="page-title">Projects</h1>
+        <Link to="/projects/new" class="btn btn-primary" data-testid="new-project-btn">
+          New Project
+        </Link>
+      </div>
 
-        {projects.length === 0 ? (
-          <EmptyState
-            title="No projects yet"
-            description="Create your first project to start tracking work."
-            testId="projects-empty"
-            action={
-              <Link to="/projects/new" class="btn btn-primary">
-                New Project
-              </Link>
-            }
-          />
-        ) : (
-          <>
-            <div class="filter-bar" data-testid="filter-bar">
-              <input
-                class="field-input filter-search"
-                type="search"
-                placeholder="Filter projects…"
-                value={$search()}
-                onInput={(e: InputEvent) => $search.set((e.target as HTMLInputElement).value)}
-                aria-label="Filter projects by name or description"
-                data-testid="project-search"
-              />
-            </div>
+      {projects.length === 0 ? (
+        <EmptyState
+          title="No projects yet"
+          description="Create your first project to start tracking work."
+          testId="projects-empty"
+          action={
+            <Link to="/projects/new" class="btn btn-primary">
+              New Project
+            </Link>
+          }
+        />
+      ) : (
+        <>
+          <div class="filter-bar" data-testid="filter-bar">
+            <input
+              class="field-input filter-search"
+              type="search"
+              placeholder="Filter projects…"
+              value={$search()}
+              onInput={(e: InputEvent) => $search.set((e.target as HTMLInputElement).value)}
+              aria-label="Filter projects by name or description"
+              data-testid="project-search"
+            />
+          </div>
 
-            <Show
-              when={() => filteredProjects().length > 0}
-              fallback={<EmptyState title="No matches" description="Try a different search term." testId="projects-no-match" />}
-            >
-              {() => (
-                <div class="project-list" data-testid="project-list">
-                  <For each={filteredProjects} by={(p) => p.id}>
-                    {(getProject) => {
-                      const counts = () => getProject().taskCounts;
-                      return (
-                        <Link
-                          to={`/projects/${getProject().id}`}
-                          class="project-list-item"
-                          data-testid={`project-list-item-${getProject().id}`}
-                        >
-                          <div class="project-list-accent" style={() => `background: ${getProject().color}`} />
-                          <div class="project-list-body">
-                            <div class="project-list-header">
-                              <span class="project-list-name">{() => getProject().name}</span>
-                              <span class="project-list-task-count">
-                                {() => `${counts().total} task${counts().total !== 1 ? 's' : ''}`}
-                              </span>
-                            </div>
-                            <p class="project-list-desc">{() => getProject().description}</p>
-                            <div class="project-list-progress" aria-label="Task progress">
-                              <span class="progress-pill progress-todo">{() => `${counts().todo} to do`}</span>
-                              <span class="progress-pill progress-in-progress">{() => `${counts().inProgress} in progress`}</span>
-                              <span class="progress-pill progress-done">{() => `${counts().done} done`}</span>
-                            </div>
+          <Show
+            when={() => filteredProjects().length > 0}
+            fallback={<EmptyState title="No matches" description="Try a different search term." testId="projects-no-match" />}
+          >
+            {() => (
+              <div class="project-list" data-testid="project-list">
+                <For each={filteredProjects} by={(p) => p.id}>
+                  {(getProject) => {
+                    const counts = () => getProject().taskCounts;
+                    return (
+                      <Link
+                        to={`/projects/${getProject().id}`}
+                        class="project-list-item"
+                        data-testid={`project-list-item-${getProject().id}`}
+                      >
+                        <div class="project-list-accent" style={() => `background: ${getProject().color}`} />
+                        <div class="project-list-body">
+                          <div class="project-list-header">
+                            <span class="project-list-name">{() => getProject().name}</span>
+                            <span class="project-list-task-count">{() => `${counts().total} task${counts().total !== 1 ? 's' : ''}`}</span>
                           </div>
-                        </Link>
-                      );
-                    }}
-                  </For>
-                </div>
-              )}
-            </Show>
-          </>
-        )}
-      </main>
-    </AppShell>
+                          <p class="project-list-desc">{() => getProject().description}</p>
+                          <div class="project-list-progress" aria-label="Task progress">
+                            <span class="progress-pill progress-todo">{() => `${counts().todo} to do`}</span>
+                            <span class="progress-pill progress-in-progress">{() => `${counts().inProgress} in progress`}</span>
+                            <span class="progress-pill progress-done">{() => `${counts().done} done`}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  }}
+                </For>
+              </div>
+            )}
+          </Show>
+        </>
+      )}
+    </main>
   );
 }

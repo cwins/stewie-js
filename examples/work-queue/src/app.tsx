@@ -3,7 +3,7 @@
 //
 // This file is the version-sensitive integration layer. It wires together:
 //   - the router (Route table with loaders)
-//   - the persistent layout (NavBar)
+//   - the persistent layout (AppShellLayout via nested routes)
 //   - the SSR entry point (renderApp)
 //
 // Everything else — data, loaders, actions, pages — is in stable layers that
@@ -38,34 +38,44 @@ import { projectDetailLoader } from './loaders/project-detail.js';
 import { projectEditLoader } from './loaders/project-edit.js';
 import { taskDetailLoader } from './loaders/task-detail.js';
 import { requireAuth } from './data/mocks/auth.js';
+import { AppShellLayout } from './components/AppShell.js';
 import './styles.css';
 
 // ---------------------------------------------------------------------------
 // Route definitions
 //
-// Defined once — used in both createSsrRouter (server) and <Router> (client).
-// Route loaders are the primary mechanism for initial page data; each loader
-// receives matched URL params and query from the router.
+// All authenticated/app routes are nested under the root AppShellLayout
+// so the NavBar and chrome render once at the layout level. Each page
+// component no longer needs to render <AppShell> itself.
+//
+// /login is a standalone route (no shell) so the login page has full control
+// over its layout.
+//
+// Route loaders receive matched URL params and query from the router.
 // The result is available inside the page component via useRouteData<T>().
 // ---------------------------------------------------------------------------
 
 const routeElements = [
-  <Route path="/" component={DashboardPage} load={dashboardLoader} />,
-  <Route path="/projects" component={ProjectsPage} load={projectsLoader} />,
-  <Route path="/projects/new" component={NewProjectPage} />,
-  <Route path="/projects/:projectId/edit" component={EditProjectPage} load={projectEditLoader} />,
-  <Route path="/projects/:projectId" component={ProjectDetailPage} load={projectDetailLoader} />,
-  <Route path="/tasks/:taskId" component={TaskDetailPage} load={taskDetailLoader} />,
-  <Route path="/login" component={LoginPage} />,
-  <Route path="/admin" component={AdminPage} beforeEnter={requireAuth} />
+  // Root layout — AppShellLayout renders <NavBar /> + <Outlet />
+  // All routes share the NavBar chrome; pages only render their <main> content.
+  <Route path="/" component={AppShellLayout}>
+    <Route path="." component={DashboardPage} load={dashboardLoader} />
+    <Route path="/projects" component={ProjectsPage} load={projectsLoader} />
+    <Route path="/projects/new" component={NewProjectPage} />
+    <Route path="/projects/:projectId/edit" component={EditProjectPage} load={projectEditLoader} />
+    <Route path="/projects/:projectId" component={ProjectDetailPage} load={projectDetailLoader} />
+    <Route path="/tasks/:taskId" component={TaskDetailPage} load={taskDetailLoader} />
+    <Route path="/admin" component={AdminPage} beforeEnter={requireAuth} />
+    <Route path="/login" component={LoginPage} />
+  </Route>
 ];
 
 // ---------------------------------------------------------------------------
 // App — root component (isomorphic: runs on server and client)
 // ---------------------------------------------------------------------------
 
-// App — the Router is the root. NavBar and layout chrome live inside each
-// page component (via AppShell) so they have access to the RouterContext.
+// App — the Router is the root. AppShellLayout is the root layout route:
+// it renders NavBar + <Outlet /> so every child route gets the chrome automatically.
 export function App({
   initialUrl,
   router: ssrRouter

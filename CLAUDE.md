@@ -122,6 +122,7 @@ These are the reasons Stewie exists rather than "just use X":
 - `useTitle`, `useMeta`, `<Head>` — signal-driven head/metadata primitives; `renderToString` returns `headHtml`; `renderToStream` emits inline `<script>` patches for Suspense boundary flushes
 - True DOM-claiming hydration via `HydrationCursor`
 - Client router with guards, data loading, lazy routes, View Transitions, Navigation API, History API fallback
+- Layout routes via nested `<Route>` trees and `<Outlet />` — guards outermost→inner, parallel loaders, per-level `useRouteData()`, index routes via `path="."`, setup-time validation
 - SSR router with guard execution and `renderToString` integration
 - Compiler: auto-wrap, `$prop` transform, source maps, module-scope validation
 - Vite plugin with HMR
@@ -138,7 +139,6 @@ These are the reasons Stewie exists rather than "just use X":
 - **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
 - **Typed route params/query** — `useParams` and `useQuery` return `Record<string, string>`, not inferred from route definition
 - **Cloudflare and Deno adapters** — not yet written
-- **Layout routes** — no nested route layouts; the `<Router>` renders only the matched route component, so persistent chrome (nav bars, sidebars) must be repeated inside each page via a wrapper like `<AppShell>`
 - **Edge-first test phases 2–4** — streaming confidence tests, router edge-flow tests, adapter conformance suite
 
 ---
