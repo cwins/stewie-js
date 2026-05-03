@@ -22,6 +22,7 @@ import { EmptyState } from '../components/lib/EmptyState.js';
 import { createTaskAction, updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { ProjectDetailData } from '../loaders/project-detail.js';
 import type { Task, TaskStatus } from '../data/types.js';
+import type { ProjectDetailRoute } from '../routes.js';
 
 // ---------------------------------------------------------------------------
 // Task edit sheet
@@ -279,7 +280,7 @@ function CreateTaskForm({ projectId, onCreated, onCancel }: CreateTaskFormProps)
 // ---------------------------------------------------------------------------
 
 export function ProjectDetailPage(): JSXElement {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId } = useParams<ProjectDetailRoute>();
   const data = useRouteData<ProjectDetailData>();
 
   // Local mutable copies of loader data.

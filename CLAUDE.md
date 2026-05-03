@@ -123,6 +123,7 @@ These are the reasons Stewie exists rather than "just use X":
 - True DOM-claiming hydration via `HydrationCursor`
 - Client router with guards, data loading, lazy routes, View Transitions, Navigation API, History API fallback
 - Layout routes via nested `<Route>` trees and `<Outlet />` — guards outermost→inner, parallel loaders, per-level `useRouteData()`, index routes via `path="."`, setup-time validation
+- Typed route params and query — `useParams<T>()` / `useQuery<T>()` accept either a `RouteDefinition<TParams, TQuery>` (Apollo-style bundled type, hand-written or codegen'd) or a bare param/query shape; `PathParams<P>` template-literal helper extracts `:param` segments. Codegen plugin to auto-emit definitions is a future layer; manual and generated shapes are identical
 - SSR router with guard execution and `renderToString` integration
 - Compiler: auto-wrap, `$prop` transform, source maps, module-scope validation
 - Vite plugin with HMR
@@ -137,7 +138,7 @@ These are the reasons Stewie exists rather than "just use X":
 - **Progressive asset streaming — Phase 3** — Phases 1 and 2 are complete: per-boundary `<link rel="stylesheet">` and `<link rel="modulepreload">` emission via Vite's `ssr-manifest.json` (no custom manifest needed), and client-side gating in `lazy()` so the boundary's content does not flip until its CSS chunk loads. Still missing: router preloading on hover/focus with Loadable-style `data-stewie-id` attrs (Phase 3)
 - **Streaming-mode Suspense hydration** — `renderToString` → `hydrate()` is wired end-to-end (verified by `packages/server/src/hydration-integration.test.ts`): `renderSuspense` engages `HydrationCursor` via `collectUntilComment('Suspense')` and `useResource` reads from the seeded `DataRegistry`, so SSR-resolved boundaries hydrate in place with no fallback flash and no client refetch. The remaining gap is `renderToStream`'s placeholder-`<div>` + swap-script path: when a streamed Suspense boundary is hydrated before the swap script fires, the cursor sees the fallback `<div>`, not the resolved content. The swap script eventually replaces the div, but the children re-render fresh after the swap rather than via the cursor. Plan: detect the `<div id="__ss*">` shape on hydration, defer the boundary's hydration until the swap script's MutationObserver-equivalent fires, then claim the post-swap nodes. Not load-bearing for `renderToString`-based apps
 - **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
-- **Typed route params/query** — `useParams` and `useQuery` return `Record<string, string>`, not inferred from route definition
+- **Route codegen plugin** — typed route definitions are written by hand today (see `examples/work-queue/src/routes.ts`); a Vite plugin pass to walk the route tree and emit the same `RouteDefinition` shapes automatically is not yet built
 - **Cloudflare and Deno adapters** — not yet written
 - **Edge-first test phases 2–4** — streaming confidence tests, router edge-flow tests, adapter conformance suite
 

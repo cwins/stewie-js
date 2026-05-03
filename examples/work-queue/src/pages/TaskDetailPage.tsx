@@ -19,9 +19,10 @@ import { StatusBadge, PriorityBadge } from '../components/lib/Badge.js';
 import { updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { TaskDetailData } from '../loaders/task-detail.js';
 import type { TaskStatus } from '../data/types.js';
+import type { TaskDetailRoute } from '../routes.js';
 
 export function TaskDetailPage(): JSXElement {
-  const { taskId } = useParams<{ taskId: string }>();
+  const { taskId } = useParams<TaskDetailRoute>();
   const { task, project } = useRouteData<TaskDetailData>();
   const router = useRouter();
 

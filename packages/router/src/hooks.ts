@@ -7,17 +7,39 @@ import type { OutletContextValue } from './router.js';
 import { matchRoute } from './matcher.js';
 import type { RouterStore } from './location.js';
 import type { NavigationStatus } from '@stewie-js/router-spi';
+import type { ParamsOf, QueryOf } from './typed-routes.js';
 
 export function useLocation(): RouterStore {
   return useRouter().location as RouterStore;
 }
 
-export function useParams<T extends Record<string, string>>(): T {
-  return useRouter().location.params as T;
+/**
+ * Returns the matched route's URL params.
+ *
+ * The generic `T` may be either a `RouteDefinition` (preferred — the same shape
+ * a codegen plugin emits, see `typed-routes.ts`) or a bare param shape for
+ * one-off use:
+ *
+ * ```ts
+ * // Preferred — single import per route, types live in routes.ts
+ * const { projectId } = useParams<ProjectDetailRoute>();
+ *
+ * // Back-compat — pass the param shape directly
+ * const { projectId } = useParams<{ projectId: string }>();
+ * ```
+ */
+export function useParams<T = Record<string, string>>(): ParamsOf<T> {
+  return useRouter().location.params as ParamsOf<T>;
 }
 
-export function useQuery<T extends Record<string, string>>(): T {
-  return useRouter().location.query as T;
+/**
+ * Returns the current URL's query params.
+ *
+ * Like `useParams`, the generic accepts either a `RouteDefinition` or a bare
+ * query shape.
+ */
+export function useQuery<T = Record<string, string | undefined>>(): QueryOf<T> {
+  return useRouter().location.query as QueryOf<T>;
 }
 
 /**

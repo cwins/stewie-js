@@ -9,3 +9,4 @@ export type { Router as RouterType, RouteGuard, FlatRouteChain, RouteChainLevel,
 export type { RouterProps, RouteProps, LinkProps, OutletProps } from './components.js';
 export type { RouterStore } from './location.js';
 export type { MatchResult } from './matcher.js';
+export type { RouteDefinition, PathParams, ParamsOf, QueryOf } from './typed-routes.js';
