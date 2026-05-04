@@ -55,8 +55,7 @@ describe('ParamsOf<T> / QueryOf<T>', () => {
 // ---------------------------------------------------------------------------
 
 describe('useParams / useQuery — RouteDefinition', () => {
-  interface ProjectDetailRoute
-    extends RouteDefinition<PathParams<'/projects/:projectId'>, { tab?: string }> {}
+  interface ProjectDetailRoute extends RouteDefinition<PathParams<'/projects/:projectId'>, { tab?: string }> {}
 
   it('useParams<RouteDef>() returns the correctly-typed params at runtime', () => {
     let captured: { projectId: string } | undefined;

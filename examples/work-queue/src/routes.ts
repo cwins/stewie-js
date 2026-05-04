@@ -19,5 +19,4 @@ export interface ProjectEditRoute extends RouteDefinition<PathParams<'/projects/
 
 export interface TaskDetailRoute extends RouteDefinition<PathParams<'/tasks/:taskId'>> {}
 
-export interface LoginRoute
-  extends RouteDefinition<Record<string, never>, { redirect?: string }> {}
+export interface LoginRoute extends RouteDefinition<Record<string, never>, { redirect?: string }> {}
