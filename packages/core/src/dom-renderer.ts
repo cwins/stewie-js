@@ -777,9 +777,7 @@ function renderSuspense(props: Record<string, unknown>, parent: Node, before: No
       const subCursor = new HydrationCursor(postSwap);
       const frag = document.createDocumentFragment();
       try {
-        activeDisposer = runWithContext(ctxSnapshot, () =>
-          _withCursor(subCursor, () => renderChildren(props.children, frag, null))
-        );
+        activeDisposer = runWithContext(ctxSnapshot, () => _withCursor(subCursor, () => renderChildren(props.children, frag, null)));
         if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
       } catch (thrown) {
         activeDisposer();
