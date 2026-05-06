@@ -456,6 +456,69 @@ describe('SSR → hydrate: Suspense + DataRegistry', () => {
     expect(container.textContent).not.toContain('CLIENT');
     expect(container.textContent).not.toContain('Loading...');
   });
+
+  it('streaming-mode unresolved boundary: hydrate defers until the swap fires, then claims post-swap nodes without refetching', async () => {
+    let clientFetchCount = 0;
+
+    const fetchUser = defineResource(
+      (id: number) => {
+        clientFetchCount++;
+        return Promise.resolve({ id, name: 'CLIENT_REFETCH' });
+      },
+      { id: 'streamingPlaceholderTest' }
+    );
+
+    function Inner(): JSXElement {
+      let res!: Resource<{ id: number; name: string }>;
+      reactiveScope(() => {
+        res = useResource(fetchUser, () => 9);
+      });
+      const data = res.read();
+      return jsx('span', { children: data.name });
+    }
+    function UserView(): JSXElement {
+      return jsx(
+        Suspense as unknown as () => JSXElement,
+        {
+          fallback: jsx('span', { children: 'Loading...' }),
+          children: jsx(Inner, {})
+        } as unknown as Record<string, unknown>
+      );
+    }
+
+    // Simulate streaming SSR: container starts with placeholder div + Suspense
+    // anchor, registry has nothing yet for this resource.
+    const container = document.createElement('div');
+    container.innerHTML = '<div id="__ss0"><span>Loading...</span></div><!--Suspense-->';
+    window.__STEWIE_STATE__ = {};
+    window.__STEWIE_DATA__ = {};
+
+    reactiveScope(() => {
+      hydrate(jsx(UserView, {}), container);
+    });
+
+    // Hydration should not have refetched — boundary is deferred.
+    expect(clientFetchCount).toBe(0);
+    // Fallback DOM still present.
+    expect(container.textContent).toContain('Loading...');
+
+    // Simulate the swap script + inline data patch landing.
+    window.__STEWIE_DATA__ = {
+      'streamingPlaceholderTest:9': { id: 9, name: 'STREAMED' }
+    };
+    const placeholder = container.querySelector('#__ss0')!;
+    const resolved = document.createElement('span');
+    resolved.textContent = 'STREAMED';
+    placeholder.replaceWith(resolved);
+
+    // Let the MutationObserver microtask fire.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(clientFetchCount).toBe(0);
+    expect(container.textContent).toContain('STREAMED');
+    expect(container.textContent).not.toContain('Loading...');
+  });
 });
 
 // ---------------------------------------------------------------------------

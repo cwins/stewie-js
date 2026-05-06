@@ -17,11 +17,12 @@ import {
 } from './reactive.js';
 import { Fragment } from './jsx-runtime.js';
 import type { JSXElement, Component } from './jsx-runtime.js';
-import { _pushContext, _popContext } from './context.js';
+import { _pushContext, _popContext, captureContext, runWithContext } from './context.js';
 import type { ContextProvider } from './context.js';
 import { HydrationCursor } from './hydration-cursor.js';
 import { _LazyBoundary } from './lazy.js';
 import type { _LazyBoundaryProps } from './lazy.js';
+import { useDataRegistry } from './data-registry.js';
 
 type ElementType = JSXElement['type'];
 import { Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly } from './components.js';
@@ -704,6 +705,16 @@ function renderSwitch(props: Record<string, unknown>, parent: Node, before: Node
  *
  * The "seen" Set prevents infinite loops if the same Promise is thrown again.
  */
+function findStreamingPlaceholder(nodes: ChildNode[]): Element | null {
+  for (const n of nodes) {
+    if (n.nodeType === 1 /* ELEMENT_NODE */) {
+      const el = n as Element;
+      if (el.tagName === 'DIV' && /^__ss\d+$/.test(el.id)) return el;
+    }
+  }
+  return null;
+}
+
 function renderSuspense(props: Record<string, unknown>, parent: Node, before: Node | null): Disposer {
   // Hydration: claim the SSR-rendered subtree bounded by the trailing
   // <!--Suspense--> anchor. When the resource data is available in the
@@ -720,6 +731,86 @@ function renderSuspense(props: Record<string, unknown>, parent: Node, before: No
   let retryCount = 0;
   let firstRun = true;
   const MAX_RETRIES = 10;
+
+  // Streaming-SSR deferral: when renderToStream emits an unresolved boundary,
+  // it streams `<div id="__ssN">fallback</div><!--Suspense-->`, then later
+  // emits an inline `Object.assign(__STEWIE_DATA__,...)` patch followed by a
+  // swap script that does `s.outerHTML = template.innerHTML`. If hydrate runs
+  // before the swap fires, claiming the placeholder div and rendering through
+  // it would re-fetch (registry not yet seeded) and re-render the fallback.
+  // Detect the placeholder shape, leave the fallback DOM alone, and wait for
+  // the swap via MutationObserver. When it fires, the inline data patch has
+  // already executed (script tags execute in document order), so we re-seed
+  // the DataRegistry from window.__STEWIE_DATA__ and sub-cursor hydrate the
+  // post-swap nodes between the stable previous-sibling and the anchor.
+  const placeholder = claimed ? findStreamingPlaceholder(activeNodes) : null;
+  if (placeholder) {
+    const placeholderParent = placeholder.parentNode!;
+    const beforePlaceholder = placeholder.previousSibling;
+    const dataReg = useDataRegistry();
+    // Capture the active context (DataRegistry, HydrationRegistry, user
+    // providers) so the deferred render — which runs in a MutationObserver
+    // microtask, outside the original provide() scope — sees the same values.
+    const ctxSnapshot = captureContext();
+    let observer: MutationObserver | null = null;
+    let disposed = false;
+    let swapped = false;
+
+    const onSwap = (): void => {
+      if (disposed || swapped) return;
+      swapped = true;
+      observer?.disconnect();
+      observer = null;
+      if (dataReg && typeof window !== 'undefined' && window.__STEWIE_DATA__) {
+        const seed = window.__STEWIE_DATA__;
+        for (const k of Object.keys(seed)) {
+          if (!dataReg.has(k)) dataReg.set(k, seed[k]);
+        }
+      }
+      const postSwap: ChildNode[] = [];
+      let n: ChildNode | null = beforePlaceholder ? beforePlaceholder.nextSibling : placeholderParent.firstChild;
+      while (n && n !== anchor) {
+        postSwap.push(n);
+        n = n.nextSibling;
+      }
+      activeNodes = postSwap;
+      const subCursor = new HydrationCursor(postSwap);
+      const frag = document.createDocumentFragment();
+      try {
+        activeDisposer = runWithContext(ctxSnapshot, () =>
+          _withCursor(subCursor, () => renderChildren(props.children, frag, null))
+        );
+        if (frag.childNodes.length > 0) anchor.parentNode?.insertBefore(frag, anchor);
+      } catch (thrown) {
+        activeDisposer();
+        activeDisposer = () => {};
+        activeNodes.forEach((nd) => nd.parentNode?.removeChild(nd));
+        activeNodes = [];
+        firstRun = false;
+        runWithContext(ctxSnapshot, () => handleFreshRenderError(thrown));
+      }
+    };
+
+    observer = new MutationObserver(() => {
+      // Check parent identity rather than isConnected: the container may be
+      // detached from the document (common in tests) but still hosting the
+      // hydration tree. The swap is identified by the placeholder leaving its
+      // original parent.
+      if (placeholder.parentNode !== placeholderParent) onSwap();
+    });
+    observer.observe(placeholderParent, { childList: true });
+
+    return () => {
+      disposed = true;
+      observer?.disconnect();
+      observer = null;
+      activeDisposer();
+      activeDisposer = () => {};
+      activeNodes.forEach((nd) => nd.parentNode?.removeChild(nd));
+      activeNodes = [];
+      anchor.parentNode?.removeChild(anchor);
+    };
+  }
 
   function clearActive(): void {
     activeDisposer();
