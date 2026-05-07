@@ -68,7 +68,9 @@ export interface TypedRoute<
   P extends Record<string, string> = Record<string, string>,
   Q extends Record<string, string | undefined> = Record<string, string | undefined>
 > {
-  (props?: { children?: import('@stewie-js/core').JSXElement | import('@stewie-js/core').JSXElement[] }): import('@stewie-js/core').JSXElement;
+  (props?: {
+    children?: import('@stewie-js/core').JSXElement | import('@stewie-js/core').JSXElement[];
+  }): import('@stewie-js/core').JSXElement;
   readonly path: string;
   readonly __params?: P;
   readonly __query?: Q;
@@ -84,11 +86,7 @@ export interface TypedRoute<
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- `any` here is a
 // conditional-type wildcard, not a value position.
-export type ParamsOf<T> = T extends TypedRoute<infer P, any>
-  ? P
-  : T extends { params: infer P }
-    ? P
-    : T;
+export type ParamsOf<T> = T extends TypedRoute<infer P, any> ? P : T extends { params: infer P } ? P : T;
 
 /**
  * Resolve the query shape from a generic argument.
@@ -97,8 +95,4 @@ export type ParamsOf<T> = T extends TypedRoute<infer P, any>
  * `query` instead.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type QueryOf<T> = T extends TypedRoute<any, infer Q>
-  ? Q
-  : T extends { query: infer Q }
-    ? Q
-    : T;
+export type QueryOf<T> = T extends TypedRoute<any, infer Q> ? Q : T extends { query: infer Q } ? Q : T;

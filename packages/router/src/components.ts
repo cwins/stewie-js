@@ -590,7 +590,10 @@ export function createRoute<P extends Record<string, string>, Q extends Record<s
   path: string,
   config: CreateRouteConfig
 ): TypedRoute<P, Q>;
-export function createRoute(path: string, config: CreateRouteConfig): TypedRoute<Record<string, string>, Record<string, string | undefined>> {
+export function createRoute(
+  path: string,
+  config: CreateRouteConfig
+): TypedRoute<Record<string, string>, Record<string, string | undefined>> {
   // Function body never actually executes at runtime — the Router scans its
   // children for TYPED_ROUTE_MARKER and extracts config off the function
   // itself. The body is a fallback for someone who renders the component
