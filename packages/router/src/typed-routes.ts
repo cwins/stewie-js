@@ -54,19 +54,51 @@ export type PathParams<P extends string> = P extends `${string}:${infer Param}/$
     : Record<string, never>;
 
 /**
+ * The shape produced by `createRoute(path, config)`.
+ *
+ * A TypedRoute is callable as a JSX component (so `<ProjectEditRoute />`
+ * works) and carries phantom-type properties used by `useParams` /
+ * `useQuery` overloads to recover `P` and `Q` at the call site without
+ * a generic argument.
+ *
+ * The `__params` and `__query` fields are always `undefined` at runtime —
+ * they exist purely to preserve the type parameters across function calls.
+ */
+export interface TypedRoute<
+  P extends Record<string, string> = Record<string, string>,
+  Q extends Record<string, string | undefined> = Record<string, string | undefined>
+> {
+  (props?: { children?: import('@stewie-js/core').JSXElement | import('@stewie-js/core').JSXElement[] }): import('@stewie-js/core').JSXElement;
+  readonly path: string;
+  readonly __params?: P;
+  readonly __query?: Q;
+}
+
+/**
  * Resolve the params shape from a generic argument.
  *
- * If the argument is a `RouteDefinition` (has a `params` property), unwrap it.
- * Otherwise treat the argument itself as the param shape (back-compat with
- * `useParams<{ projectId: string }>()`).
+ * Recognises three shapes:
+ *  1. A `TypedRoute` from `createRoute()` — uses its `__params` phantom type.
+ *  2. A `RouteDefinition` (legacy hand-written) — uses its `params` field.
+ *  3. A bare param shape — used as-is (back-compat with `useParams<{ id: string }>()`).
  */
-export type ParamsOf<T> = T extends { params: infer P } ? P : T;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- `any` here is a
+// conditional-type wildcard, not a value position.
+export type ParamsOf<T> = T extends TypedRoute<infer P, any>
+  ? P
+  : T extends { params: infer P }
+    ? P
+    : T;
 
 /**
  * Resolve the query shape from a generic argument.
  *
- * If the argument is a `RouteDefinition` (has a `query` property), unwrap it.
- * Otherwise treat the argument itself as the query shape (back-compat with
- * `useQuery<{ redirect?: string }>()`).
+ * Recognises the same three shapes as `ParamsOf`, but reads `__query` /
+ * `query` instead.
  */
-export type QueryOf<T> = T extends { query: infer Q } ? Q : T;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type QueryOf<T> = T extends TypedRoute<any, infer Q>
+  ? Q
+  : T extends { query: infer Q }
+    ? Q
+    : T;

@@ -13,11 +13,11 @@ import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, Show, useAction } from '@stewie-js/core';
 import { useRouter, useQuery } from '@stewie-js/router';
 import { loginAction } from '../actions/auth.js';
-import type { LoginRoute } from '../routes.js';
+import { LoginRoute } from '../routes.js';
 
 export function LoginPage(): JSXElement {
   const router = useRouter();
-  const query = useQuery<LoginRoute>();
+  const query = useQuery(LoginRoute);
 
   const $username = signal('');
   const $password = signal('');

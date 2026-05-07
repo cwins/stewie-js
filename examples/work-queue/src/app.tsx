@@ -15,59 +15,42 @@
 //   - JSX import source / component function signature
 
 import type { JSXElement } from '@stewie-js/core';
-import { lazy } from '@stewie-js/core';
-import { Router, Route, createSsrRouter, RedirectError } from '@stewie-js/router';
+import { Router, createSsrRouter, RedirectError } from '@stewie-js/router';
 import { renderToString } from '@stewie-js/server';
 import type { RenderResult, SSRManifest } from '@stewie-js/server';
-import { DashboardPage } from './pages/DashboardPage.js';
-import { ProjectsPage } from './pages/ProjectsPage.js';
-import { ProjectDetailPage } from './pages/ProjectDetailPage.js';
-import { NewProjectPage } from './pages/NewProjectPage.js';
-import { EditProjectPage } from './pages/EditProjectPage.js';
-import { TaskDetailPage } from './pages/TaskDetailPage.js';
-import { LoginPage } from './pages/LoginPage.js';
-// AdminPage is loaded lazily so its scoped CSS (pages/AdminPage.css) becomes
-// a per-boundary asset. The Vite plugin rewrites the import below with the
-// source-relative manifest id so renderToStream emits the boundary's
-// <link rel="stylesheet"> and <link rel="modulepreload"> hints when the
-// route SSRs, and the client gates hydration on the stylesheet load event.
-const AdminPage = lazy(() => import('./pages/AdminPage'));
-import { dashboardLoader } from './loaders/dashboard.js';
-import { projectsLoader } from './loaders/projects.js';
-import { projectDetailLoader } from './loaders/project-detail.js';
-import { projectEditLoader } from './loaders/project-edit.js';
-import { taskDetailLoader } from './loaders/task-detail.js';
-import { requireAuth } from './data/mocks/auth.js';
-import { AppShellLayout } from './components/AppShell.js';
+import {
+  AppShellRoute,
+  DashboardRoute,
+  ProjectsRoute,
+  NewProjectRoute,
+  ProjectEditRoute,
+  ProjectDetailRoute,
+  TaskDetailRoute,
+  AdminRoute,
+  LoginRoute
+} from './routes.js';
 import './styles.css';
 
 // ---------------------------------------------------------------------------
-// Route definitions
+// Route mounting
 //
-// All authenticated/app routes are nested under the root AppShellLayout
-// so the NavBar and chrome render once at the layout level. Each page
-// component no longer needs to render <AppShell> itself.
-//
-// /login is a standalone route (no shell) so the login page has full control
-// over its layout.
-//
-// Route loaders receive matched URL params and query from the router.
-// The result is available inside the page component via useRouteData<T>().
+// Every route's path, type, and runtime config (component + guard + loader)
+// is declared in `./routes.ts` via `createRoute(...)`. This file only mounts
+// them inside <Router>. AppShellRoute is the root layout (renders NavBar +
+// <Outlet />); LoginRoute sits next to it as a standalone route with no shell.
 // ---------------------------------------------------------------------------
 
 const routeElements = [
-  // Root layout — AppShellLayout renders <NavBar /> + <Outlet />
-  // All routes share the NavBar chrome; pages only render their <main> content.
-  <Route path="/" component={AppShellLayout}>
-    <Route path="." component={DashboardPage} load={dashboardLoader} />
-    <Route path="/projects" component={ProjectsPage} load={projectsLoader} />
-    <Route path="/projects/new" component={NewProjectPage} />
-    <Route path="/projects/:projectId/edit" component={EditProjectPage} load={projectEditLoader} />
-    <Route path="/projects/:projectId" component={ProjectDetailPage} load={projectDetailLoader} />
-    <Route path="/tasks/:taskId" component={TaskDetailPage} load={taskDetailLoader} />
-    <Route path="/admin" component={AdminPage} beforeEnter={requireAuth} />
-    <Route path="/login" component={LoginPage} />
-  </Route>
+  <AppShellRoute>
+    <DashboardRoute />
+    <ProjectsRoute />
+    <NewProjectRoute />
+    <ProjectEditRoute />
+    <ProjectDetailRoute />
+    <TaskDetailRoute />
+    <AdminRoute />
+    <LoginRoute />
+  </AppShellRoute>
 ];
 
 // ---------------------------------------------------------------------------

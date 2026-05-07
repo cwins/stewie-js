@@ -14,10 +14,10 @@ import { useRouteData, useParams, useRouter, Link } from '@stewie-js/router';
 import { updateProjectAction, archiveProjectAction } from '../actions/projects.js';
 import { PROJECT_COLORS } from '../data/colors.js';
 import type { ProjectEditData } from '../loaders/project-edit.js';
-import type { ProjectEditRoute } from '../routes.js';
+import { ProjectEditRoute } from '../routes.js';
 
 export function EditProjectPage(): JSXElement {
-  const { projectId } = useParams<ProjectEditRoute>();
+  const { projectId } = useParams(ProjectEditRoute);
   const { project } = useRouteData<ProjectEditData>();
   const router = useRouter();
 

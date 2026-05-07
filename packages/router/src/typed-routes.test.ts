@@ -8,9 +8,9 @@
 
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import { jsx, reactiveScope, mount } from '@stewie-js/core';
-import { Router, Route } from './components.js';
+import { Router, Route, createRoute, Outlet } from './components.js';
 import { useParams, useQuery } from './hooks.js';
-import type { RouteDefinition, PathParams, ParamsOf, QueryOf } from './typed-routes.js';
+import type { RouteDefinition, PathParams, ParamsOf, QueryOf, TypedRoute } from './typed-routes.js';
 
 // ---------------------------------------------------------------------------
 // PathParams — template literal extraction
@@ -95,6 +95,12 @@ describe('useParams / useQuery — RouteDefinition', () => {
     expect(captured).toEqual({ tab: 'files' });
   });
 
+  it('ParamsOf / QueryOf unwrap a TypedRoute', () => {
+    type R = TypedRoute<{ id: string }, { tab?: string }>;
+    expectTypeOf<ParamsOf<R>>().toEqualTypeOf<{ id: string }>();
+    expectTypeOf<QueryOf<R>>().toEqualTypeOf<{ tab?: string }>();
+  });
+
   it('useParams<{ shape }>() back-compat keeps working', () => {
     let captured: { projectId: string } | undefined;
     function Page() {
@@ -112,5 +118,153 @@ describe('useParams / useQuery — RouteDefinition', () => {
       );
     });
     expect(captured).toEqual({ projectId: '7' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createRoute — single source of truth for path + types + runtime config
+// ---------------------------------------------------------------------------
+
+describe('createRoute', () => {
+  it('infers params from the path literal', () => {
+    function PageImpl() {
+      return jsx('span', { children: 'page' });
+    }
+    const ProjectRoute = createRoute('/projects/:projectId', { component: PageImpl });
+    expectTypeOf<ParamsOf<typeof ProjectRoute>>().toEqualTypeOf<{ projectId: string }>();
+  });
+
+  it('accepts explicit P and Q generics for empty-params + query routes', () => {
+    function LoginImpl() {
+      return jsx('span', { children: 'login' });
+    }
+    const LoginRoute = createRoute<Record<string, never>, { redirect?: string }>('/login', { component: LoginImpl });
+    expectTypeOf<ParamsOf<typeof LoginRoute>>().toEqualTypeOf<Record<string, never>>();
+    expectTypeOf<QueryOf<typeof LoginRoute>>().toEqualTypeOf<{ redirect?: string }>();
+  });
+
+  it('mounts via JSX inside <Router> and matches the URL', () => {
+    let captured: { projectId: string } | undefined;
+    function Page() {
+      captured = useParams(ProjectRoute);
+      return jsx('span', { children: 'page' });
+    }
+    const ProjectRoute = createRoute('/projects/:projectId', { component: Page });
+
+    const container = document.createElement('div');
+    reactiveScope(() => {
+      mount(
+        jsx(Router as never, {
+          initialUrl: '/projects/9',
+          children: [jsx(ProjectRoute as never, {})]
+        }),
+        container
+      );
+    });
+    expect(captured).toEqual({ projectId: '9' });
+  });
+
+  it('useParams(route) returns the correctly-typed params at the call site', () => {
+    let captured: { projectId: string } | undefined;
+    const ProjectRoute = createRoute('/projects/:projectId', { component: Page });
+    function Page() {
+      const params = useParams(ProjectRoute);
+      // Type assertion: params is { projectId: string }, not Record<string, string>.
+      expectTypeOf<typeof params>().toEqualTypeOf<{ projectId: string }>();
+      captured = params;
+      return jsx('span', { children: 'page' });
+    }
+
+    const container = document.createElement('div');
+    reactiveScope(() => {
+      mount(
+        jsx(Router as never, {
+          initialUrl: '/projects/123',
+          children: [jsx(ProjectRoute as never, {})]
+        }),
+        container
+      );
+    });
+    expect(captured).toEqual({ projectId: '123' });
+  });
+
+  it('useQuery(route) returns the correctly-typed query at the call site', () => {
+    let captured: { redirect?: string } | undefined;
+    const LoginRoute = createRoute<Record<string, never>, { redirect?: string }>('/login', { component: Page });
+    function Page() {
+      const q = useQuery(LoginRoute);
+      expectTypeOf<typeof q>().toEqualTypeOf<{ redirect?: string }>();
+      captured = q;
+      return jsx('span', { children: 'login' });
+    }
+
+    const container = document.createElement('div');
+    reactiveScope(() => {
+      mount(
+        jsx(Router as never, {
+          initialUrl: '/login?redirect=/dashboard',
+          children: [jsx(LoginRoute as never, {})]
+        }),
+        container
+      );
+    });
+    expect(captured).toEqual({ redirect: '/dashboard' });
+  });
+
+  it('supports nested layout routes via JSX children', () => {
+    let layoutMounted = false;
+    let pageMounted = false;
+    function AppShell() {
+      layoutMounted = true;
+      return jsx('div', { class: 'shell', children: jsx(Outlet as never, {}) });
+    }
+    function ProjectsPage() {
+      pageMounted = true;
+      return jsx('span', { children: 'projects' });
+    }
+
+    const AppShellRoute = createRoute('/', { component: AppShell });
+    const ProjectsRoute = createRoute('/projects', { component: ProjectsPage });
+
+    const container = document.createElement('div');
+    reactiveScope(() => {
+      mount(
+        jsx(Router as never, {
+          initialUrl: '/projects',
+          children: [
+            jsx(AppShellRoute as never, {
+              children: [jsx(ProjectsRoute as never, {})]
+            })
+          ]
+        }),
+        container
+      );
+    });
+    expect(layoutMounted).toBe(true);
+    expect(pageMounted).toBe(true);
+    expect(container.querySelector('.shell')).not.toBeNull();
+    expect(container.textContent).toContain('projects');
+  });
+
+  it('mixing raw <Route> and createRoute() in the same tree works', () => {
+    function HomePage() {
+      return jsx('span', { children: 'home' });
+    }
+    function AboutPage() {
+      return jsx('span', { children: 'about' });
+    }
+    const HomeRoute = createRoute('/', { component: HomePage });
+
+    const container = document.createElement('div');
+    reactiveScope(() => {
+      mount(
+        jsx(Router as never, {
+          initialUrl: '/about',
+          children: [jsx(HomeRoute as never, {}), jsx(Route as never, { path: '/about', component: AboutPage })]
+        }),
+        container
+      );
+    });
+    expect(container.textContent).toContain('about');
   });
 });

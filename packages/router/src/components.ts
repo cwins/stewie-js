@@ -5,6 +5,26 @@ import type { JSXElement, Component } from '@stewie-js/core';
 import { createRouter, RouterContext, RedirectError, OutletContext } from './router.js';
 import type { Router, RouteGuard, FlatRouteChain, RouteChainLevel, OutletContextValue } from './router.js';
 import { matchRoute } from './matcher.js';
+import type { TypedRoute, PathParams } from './typed-routes.js';
+
+// Marker symbol attached to TypedRoute functions returned by createRoute().
+// The Router uses this to distinguish a TypedRoute component from a plain
+// component when extracting route configs from JSX children. A symbol is
+// preferable to a string property because it cannot collide with user code
+// or with React-shaped function shapes.
+const TYPED_ROUTE_MARKER = Symbol.for('@stewie-js/router/typed-route');
+
+interface TypedRouteMeta {
+  [TYPED_ROUTE_MARKER]: true;
+  path: string;
+  component: Component;
+  beforeEnter?: RouteGuard;
+  load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+}
+
+function isTypedRoute(value: unknown): value is TypedRouteMeta {
+  return typeof value === 'function' && (value as unknown as Record<symbol, unknown>)[TYPED_ROUTE_MARKER] === true;
+}
 
 export interface RouterProps {
   /** Starting URL — defaults to window.location on browser, '/' on server. */
@@ -101,20 +121,43 @@ function validatePath(path: string, parentPath: string | null): void {
 // Route tree walking — flatten nested <Route> trees into FlatRouteChain[]
 // ---------------------------------------------------------------------------
 
-/** Extract RouteConfig objects from a JSXElement or array of JSXElements. */
+/**
+ * Extract RouteConfig objects from a JSXElement or array of JSXElements.
+ *
+ * Recognises two declaration styles:
+ *  - Raw `<Route path="..." component={...} />` JSX (config lives in `props`).
+ *  - A `createRoute()` component used as JSX (`<ProjectEditRoute />`); config
+ *    lives on the function itself behind `TYPED_ROUTE_MARKER`, and any
+ *    nested children come from `props.children` at the JSX usage site.
+ */
 function extractRouteConfigs(children: JSXElement | JSXElement[] | undefined): RouteConfig[] {
   if (!children) return [];
   const arr = Array.isArray(children) ? children : [children];
-  return arr
-    .filter((c): c is JSXElement => c !== null && c !== undefined && typeof c === 'object' && 'type' in c)
-    .filter((c) => c.type === (Route as unknown))
-    .map((c) => ({
-      path: c.props.path as string,
-      component: c.props.component as Component,
-      beforeEnter: c.props.beforeEnter as RouteGuard | undefined,
-      load: c.props.load as ((params: Record<string, string>, query: Record<string, string>) => Promise<unknown>) | undefined,
-      children: c.props.children as JSXElement | JSXElement[] | undefined
-    }));
+  const configs: RouteConfig[] = [];
+  for (const c of arr) {
+    if (c === null || c === undefined || typeof c !== 'object' || !('type' in c)) continue;
+    if (c.type === (Route as unknown)) {
+      configs.push({
+        path: c.props.path as string,
+        component: c.props.component as Component,
+        beforeEnter: c.props.beforeEnter as RouteGuard | undefined,
+        load: c.props.load as ((params: Record<string, string>, query: Record<string, string>) => Promise<unknown>) | undefined,
+        children: c.props.children as JSXElement | JSXElement[] | undefined
+      });
+      continue;
+    }
+    if (isTypedRoute(c.type)) {
+      configs.push({
+        path: c.type.path,
+        component: c.type.component,
+        beforeEnter: c.type.beforeEnter,
+        load: c.type.load,
+        children: c.props.children as JSXElement | JSXElement[] | undefined
+      });
+      continue;
+    }
+  }
+  return configs;
 }
 
 /**
@@ -482,6 +525,92 @@ export function Link(props: LinkProps): JSXElement {
     children,
     ...(handleClick ? { onClick: handleClick } : {})
   });
+}
+
+// ---------------------------------------------------------------------------
+// createRoute — typed route definitions
+// ---------------------------------------------------------------------------
+
+/**
+ * Runtime + type configuration for a single route. The same object the raw
+ * `<Route>` JSX accepts in its props, minus `path` (which is the first
+ * argument to `createRoute`) and `children` (which come from the JSX usage
+ * site, not the definition).
+ */
+export interface CreateRouteConfig {
+  component: Component;
+  beforeEnter?: RouteGuard;
+  load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+}
+
+/**
+ * Define a typed route in one place — path, param shape, query shape, and
+ * runtime config (component + guard + loader) live in a single declaration.
+ *
+ * The returned value is callable as a JSX component (so
+ * `<ProjectEditRoute />` mounts the route inside a `<Router>`) and carries
+ * phantom-type properties that `useParams(route)` / `useQuery(route)` read
+ * to recover `P` and `Q` at the call site without a generic argument.
+ *
+ * The first overload infers `P` from the path literal via `PathParams`.
+ * The second overload accepts explicit `P` and `Q` generics for routes
+ * with no params or with a non-trivial query shape.
+ *
+ * @example
+ * // Path-inferred params:
+ * export const ProjectEditRoute = createRoute(
+ *   '/projects/:projectId/edit',
+ *   { component: EditProjectPage, load: projectEditLoader }
+ * );
+ * // P = { projectId: string }, Q = {}
+ *
+ * @example
+ * // Explicit shapes (no params, with query):
+ * export const LoginRoute = createRoute<{}, { redirect?: string }>(
+ *   '/login',
+ *   { component: LoginPage }
+ * );
+ *
+ * @example
+ * // Layout route with nested children declared at the JSX usage site:
+ * export const AppShellRoute = createRoute('/', { component: AppShellLayout });
+ *
+ * <Router>
+ *   <AppShellRoute>
+ *     <DashboardRoute />
+ *     <ProjectEditRoute />
+ *   </AppShellRoute>
+ * </Router>
+ */
+export function createRoute<const Path extends string>(
+  path: Path,
+  config: CreateRouteConfig
+): TypedRoute<PathParams<Path>, Record<string, never>>;
+export function createRoute<P extends Record<string, string>, Q extends Record<string, string | undefined> = Record<string, never>>(
+  path: string,
+  config: CreateRouteConfig
+): TypedRoute<P, Q>;
+export function createRoute(path: string, config: CreateRouteConfig): TypedRoute<Record<string, string>, Record<string, string | undefined>> {
+  // Function body never actually executes at runtime — the Router scans its
+  // children for TYPED_ROUTE_MARKER and extracts config off the function
+  // itself. The body is a fallback for someone who renders the component
+  // outside a Router; it produces the same JSX a raw <Route> would.
+  const fn = (props?: { children?: JSXElement | JSXElement[] }) =>
+    jsx(Route as unknown as Component, {
+      path,
+      component: config.component,
+      beforeEnter: config.beforeEnter,
+      load: config.load,
+      ...(props?.children !== undefined ? { children: props.children } : {})
+    });
+  Object.assign(fn, {
+    [TYPED_ROUTE_MARKER]: true,
+    path,
+    component: config.component,
+    beforeEnter: config.beforeEnter,
+    load: config.load
+  });
+  return fn as unknown as TypedRoute<Record<string, string>, Record<string, string | undefined>>;
 }
 
 // ---------------------------------------------------------------------------
