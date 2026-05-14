@@ -8,6 +8,8 @@
     "build": "tsc --build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "changelog:root": "conventional-changelog -p angular -r 0 --pkg packages/core/package.json --commit-path packages/",
+    "changelog:packages": "pnpm -r --filter='./packages/*' exec conventional-changelog -r 0 -p angular --commit-path .",
     "typecheck": "tsc -p tsconfig.typecheck.json",
     "check:edge": "node scripts/check-edge-packages.mjs",
     "lint": "oxlint packages/*/src examples/*/src --ignore-pattern '**/*.d.ts'",
@@ -19,6 +21,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "conventional-changelog": "^7.2.0",
+    "conventional-changelog-angular": "^8.3.1",
     "happy-dom": "^20.8.4",
     "husky": "^9.1.7",
     "oxfmt": "^0.43.0",
