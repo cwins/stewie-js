@@ -20,6 +20,7 @@
     { "path": "packages/server" },
     { "path": "packages/adapter-node" },
     { "path": "packages/adapter-bun" },
+    { "path": "packages/adapter-cloudflare" },
     { "path": "packages/router-spi" },
     { "path": "packages/router" },
     { "path": "packages/vite" },

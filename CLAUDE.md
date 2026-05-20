@@ -105,6 +105,7 @@ These are the reasons Stewie exists rather than "just use X":
 | `packages/router-spi` | `@stewie-js/router-spi` | Interface-only SPI for swappable router implementations |
 | `packages/adapter-node` | `@stewie-js/adapter-node` | Node.js HTTP adapter |
 | `packages/adapter-bun` | `@stewie-js/adapter-bun` | Bun HTTP adapter |
+| `packages/adapter-cloudflare` | `@stewie-js/adapter-cloudflare` | Cloudflare Workers Module Worker adapter |
 | `packages/devtools` | `@stewie-js/devtools` | Floating panel: Renders, Stores, Routes, Graph tabs |
 | `packages/testing` | `@stewie-js/testing` | `mount`, query helpers, signal/store assertions, SSR test helper |
 | `packages/create-stewie` | `create-stewie` | `pnpm create stewie` scaffolding CLI |
@@ -137,7 +138,7 @@ These are the reasons Stewie exists rather than "just use X":
 
 - **Progressive asset streaming — Phase 3** — Phases 1 and 2 are complete: per-boundary `<link rel="stylesheet">` and `<link rel="modulepreload">` emission via Vite's `ssr-manifest.json` (no custom manifest needed), and client-side gating in `lazy()` so the boundary's content does not flip until its CSS chunk loads. Still missing: router preloading on hover/focus with Loadable-style `data-stewie-id` attrs (Phase 3)
 - **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
-- **Cloudflare and Deno adapters** — not yet written
+- **Deno adapter** — not yet written. (`@stewie-js/adapter-cloudflare` shipped 0.8.0 as a minimal Module Worker wrapper; `env` / `ctx` propagation to the app handler is deferred until a cross-adapter context-propagation design is settled.)
 - **Edge-first test phases 2–4** — streaming confidence tests, router edge-flow tests, adapter conformance suite
 
 ---

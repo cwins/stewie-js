@@ -1,0 +1,41 @@
+{
+  "name": "@stewie-js/adapter-cloudflare",
+  "version": "0.8.0",
+  "description": "Cloudflare Workers adapter for the Stewie framework",
+  "keywords": [
+    "adapter",
+    "cloudflare",
+    "edge",
+    "ssr",
+    "stewie",
+    "typescript",
+    "workers"
+  ],
+  "homepage": "https://github.com/cwins/stewie-js/tree/main/packages/adapter-cloudflare#readme",
+  "license": "MIT",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cwins/stewie-js.git",
+    "directory": "packages/adapter-cloudflare"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "nuke": "rm -rf dist node_modules",
+    "build": "tsc --build",
+    "test": "vitest run"
+  }
+}

@@ -165,6 +165,8 @@ importers:
 
   packages/adapter-bun: {}
 
+  packages/adapter-cloudflare: {}
+
   packages/adapter-node:
     dependencies:
       '@stewie-js/server':
