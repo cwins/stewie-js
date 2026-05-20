@@ -3,7 +3,43 @@
 // Stable layer: this file does not change when Stewie APIs change.
 // Tests, loaders, and the initial repo state all import from here.
 
-import type { Project, Task } from '../types.js';
+import type { Project, Task, User } from '../types.js';
+
+export const seedUsers: User[] = [
+  {
+    id: 'user_alice',
+    username: 'alice',
+    displayName: 'Alice Chen',
+    email: 'alice@example.com',
+    bio: 'Platform engineer. Migrating the monolith one service at a time.',
+    timezone: 'America/Los_Angeles',
+    role: 'admin',
+    avatarColor: '#6366f1',
+    createdAt: '2025-09-01T10:00:00Z'
+  },
+  {
+    id: 'user_bob',
+    username: 'bob',
+    displayName: 'Bob Okafor',
+    email: 'bob@example.com',
+    bio: 'Design systems lead. Tokens, primitives, and pixel-perfect layouts.',
+    timezone: 'Europe/London',
+    role: 'member',
+    avatarColor: '#0ea5e9',
+    createdAt: '2025-11-12T14:30:00Z'
+  },
+  {
+    id: 'user_carol',
+    username: 'carol',
+    displayName: 'Carol Diaz',
+    email: 'carol@example.com',
+    bio: 'Growth marketing. Landing pages, attribution, and the occasional rant about UTM hygiene.',
+    timezone: 'America/New_York',
+    role: 'member',
+    avatarColor: '#10b981',
+    createdAt: '2026-01-20T09:00:00Z'
+  }
+];
 
 export const seedProjects: Project[] = [
   {

@@ -10,8 +10,8 @@
 // Stewie APIs change. Only the integration glue (loaders, actions, app.tsx)
 // is version-sensitive.
 
-import { seedProjects, seedTasks } from './seed.js';
-import type { Project, Task, ProjectStatus, TaskPriority } from '../types.js';
+import { seedProjects, seedTasks, seedUsers } from './seed.js';
+import type { Project, Task, User, ProjectStatus, TaskPriority } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Internal storage — module-level, shared across requests
@@ -19,6 +19,31 @@ import type { Project, Task, ProjectStatus, TaskPriority } from '../types.js';
 
 const projects: Project[] = seedProjects.map((p) => ({ ...p }));
 const tasks: Task[] = seedTasks.map((t) => ({ ...t }));
+const users: User[] = seedUsers.map((u) => ({ ...u }));
+
+// ---------------------------------------------------------------------------
+// User access (raw — no viewer-based restriction; the API client layer
+// applies field-level restrictions on top of these).
+// ---------------------------------------------------------------------------
+
+export function getUserById(id: string): User | undefined {
+  return users.find((u) => u.id === id);
+}
+
+export function getUserByUsername(username: string): User | undefined {
+  return users.find((u) => u.username === username);
+}
+
+export function getAllUsers(): User[] {
+  return users.map((u) => ({ ...u }));
+}
+
+export function updateUser(id: string, updates: Partial<Pick<User, 'displayName' | 'email' | 'bio' | 'timezone' | 'avatarColor'>>): User {
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx === -1) throw new Error(`User ${id} not found`);
+  users[idx] = { ...users[idx], ...updates };
+  return users[idx];
+}
 
 // ---------------------------------------------------------------------------
 // Project access
@@ -138,6 +163,8 @@ export function getTaskCountsForProject(projectId: string): ProjectTaskCounts {
 export function _resetToSeed(): void {
   projects.length = 0;
   tasks.length = 0;
+  users.length = 0;
   projects.push(...seedProjects.map((p) => ({ ...p })));
   tasks.push(...seedTasks.map((t) => ({ ...t })));
+  users.push(...seedUsers.map((u) => ({ ...u })));
 }

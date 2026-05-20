@@ -46,7 +46,7 @@ export function LoginPage(): JSXElement {
       <div class="page-header">
         <h1 class="page-title">Sign in</h1>
       </div>
-      <p class="page-subtitle">Demo: use any username and any non-empty password.</p>
+      <p class="page-subtitle">Demo: sign in as alice, bob, or carol. Any non-empty password works.</p>
 
       <div class="form-card">
         <form onSubmit={handleSubmit} data-testid="login-form">

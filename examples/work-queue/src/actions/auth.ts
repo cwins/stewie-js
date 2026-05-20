@@ -12,8 +12,10 @@ export interface LoginInput {
 }
 
 export const loginAction = defineAction(({ username }: LoginInput): void => {
-  // Demo: any non-empty username is accepted. A real app would verify
-  // credentials against a database and set a signed session cookie.
+  // Demo: sign in by username (alice, bob, or carol from the seed). Password
+  // is accepted but ignored. A real app would verify credentials against a
+  // database and set a signed session cookie; signIn() throws for unknown
+  // usernames so the action's error surfaces in the login form.
   if (!username.trim()) throw new Error('Username is required');
   signIn(username.trim());
 });
