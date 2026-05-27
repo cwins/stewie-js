@@ -492,15 +492,7 @@ export function ProjectDetailPage(): JSXElement {
         {() => {
           const task = $selectedTask();
           if (!task) return null;
-          return (
-            <TaskEditSheet
-              task={task}
-              users={data.users}
-              onClose={closeSheet}
-              onDeleted={handleDeleted}
-              onUpdated={handleUpdated}
-            />
-          );
+          return <TaskEditSheet task={task} users={data.users} onClose={closeSheet} onDeleted={handleDeleted} onUpdated={handleUpdated} />;
         }}
       </Show>
     </main>
