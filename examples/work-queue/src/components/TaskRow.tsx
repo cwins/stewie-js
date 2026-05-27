@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 import type { JSXElement } from '@stewie-js/core';
 import { StatusBadge, PriorityBadge } from './lib/Badge.js';
-import type { Task } from '../data/types.js';
+import { UserChip } from './lib/UserChip.js';
+import type { Task, UserPublic } from '../data/types.js';
 
 interface TaskRowProps {
   // Accessor rather than a plain Task so inline field edits from the parent's
@@ -9,12 +10,14 @@ interface TaskRowProps {
   // Task prop would only reflect changes that cause For to reshuffle slots
   // (e.g. status changes that move the task between lists).
   task: () => Task;
+  /** Accessor returning a lookup from user id to public user record. */
+  usersById: () => Record<string, UserPublic>;
   /** Called when the row is clicked to open the detail/edit panel. */
   onSelect: (task: Task) => void;
   isSelected: () => boolean;
 }
 
-export function TaskRow({ task, onSelect, isSelected }: TaskRowProps): JSXElement {
+export function TaskRow({ task, usersById, onSelect, isSelected }: TaskRowProps): JSXElement {
   return (
     <div
       class={() => `task-row${isSelected() ? ' task-row-selected' : ''}`}
@@ -31,6 +34,13 @@ export function TaskRow({ task, onSelect, isSelected }: TaskRowProps): JSXElemen
         {() => (task().description ? <span class="task-row-desc">{task().description}</span> : null)}
       </div>
       <div class="task-row-meta">
+        <UserChip
+          variant="compact"
+          user={() => {
+            const id = task().assigneeId;
+            return id ? (usersById()[id] ?? null) : null;
+          }}
+        />
         <PriorityBadge priority={() => task().priority} />
         <StatusBadge status={() => task().status} />
         {() => (task().dueDate ? <span class="task-row-due">{task().dueDate}</span> : null)}

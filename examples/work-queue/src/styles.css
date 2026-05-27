@@ -610,6 +610,44 @@ select {
 }
 
 /* ---------------------------------------------------------------------------
+ * UserChip — avatar + (optional) name
+ * ---------------------------------------------------------------------- */
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.user-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background-color: var(--color-bg-muted);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.user-chip-avatar-empty {
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-tertiary);
+  border: 1px dashed var(--color-border);
+}
+
+.user-chip-name-empty {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
  * Task edit sheet (side panel)
  * ---------------------------------------------------------------------- */
 

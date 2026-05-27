@@ -6,11 +6,14 @@
 // Stable layer — no Stewie imports.
 
 import { getTask, getProject } from '../data/mocks/repo.js';
-import type { Task, Project } from '../data/types.js';
+import { getViewer } from '../data/mocks/auth.js';
+import { listUsers } from '../api/users.js';
+import type { Task, Project, UserPublic } from '../data/types.js';
 
 export interface TaskDetailData {
   task: Task;
   project: Project;
+  users: UserPublic[];
 }
 
 export async function taskDetailLoader(params: Record<string, string>): Promise<TaskDetailData> {
@@ -18,5 +21,6 @@ export async function taskDetailLoader(params: Record<string, string>): Promise<
   if (!task) throw new Error(`Task "${params.taskId}" not found`);
   const project = getProject(task.projectId);
   if (!project) throw new Error(`Project for task "${params.taskId}" not found`);
-  return { task, project };
+  const users = await listUsers(getViewer());
+  return { task, project, users };
 }

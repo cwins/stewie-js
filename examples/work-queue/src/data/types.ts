@@ -28,6 +28,8 @@ export interface Task {
   priority: TaskPriority;
   /** ISO date string (YYYY-MM-DD) or null. */
   dueDate: string | null;
+  /** User id of the assigned member, or null when unassigned. */
+  assigneeId: string | null;
 }
 
 // ---------------------------------------------------------------------------

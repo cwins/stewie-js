@@ -93,6 +93,7 @@ export function createTask(data: {
   description: string;
   priority: TaskPriority;
   dueDate: string | null;
+  assigneeId: string | null;
 }): Task {
   const task: Task = {
     id: `task_${Date.now()}`,
@@ -103,7 +104,7 @@ export function createTask(data: {
   return task;
 }
 
-export function updateTask(id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate'>>): Task {
+export function updateTask(id: string, updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate' | 'assigneeId'>>): Task {
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx === -1) throw new Error(`Task ${id} not found`);
   tasks[idx] = { ...tasks[idx], ...updates };

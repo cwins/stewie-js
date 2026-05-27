@@ -58,6 +58,13 @@ describe('projectDetailLoader', () => {
   it('throws for unknown project', async () => {
     await expect(projectDetailLoader({ projectId: 'no_such_project' })).rejects.toThrow();
   });
+
+  it('includes the user picker list (public view)', async () => {
+    const data = await projectDetailLoader({ projectId: 'proj_1' });
+    expect(data.users.length).toBe(3);
+    // Sensitive fields are absent — listUsers returns UserPublic only.
+    expect(data.users.every((u) => !('email' in u) && !('role' in u))).toBe(true);
+  });
 });
 
 describe('projectEditLoader', () => {

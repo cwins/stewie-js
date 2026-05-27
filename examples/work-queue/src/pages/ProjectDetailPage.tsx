@@ -21,7 +21,7 @@ import { TaskRow } from '../components/TaskRow.js';
 import { EmptyState } from '../components/lib/EmptyState.js';
 import { createTaskAction, updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { ProjectDetailData } from '../loaders/project-detail.js';
-import type { Task, TaskStatus } from '../data/types.js';
+import type { Task, TaskStatus, UserPublic } from '../data/types.js';
 import { ProjectDetailRoute } from '../routes.js';
 
 // ---------------------------------------------------------------------------
@@ -30,18 +30,20 @@ import { ProjectDetailRoute } from '../routes.js';
 
 interface TaskEditSheetProps {
   task: Task;
+  users: UserPublic[];
   onClose: () => void;
   onDeleted: (taskId: string) => void;
   onUpdated: (task: Task) => void;
 }
 
-function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetProps): JSXElement {
+function TaskEditSheet({ task, users, onClose, onDeleted, onUpdated }: TaskEditSheetProps): JSXElement {
   // Local form state — signal() for each field
   const $title = signal(task.title);
   const $description = signal(task.description);
   const $status = signal<TaskStatus>(task.status);
   const $priority = signal(task.priority);
   const $dueDate = signal(task.dueDate ?? '');
+  const $assigneeId = signal<string | null>(task.assigneeId);
 
   const save = useAction(updateTaskAction);
   const remove = useAction(deleteTaskAction);
@@ -58,7 +60,8 @@ function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetPro
       description: $description.peek(),
       status: $status.peek(),
       priority: $priority.peek(),
-      dueDate: $dueDate.peek() || null
+      dueDate: $dueDate.peek() || null,
+      assigneeId: $assigneeId.peek()
     });
     if (result === undefined) return;
 
@@ -173,6 +176,25 @@ function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetPro
           />
         </div>
 
+        <div class="field-group">
+          <label class="field-label" for="edit-assignee">
+            Assignee
+          </label>
+          <select
+            id="edit-assignee"
+            class="field-select"
+            value={$assigneeId() ?? ''}
+            onChange={(e: Event) => {
+              const v = (e.target as HTMLSelectElement).value;
+              $assigneeId.set(v === '' ? null : v);
+            }}
+            data-testid="edit-task-assignee"
+          >
+            <option value="">Unassigned</option>
+            {() => users.map((u) => <option value={u.id}>{u.displayName}</option>)}
+          </select>
+        </div>
+
         <div class="task-sheet-actions">
           <button type="submit" class="btn btn-primary" disabled={() => save.pending()} data-testid="edit-task-save">
             {() => (save.pending() ? 'Saving\u2026' : 'Save Changes')}
@@ -198,15 +220,17 @@ function TaskEditSheet({ task, onClose, onDeleted, onUpdated }: TaskEditSheetPro
 
 interface CreateTaskFormProps {
   projectId: string;
+  users: UserPublic[];
   onCreated: (task: Task) => void;
   onCancel: () => void;
 }
 
-function CreateTaskForm({ projectId, onCreated, onCancel }: CreateTaskFormProps): JSXElement {
+function CreateTaskForm({ projectId, users, onCreated, onCancel }: CreateTaskFormProps): JSXElement {
   const $title = signal('');
   const $description = signal('');
   const $priority = signal<Task['priority']>('medium');
   const $dueDate = signal('');
+  const $assigneeId = signal<string | null>(null);
 
   const create = useAction(createTaskAction);
 
@@ -219,7 +243,8 @@ function CreateTaskForm({ projectId, onCreated, onCancel }: CreateTaskFormProps)
       title: $title.peek(),
       description: $description.peek(),
       priority: $priority.peek(),
-      dueDate: $dueDate.peek() || null
+      dueDate: $dueDate.peek() || null,
+      assigneeId: $assigneeId.peek()
     });
     if (result === undefined) return;
 
@@ -264,6 +289,18 @@ function CreateTaskForm({ projectId, onCreated, onCancel }: CreateTaskFormProps)
           onInput={(e: InputEvent) => $dueDate.set((e.target as HTMLInputElement).value)}
           data-testid="create-task-due"
         />
+        <select
+          class="field-select"
+          value={$assigneeId() ?? ''}
+          onChange={(e: Event) => {
+            const v = (e.target as HTMLSelectElement).value;
+            $assigneeId.set(v === '' ? null : v);
+          }}
+          data-testid="create-task-assignee"
+        >
+          <option value="">Unassigned</option>
+          {() => users.map((u) => <option value={u.id}>{u.displayName}</option>)}
+        </select>
         <button type="submit" class="btn btn-primary btn-sm" disabled={() => create.pending()} data-testid="create-task-submit">
           {() => (create.pending() ? 'Adding\u2026' : 'Add')}
         </button>
@@ -289,6 +326,11 @@ export function ProjectDetailPage(): JSXElement {
   const $tasks = signal<Task[]>(data.tasks);
   const $selectedTask = signal<Task | null>(null);
   const $showCreateForm = signal(false);
+
+  // Stable lookup for the row + chip — built once from loader data. If the
+  // viewer's visibility changes, the loader re-runs and this map rebuilds.
+  const usersById: Record<string, UserPublic> = Object.fromEntries(data.users.map((u) => [u.id, u]));
+  const getUsersById = () => usersById;
 
   // Derived task groups
   const todoTasks = computed(() => $tasks().filter((t) => t.status === 'todo'));
@@ -350,7 +392,14 @@ export function ProjectDetailPage(): JSXElement {
         {data.project.description ? <p class="project-description">{data.project.description}</p> : null}
 
         <Show when={() => $showCreateForm()}>
-          {() => <CreateTaskForm projectId={projectId} onCreated={handleCreated} onCancel={() => $showCreateForm.set(false)} />}
+          {() => (
+            <CreateTaskForm
+              projectId={projectId}
+              users={data.users}
+              onCreated={handleCreated}
+              onCancel={() => $showCreateForm.set(false)}
+            />
+          )}
         </Show>
 
         <Show
@@ -370,6 +419,7 @@ export function ProjectDetailPage(): JSXElement {
                         {(getTask) => (
                           <TaskRow
                             task={getTask}
+                            usersById={getUsersById}
                             isSelected={() => $selectedTask()?.id === getTask().id}
                             onSelect={(task) => {
                               $showCreateForm.set(false);
@@ -394,6 +444,7 @@ export function ProjectDetailPage(): JSXElement {
                         {(getTask) => (
                           <TaskRow
                             task={getTask}
+                            usersById={getUsersById}
                             isSelected={() => $selectedTask()?.id === getTask().id}
                             onSelect={(task) => {
                               $showCreateForm.set(false);
@@ -418,6 +469,7 @@ export function ProjectDetailPage(): JSXElement {
                         {(getTask) => (
                           <TaskRow
                             task={getTask}
+                            usersById={getUsersById}
                             isSelected={() => $selectedTask()?.id === getTask().id}
                             onSelect={(task) => {
                               $showCreateForm.set(false);
@@ -440,7 +492,15 @@ export function ProjectDetailPage(): JSXElement {
         {() => {
           const task = $selectedTask();
           if (!task) return null;
-          return <TaskEditSheet task={task} onClose={closeSheet} onDeleted={handleDeleted} onUpdated={handleUpdated} />;
+          return (
+            <TaskEditSheet
+              task={task}
+              users={data.users}
+              onClose={closeSheet}
+              onDeleted={handleDeleted}
+              onUpdated={handleUpdated}
+            />
+          );
         }}
       </Show>
     </main>

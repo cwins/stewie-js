@@ -77,7 +77,8 @@ export const seedTasks: Task[] = [
     description: 'Document all public endpoints and their callers before migration begins.',
     status: 'done',
     priority: 'high',
-    dueDate: '2026-02-10'
+    dueDate: '2026-02-10',
+    assigneeId: 'user_alice'
   },
   {
     id: 'task_2',
@@ -86,7 +87,8 @@ export const seedTasks: Task[] = [
     description: 'Provision the new infrastructure stack in the staging account.',
     status: 'done',
     priority: 'high',
-    dueDate: '2026-02-20'
+    dueDate: '2026-02-20',
+    assigneeId: 'user_alice'
   },
   {
     id: 'task_3',
@@ -95,7 +97,8 @@ export const seedTasks: Task[] = [
     description: 'Move auth logic to the new identity service, preserving session tokens.',
     status: 'in_progress',
     priority: 'high',
-    dueDate: '2026-04-30'
+    dueDate: '2026-04-30',
+    assigneeId: 'user_alice'
   },
   {
     id: 'task_4',
@@ -104,7 +107,8 @@ export const seedTasks: Task[] = [
     description: 'Document the cutover procedure for on-call engineers.',
     status: 'todo',
     priority: 'medium',
-    dueDate: '2026-05-15'
+    dueDate: '2026-05-15',
+    assigneeId: null
   },
   {
     id: 'task_5',
@@ -113,7 +117,8 @@ export const seedTasks: Task[] = [
     description: 'Run k6 load tests against staging; baseline and compare to prod.',
     status: 'todo',
     priority: 'medium',
-    dueDate: '2026-05-20'
+    dueDate: '2026-05-20',
+    assigneeId: null
   },
 
   // Design System tasks
@@ -124,7 +129,8 @@ export const seedTasks: Task[] = [
     description: 'Colors, spacing, radius, and typography tokens in a shared JSON file.',
     status: 'done',
     priority: 'high',
-    dueDate: '2026-02-28'
+    dueDate: '2026-02-28',
+    assigneeId: 'user_bob'
   },
   {
     id: 'task_7',
@@ -133,7 +139,8 @@ export const seedTasks: Task[] = [
     description: 'Primary, secondary, ghost, destructive variants. Size md and sm.',
     status: 'in_progress',
     priority: 'high',
-    dueDate: '2026-04-20'
+    dueDate: '2026-04-20',
+    assigneeId: 'user_bob'
   },
   {
     id: 'task_8',
@@ -142,7 +149,8 @@ export const seedTasks: Task[] = [
     description: 'Form field primitives with error state, helper text, and label wiring.',
     status: 'todo',
     priority: 'high',
-    dueDate: '2026-04-28'
+    dueDate: '2026-04-28',
+    assigneeId: 'user_bob'
   },
   {
     id: 'task_9',
@@ -151,7 +159,8 @@ export const seedTasks: Task[] = [
     description: 'Add Storybook stories for each component, covering all variants and states.',
     status: 'todo',
     priority: 'low',
-    dueDate: null
+    dueDate: null,
+    assigneeId: null
   },
 
   // Q2 Growth Campaign tasks
@@ -162,7 +171,8 @@ export const seedTasks: Task[] = [
     description: 'Hero headline, subhead, three feature sections, and social proof block.',
     status: 'in_progress',
     priority: 'high',
-    dueDate: '2026-04-22'
+    dueDate: '2026-04-22',
+    assigneeId: 'user_carol'
   },
   {
     id: 'task_11',
@@ -171,7 +181,8 @@ export const seedTasks: Task[] = [
     description: 'Figma mockup aligned to brand tokens; desktop and mobile breakpoints.',
     status: 'todo',
     priority: 'high',
-    dueDate: '2026-04-25'
+    dueDate: '2026-04-25',
+    assigneeId: 'user_bob'
   },
   {
     id: 'task_12',
@@ -180,6 +191,7 @@ export const seedTasks: Task[] = [
     description: 'Wire up analytics for all campaign traffic sources.',
     status: 'todo',
     priority: 'medium',
-    dueDate: '2026-05-01'
+    dueDate: '2026-05-01',
+    assigneeId: 'user_carol'
   }
 ];

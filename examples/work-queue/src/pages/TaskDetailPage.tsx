@@ -23,7 +23,7 @@ import { TaskDetailRoute } from '../routes.js';
 
 export function TaskDetailPage(): JSXElement {
   const { taskId } = useParams(TaskDetailRoute);
-  const { task, project } = useRouteData<TaskDetailData>();
+  const { task, project, users } = useRouteData<TaskDetailData>();
   const router = useRouter();
 
   // Form signals seeded from loader data
@@ -32,6 +32,7 @@ export function TaskDetailPage(): JSXElement {
   const $status = signal<TaskStatus>(task.status);
   const $priority = signal(task.priority);
   const $dueDate = signal(task.dueDate ?? '');
+  const $assigneeId = signal<string | null>(task.assigneeId);
   const $confirmDelete = signal(false);
 
   const save = useAction(updateTaskAction);
@@ -46,7 +47,8 @@ export function TaskDetailPage(): JSXElement {
       $description() !== task.description ||
       $status() !== task.status ||
       $priority() !== task.priority ||
-      ($dueDate() || null) !== task.dueDate
+      ($dueDate() || null) !== task.dueDate ||
+      $assigneeId() !== task.assigneeId
   );
 
   // Unified error: whichever action last errored surfaces here.
@@ -62,7 +64,8 @@ export function TaskDetailPage(): JSXElement {
       description: $description.peek(),
       status: $status.peek(),
       priority: $priority.peek(),
-      dueDate: $dueDate.peek() || null
+      dueDate: $dueDate.peek() || null,
+      assigneeId: $assigneeId.peek()
     });
     if (result === undefined) return;
 
@@ -177,6 +180,25 @@ export function TaskDetailPage(): JSXElement {
                 data-testid="task-due-input"
               />
             </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="task-assignee">
+              Assignee
+            </label>
+            <select
+              id="task-assignee"
+              class="field-select"
+              value={$assigneeId() ?? ''}
+              onChange={(e: Event) => {
+                const v = (e.target as HTMLSelectElement).value;
+                $assigneeId.set(v === '' ? null : v);
+              }}
+              data-testid="task-assignee-select"
+            >
+              <option value="">Unassigned</option>
+              {() => users.map((u) => <option value={u.id}>{u.displayName}</option>)}
+            </select>
           </div>
 
           <div class="form-actions">

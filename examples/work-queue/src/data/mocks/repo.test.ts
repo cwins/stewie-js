@@ -95,7 +95,8 @@ describe('createTask', () => {
       title: 'New task',
       description: '',
       priority: 'low',
-      dueDate: null
+      dueDate: null,
+      assigneeId: null
     });
     expect(task.status).toBe('todo');
     expect(getTask(task.id)).toBeDefined();
@@ -136,7 +137,7 @@ describe('getStats', () => {
 
   it('updates after task creation', () => {
     const before = getStats().todoCount;
-    createTask({ projectId: 'proj_1', title: 'X', description: '', priority: 'low', dueDate: null });
+    createTask({ projectId: 'proj_1', title: 'X', description: '', priority: 'low', dueDate: null, assigneeId: null });
     expect(getStats().todoCount).toBe(before + 1);
   });
 });

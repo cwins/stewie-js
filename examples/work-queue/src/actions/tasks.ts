@@ -15,6 +15,7 @@ export interface CreateTaskInput {
   description: string;
   priority: TaskPriority;
   dueDate: string | null;
+  assigneeId: string | null;
 }
 
 export const createTaskAction = defineAction((input: CreateTaskInput): Task => {
@@ -24,7 +25,8 @@ export const createTaskAction = defineAction((input: CreateTaskInput): Task => {
     title: input.title.trim(),
     description: input.description.trim(),
     priority: input.priority,
-    dueDate: input.dueDate || null
+    dueDate: input.dueDate || null,
+    assigneeId: input.assigneeId
   });
 });
 
@@ -35,15 +37,17 @@ export interface UpdateTaskInput {
   status?: TaskStatus;
   priority?: TaskPriority;
   dueDate?: string | null;
+  assigneeId?: string | null;
 }
 
 export const updateTaskAction = defineAction((input: UpdateTaskInput): Task => {
-  const updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate'>> = {};
+  const updates: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'dueDate' | 'assigneeId'>> = {};
   if (input.title !== undefined) updates.title = input.title.trim();
   if (input.description !== undefined) updates.description = input.description.trim();
   if (input.status !== undefined) updates.status = input.status;
   if (input.priority !== undefined) updates.priority = input.priority;
   if (input.dueDate !== undefined) updates.dueDate = input.dueDate || null;
+  if (input.assigneeId !== undefined) updates.assigneeId = input.assigneeId;
   return repoUpdateTask(input.id, updates);
 });
 
