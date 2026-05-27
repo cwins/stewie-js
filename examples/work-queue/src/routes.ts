@@ -13,7 +13,7 @@
 // shapes are explicit (paths can't tell us query shape) and given as the
 // second generic argument when needed.
 
-import { createRoute, type TypedRoute } from '@stewie-js/router';
+import { createRoute, type RouteGuard, type TypedRoute } from '@stewie-js/router';
 import { lazy } from '@stewie-js/core';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { ProjectsPage } from './pages/ProjectsPage.js';
@@ -21,6 +21,8 @@ import { ProjectDetailPage } from './pages/ProjectDetailPage.js';
 import { NewProjectPage } from './pages/NewProjectPage.js';
 import { EditProjectPage } from './pages/EditProjectPage.js';
 import { TaskDetailPage } from './pages/TaskDetailPage.js';
+import { ProfileViewPage } from './pages/ProfileViewPage.js';
+import { ProfileEditPage } from './pages/ProfileEditPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { AppShellLayout } from './components/AppShell.js';
 import { dashboardLoader } from './loaders/dashboard.js';
@@ -28,7 +30,9 @@ import { projectsLoader } from './loaders/projects.js';
 import { projectDetailLoader } from './loaders/project-detail.js';
 import { projectEditLoader } from './loaders/project-edit.js';
 import { taskDetailLoader } from './loaders/task-detail.js';
-import { requireAuth } from './data/mocks/auth.js';
+import { profileViewLoader } from './loaders/profile-view.js';
+import { profileEditLoader } from './loaders/profile-edit.js';
+import { getViewer, requireAuth } from './data/mocks/auth.js';
 
 // AdminPage is loaded lazily so its scoped CSS becomes a per-boundary asset.
 const AdminPage = lazy(() => import('./pages/AdminPage'));
@@ -51,5 +55,41 @@ export const ProjectDetailRoute = createRoute('/projects/:projectId', { componen
 export const TaskDetailRoute = createRoute('/tasks/:taskId', { component: TaskDetailPage, load: taskDetailLoader });
 
 export const AdminRoute = createRoute('/admin', { component: AdminPage, beforeEnter: requireAuth });
+
+// /profile/me resolves the signed-in viewer and redirects to their canonical
+// profile URL. The route never renders — the guard always returns a redirect.
+const profileMeGuard: RouteGuard = (to) => {
+  const viewer = getViewer();
+  if (!viewer) return `/login?redirect=${encodeURIComponent(to)}`;
+  return `/profile/${viewer.id}`;
+};
+
+// Self-edit guard. Authenticated callers viewing their own profile pass
+// through; everyone else lands on the read-only view. The API client
+// re-checks at the boundary, so this guard is UX, not security.
+const requireSelfForProfileEdit: RouteGuard = async (to, from) => {
+  const auth = await requireAuth(to, from);
+  if (auth !== true) return auth;
+  const match = to.match(/^\/profile\/([^/]+)\/edit/);
+  if (!match) return '/';
+  const targetId = match[1];
+  const viewer = getViewer();
+  if (!viewer || viewer.id !== targetId) return `/profile/${targetId}`;
+  return true;
+};
+
+export const ProfileMeRoute = createRoute('/profile/me', { component: ProfileViewPage, beforeEnter: profileMeGuard });
+
+export const ProfileEditRoute = createRoute('/profile/:userId/edit', {
+  component: ProfileEditPage,
+  load: profileEditLoader,
+  beforeEnter: requireSelfForProfileEdit
+});
+
+export const ProfileViewRoute = createRoute('/profile/:userId', {
+  component: ProfileViewPage,
+  load: profileViewLoader,
+  beforeEnter: requireAuth
+});
 
 export const LoginRoute = createRoute<Record<string, never>, { redirect?: string }>('/login', { component: LoginPage });

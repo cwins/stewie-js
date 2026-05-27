@@ -8,9 +8,9 @@
 // component cannot accidentally read `email` on a public-view record (the
 // field is not present on that arm of the union).
 
-import { getAllUsers, getUserById } from '../data/mocks/repo.js';
+import { getAllUsers, getUserById, updateUser as repoUpdateUser } from '../data/mocks/repo.js';
 import type { User, UserPublic, UserView, Viewer } from '../data/types.js';
-import { notFound, simulateLatency } from './client.js';
+import { forbidden, notFound, simulateLatency } from './client.js';
 
 function toPublicView(user: User): UserView {
   const publicFields: UserPublic = {
@@ -40,6 +40,36 @@ export async function getUser(viewer: Viewer, targetId: string): Promise<UserVie
 // scoping (workspace membership, blocked users, etc.). Today every caller
 // gets the same public list, including unauthenticated callers — the return
 // type is UserPublic[], which is public by definition.
+export interface UpdateProfileInput {
+  displayName: string;
+  email: string;
+  bio: string;
+  timezone: string;
+  avatarColor: string;
+}
+
+// Self-edit only — the API rejects an attempt to edit someone else's profile
+// at the boundary, so a UI bug or a forged client request cannot escalate.
+// Always returns the full self-view because the caller is, by definition,
+// looking at their own record.
+export async function updateProfile(viewer: Viewer, targetId: string, updates: UpdateProfileInput): Promise<UserView> {
+  await simulateLatency();
+  if (viewer.id !== targetId) throw forbidden('You can only edit your own profile');
+  const existing = getUserById(targetId);
+  if (!existing) throw notFound(`User ${targetId} not found`);
+  const trimmed: UpdateProfileInput = {
+    displayName: updates.displayName.trim(),
+    email: updates.email.trim(),
+    bio: updates.bio.trim(),
+    timezone: updates.timezone.trim(),
+    avatarColor: updates.avatarColor
+  };
+  if (!trimmed.displayName) throw new Error('Display name is required');
+  if (!trimmed.email) throw new Error('Email is required');
+  const saved = repoUpdateUser(targetId, trimmed);
+  return { view: 'self', ...saved };
+}
+
 export async function listUsers(_viewer: Viewer | null): Promise<UserPublic[]> {
   await simulateLatency();
   return getAllUsers().map((u) => ({

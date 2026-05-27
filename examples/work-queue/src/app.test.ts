@@ -10,9 +10,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderApp } from './app.js';
 import { _resetToSeed } from './data/mocks/repo.js';
+import { signIn, signOut } from './data/mocks/auth.js';
 
 beforeEach(() => {
   _resetToSeed();
+  signOut();
 });
 
 describe('SSR — dashboard (/)', () => {
@@ -156,5 +158,54 @@ describe('SSR — admin page (/admin) with auth guard', () => {
     // renderApp catches the RedirectError and returns a redirect result.
     const result = await renderApp('/admin');
     expect(result.redirect).toMatch(/^\/login/);
+  });
+});
+
+describe('SSR — profile pages (/profile/*)', () => {
+  it('/profile/me redirects to /login when unauthenticated', async () => {
+    const result = await renderApp('/profile/me');
+    expect(result.redirect).toMatch(/^\/login\?redirect=/);
+  });
+
+  it('/profile/me redirects to the viewer canonical URL when signed in', async () => {
+    signIn('alice');
+    const result = await renderApp('/profile/me');
+    expect(result.redirect).toBe('/profile/user_alice');
+  });
+
+  it('renders the self view with email and timezone when viewing own profile', async () => {
+    signIn('alice');
+    const { html } = await renderApp('/profile/user_alice');
+    expect(html).toContain('data-testid="profile-view-user_alice"');
+    expect(html).toContain('Alice Chen');
+    expect(html).toContain('alice@example.com');
+    expect(html).toContain('America/Los_Angeles');
+    expect(html).toContain('data-testid="edit-profile-link"');
+  });
+
+  it('renders the public view without sensitive fields when viewing another user', async () => {
+    signIn('bob');
+    const { html } = await renderApp('/profile/user_alice');
+    expect(html).toContain('Alice Chen');
+    // Sensitive fields are absent on the public arm.
+    expect(html).not.toContain('alice@example.com');
+    expect(html).not.toContain('America/Los_Angeles');
+    expect(html).toContain('data-testid="profile-contact-hidden"');
+    expect(html).not.toContain('data-testid="edit-profile-link"');
+  });
+
+  it('redirects /profile/:userId/edit to the view page when the viewer is not the target', async () => {
+    signIn('bob');
+    const result = await renderApp('/profile/user_alice/edit');
+    expect(result.redirect).toBe('/profile/user_alice');
+  });
+
+  it('renders the edit form when the viewer is the target', async () => {
+    signIn('alice');
+    const { html } = await renderApp('/profile/user_alice/edit');
+    expect(html).toContain('data-testid="profile-edit-page"');
+    expect(html).toContain('data-testid="edit-profile-form"');
+    expect(html).toContain('data-testid="save-profile-btn"');
+    expect(html).toContain('Alice Chen');
   });
 });

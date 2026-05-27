@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect } from 'vitest';
-import { _resetToSeed } from '../data/mocks/repo.js';
+import { _resetToSeed, getUserById } from '../data/mocks/repo.js';
 import { _setLatencyForTests, _resetLatency, ApiError } from './client.js';
-import { getUser } from './users.js';
+import { getUser, listUsers, updateProfile } from './users.js';
 import type { Viewer } from '../data/types.js';
 
 const alice: Viewer = { id: 'user_alice', role: 'admin' };
@@ -58,5 +58,62 @@ describe('getUser', () => {
     // only when a concrete use case demands it.
     const view = await getUser(alice, 'user_bob');
     expect(view.view).toBe('public');
+  });
+});
+
+describe('listUsers', () => {
+  it('returns the seed users in public-view shape', async () => {
+    const list = await listUsers(alice);
+    expect(list.length).toBe(3);
+    for (const u of list) {
+      expect('email' in u).toBe(false);
+      expect('role' in u).toBe(false);
+    }
+  });
+
+  it('accepts an unauthenticated caller', async () => {
+    const list = await listUsers(null);
+    expect(list.length).toBe(3);
+  });
+});
+
+describe('updateProfile', () => {
+  it('saves changes when the viewer edits their own profile', async () => {
+    const updated = await updateProfile(alice, 'user_alice', {
+      displayName: 'Alice C.',
+      email: 'alice2@example.com',
+      bio: 'New bio',
+      timezone: 'America/New_York',
+      avatarColor: '#10b981'
+    });
+    expect(updated.view).toBe('self');
+    expect(updated.displayName).toBe('Alice C.');
+    expect(getUserById('user_alice')?.email).toBe('alice2@example.com');
+  });
+
+  it('rejects with 403 when the viewer is not the target', async () => {
+    await expect(
+      updateProfile(bob, 'user_alice', {
+        displayName: 'Hacked',
+        email: 'evil@example.com',
+        bio: '',
+        timezone: 'UTC',
+        avatarColor: '#ef4444'
+      })
+    ).rejects.toMatchObject({ status: 403 });
+    // Underlying record is untouched.
+    expect(getUserById('user_alice')?.displayName).toBe('Alice Chen');
+  });
+
+  it('throws a validation error when required fields are blank', async () => {
+    await expect(
+      updateProfile(alice, 'user_alice', {
+        displayName: '   ',
+        email: 'alice@example.com',
+        bio: '',
+        timezone: 'UTC',
+        avatarColor: '#6366f1'
+      })
+    ).rejects.toThrow(/Display name is required/);
   });
 });

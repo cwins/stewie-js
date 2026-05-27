@@ -26,6 +26,9 @@ import {
   ProjectEditRoute,
   ProjectDetailRoute,
   TaskDetailRoute,
+  ProfileMeRoute,
+  ProfileEditRoute,
+  ProfileViewRoute,
   AdminRoute,
   LoginRoute
 } from './routes.js';
@@ -48,6 +51,9 @@ const routeElements = [
     <ProjectEditRoute />
     <ProjectDetailRoute />
     <TaskDetailRoute />
+    <ProfileMeRoute />
+    <ProfileEditRoute />
+    <ProfileViewRoute />
     <AdminRoute />
     <LoginRoute />
   </AppShellRoute>

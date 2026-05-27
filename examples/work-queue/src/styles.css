@@ -1068,3 +1068,85 @@ code {
   border-radius: var(--radius-sm);
   padding: 0.125em 0.375em;
 }
+
+/* ---------------------------------------------------------------------------
+ * Profile card (ProfileViewPage)
+ * ---------------------------------------------------------------------- */
+
+.profile-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1.25rem;
+}
+
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.profile-card-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-display-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.profile-username {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.profile-fields {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+}
+
+.profile-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.profile-field-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.profile-field-value {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+}
+
+.profile-field-empty {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}

@@ -29,6 +29,13 @@ export function NavBar(): JSXElement {
           </span>
         </li>
         <li>
+          <span class={() => `navbar-link-wrap${location.pathname.startsWith('/profile') ? ' active' : ''}`}>
+            <Link to="/profile/me" class="navbar-link">
+              Profile
+            </Link>
+          </span>
+        </li>
+        <li>
           <span class={() => `navbar-link-wrap${location.pathname === '/admin' ? ' active' : ''}`}>
             <Link to="/admin" class="navbar-link">
               Admin
