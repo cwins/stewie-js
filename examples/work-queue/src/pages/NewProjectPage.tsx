@@ -10,16 +10,20 @@
 
 import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, Show, For, useAction } from '@stewie-js/core';
-import { useRouter, Link } from '@stewie-js/router';
+import { useRouter, useRouteData, Link } from '@stewie-js/router';
 import { createProjectAction } from '../actions/projects.js';
+import { UserPicker } from '../components/lib/UserPicker.js';
 import { PROJECT_COLORS } from '../data/colors.js';
+import type { NewProjectData } from '../loaders/new-project.js';
 
 export function NewProjectPage(): JSXElement {
   const router = useRouter();
+  const { users } = useRouteData<NewProjectData>();
 
   const $name = signal('');
   const $description = signal('');
   const $color = signal(PROJECT_COLORS[0].value);
+  const $leadId = signal<string | null>(null);
 
   // Derived: form is valid when name is non-empty
   const isValid = computed(() => $name().trim().length > 0);
@@ -33,7 +37,8 @@ export function NewProjectPage(): JSXElement {
     const result = await create.run({
       name: $name.peek(),
       description: $description.peek(),
-      color: $color.peek()
+      color: $color.peek(),
+      leadId: $leadId.peek()
     });
     if (result === undefined) return;
 
@@ -91,6 +96,15 @@ export function NewProjectPage(): JSXElement {
               data-testid="project-description-input"
             />
           </div>
+
+          <UserPicker
+            users={users}
+            value={$leadId}
+            onChange={(id) => $leadId.set(id)}
+            label="Project lead"
+            inputId="project-lead"
+            testId="project-lead-picker"
+          />
 
           <div class="field-group">
             <span class="field-label">Color</span>

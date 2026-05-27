@@ -13,6 +13,7 @@ export interface CreateProjectInput {
   name: string;
   description: string;
   color: string;
+  leadId: string | null;
 }
 
 export const createProjectAction = defineAction((input: CreateProjectInput): Project => {
@@ -20,7 +21,8 @@ export const createProjectAction = defineAction((input: CreateProjectInput): Pro
   return repoCreateProject({
     name: input.name.trim(),
     description: input.description.trim(),
-    color: input.color
+    color: input.color,
+    leadId: input.leadId
   });
 });
 
@@ -29,6 +31,7 @@ export interface UpdateProjectInput {
   name: string;
   description: string;
   color: string;
+  leadId: string | null;
 }
 
 export const updateProjectAction = defineAction((input: UpdateProjectInput): Project => {
@@ -36,7 +39,8 @@ export const updateProjectAction = defineAction((input: UpdateProjectInput): Pro
   return repoUpdateProject(input.id, {
     name: input.name.trim(),
     description: input.description.trim(),
-    color: input.color
+    color: input.color,
+    leadId: input.leadId
   });
 });
 

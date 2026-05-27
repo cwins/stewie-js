@@ -48,6 +48,7 @@ export const seedProjects: Project[] = [
     description: 'Migrate the legacy monolith to a services architecture.',
     status: 'active',
     color: '#6366f1',
+    leadId: 'user_alice',
     createdAt: '2026-01-15T09:00:00Z'
   },
   {
@@ -56,6 +57,7 @@ export const seedProjects: Project[] = [
     description: 'Build a shared component library for all product teams.',
     status: 'active',
     color: '#0ea5e9',
+    leadId: 'user_bob',
     createdAt: '2026-02-01T10:00:00Z'
   },
   {
@@ -64,6 +66,7 @@ export const seedProjects: Project[] = [
     description: 'User acquisition campaign — landing pages, email, and paid ads.',
     status: 'active',
     color: '#10b981',
+    leadId: 'user_carol',
     createdAt: '2026-03-10T08:00:00Z'
   }
 ];

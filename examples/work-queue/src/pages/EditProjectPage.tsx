@@ -12,13 +12,14 @@ import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, Show, For, useAction } from '@stewie-js/core';
 import { useRouteData, useParams, useRouter, Link } from '@stewie-js/router';
 import { updateProjectAction, archiveProjectAction } from '../actions/projects.js';
+import { UserPicker } from '../components/lib/UserPicker.js';
 import { PROJECT_COLORS } from '../data/colors.js';
 import type { ProjectEditData } from '../loaders/project-edit.js';
 import { ProjectEditRoute } from '../routes.js';
 
 export function EditProjectPage(): JSXElement {
   const { projectId } = useParams(ProjectEditRoute);
-  const { project } = useRouteData<ProjectEditData>();
+  const { project, users } = useRouteData<ProjectEditData>();
   const router = useRouter();
 
   // Form signals seeded from loader data — not empty defaults.
@@ -26,6 +27,7 @@ export function EditProjectPage(): JSXElement {
   const $name = signal(project.name);
   const $description = signal(project.description);
   const $color = signal(project.color);
+  const $leadId = signal<string | null>(project.leadId);
   const $confirmArchive = signal(false);
 
   const isValid = computed(() => $name().trim().length > 0);
@@ -45,7 +47,8 @@ export function EditProjectPage(): JSXElement {
       id: projectId,
       name: $name.peek(),
       description: $description.peek(),
-      color: $color.peek()
+      color: $color.peek(),
+      leadId: $leadId.peek()
     });
     if (result === undefined) return;
 
@@ -107,6 +110,15 @@ export function EditProjectPage(): JSXElement {
               data-testid="project-description-input"
             />
           </div>
+
+          <UserPicker
+            users={users}
+            value={$leadId}
+            onChange={(id) => $leadId.set(id)}
+            label="Project lead"
+            inputId="project-lead"
+            testId="project-lead-picker"
+          />
 
           <div class="field-group">
             <span class="field-label">Color</span>

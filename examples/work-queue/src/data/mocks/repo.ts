@@ -57,7 +57,7 @@ export function getProject(id: string): Project | undefined {
   return projects.find((p) => p.id === id);
 }
 
-export function createProject(data: { name: string; description: string; color: string }): Project {
+export function createProject(data: { name: string; description: string; color: string; leadId: string | null }): Project {
   const project: Project = {
     id: `proj_${Date.now()}`,
     status: 'active',
@@ -68,7 +68,10 @@ export function createProject(data: { name: string; description: string; color: 
   return project;
 }
 
-export function updateProject(id: string, updates: Partial<Pick<Project, 'name' | 'description' | 'color' | 'status'>>): Project {
+export function updateProject(
+  id: string,
+  updates: Partial<Pick<Project, 'name' | 'description' | 'color' | 'status' | 'leadId'>>
+): Project {
   const idx = projects.findIndex((p) => p.id === id);
   if (idx === -1) throw new Error(`Project ${id} not found`);
   projects[idx] = { ...projects[idx], ...updates };

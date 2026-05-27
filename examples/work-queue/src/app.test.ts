@@ -93,6 +93,13 @@ describe('SSR — project detail (/projects/:projectId)', () => {
     expect(html).toContain('Design System');
     expect(html).toContain('Define token system');
   });
+
+  it('renders the project lead chip linking to the lead profile', async () => {
+    const { html } = await renderApp('/projects/proj_1');
+    expect(html).toContain('data-testid="project-lead"');
+    expect(html).toContain('href="/profile/user_alice"');
+    expect(html).toContain('Alice Chen');
+  });
 });
 
 describe('SSR — new project page (/projects/new)', () => {

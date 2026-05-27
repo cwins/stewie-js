@@ -16,6 +16,7 @@ import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, Show, useAction } from '@stewie-js/core';
 import { useRouteData, useParams, useRouter, Link } from '@stewie-js/router';
 import { StatusBadge, PriorityBadge } from '../components/lib/Badge.js';
+import { UserPicker } from '../components/lib/UserPicker.js';
 import { updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { TaskDetailData } from '../loaders/task-detail.js';
 import type { TaskStatus } from '../data/types.js';
@@ -182,24 +183,14 @@ export function TaskDetailPage(): JSXElement {
             </div>
           </div>
 
-          <div class="field-group">
-            <label class="field-label" for="task-assignee">
-              Assignee
-            </label>
-            <select
-              id="task-assignee"
-              class="field-select"
-              value={$assigneeId() ?? ''}
-              onChange={(e: Event) => {
-                const v = (e.target as HTMLSelectElement).value;
-                $assigneeId.set(v === '' ? null : v);
-              }}
-              data-testid="task-assignee-select"
-            >
-              <option value="">Unassigned</option>
-              {() => users.map((u) => <option value={u.id}>{u.displayName}</option>)}
-            </select>
-          </div>
+          <UserPicker
+            users={users}
+            value={$assigneeId}
+            onChange={(id) => $assigneeId.set(id)}
+            label="Assignee"
+            inputId="task-assignee"
+            testId="task-assignee-select"
+          />
 
           <div class="form-actions">
             <button

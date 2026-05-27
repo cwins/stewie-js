@@ -19,6 +19,8 @@ import { signal, computed, For, Show, useAction } from '@stewie-js/core';
 import { useRouteData, useParams, Link } from '@stewie-js/router';
 import { TaskRow } from '../components/TaskRow.js';
 import { EmptyState } from '../components/lib/EmptyState.js';
+import { UserChip } from '../components/lib/UserChip.js';
+import { UserPicker } from '../components/lib/UserPicker.js';
 import { createTaskAction, updateTaskAction, deleteTaskAction } from '../actions/tasks.js';
 import type { ProjectDetailData } from '../loaders/project-detail.js';
 import type { Task, TaskStatus, UserPublic } from '../data/types.js';
@@ -176,24 +178,14 @@ function TaskEditSheet({ task, users, onClose, onDeleted, onUpdated }: TaskEditS
           />
         </div>
 
-        <div class="field-group">
-          <label class="field-label" for="edit-assignee">
-            Assignee
-          </label>
-          <select
-            id="edit-assignee"
-            class="field-select"
-            value={$assigneeId() ?? ''}
-            onChange={(e: Event) => {
-              const v = (e.target as HTMLSelectElement).value;
-              $assigneeId.set(v === '' ? null : v);
-            }}
-            data-testid="edit-task-assignee"
-          >
-            <option value="">Unassigned</option>
-            {() => users.map((u) => <option value={u.id}>{u.displayName}</option>)}
-          </select>
-        </div>
+        <UserPicker
+          users={users}
+          value={$assigneeId}
+          onChange={(id) => $assigneeId.set(id)}
+          label="Assignee"
+          inputId="edit-assignee"
+          testId="edit-task-assignee"
+        />
 
         <div class="task-sheet-actions">
           <button type="submit" class="btn btn-primary" disabled={() => save.pending()} data-testid="edit-task-save">
@@ -289,18 +281,7 @@ function CreateTaskForm({ projectId, users, onCreated, onCancel }: CreateTaskFor
           onInput={(e: InputEvent) => $dueDate.set((e.target as HTMLInputElement).value)}
           data-testid="create-task-due"
         />
-        <select
-          class="field-select"
-          value={$assigneeId() ?? ''}
-          onChange={(e: Event) => {
-            const v = (e.target as HTMLSelectElement).value;
-            $assigneeId.set(v === '' ? null : v);
-          }}
-          data-testid="create-task-assignee"
-        >
-          <option value="">Unassigned</option>
-          {() => users.map((u) => <option value={u.id}>{u.displayName}</option>)}
-        </select>
+        <UserPicker users={users} value={$assigneeId} onChange={(id) => $assigneeId.set(id)} testId="create-task-assignee" />
         <button type="submit" class="btn btn-primary btn-sm" disabled={() => create.pending()} data-testid="create-task-submit">
           {() => (create.pending() ? 'Adding\u2026' : 'Add')}
         </button>
@@ -390,6 +371,19 @@ export function ProjectDetailPage(): JSXElement {
         </div>
 
         {data.project.description ? <p class="project-description">{data.project.description}</p> : null}
+
+        <div class="project-lead-row" data-testid="project-lead">
+          <span class="project-lead-label">Lead</span>
+          {(() => {
+            const lead = data.project.leadId ? (usersById[data.project.leadId] ?? null) : null;
+            if (!lead) return <UserChip user={null} />;
+            return (
+              <Link to={`/profile/${lead.id}`} class="project-lead-link">
+                <UserChip user={lead} />
+              </Link>
+            );
+          })()}
+        </div>
 
         <Show when={() => $showCreateForm()}>
           {() => (

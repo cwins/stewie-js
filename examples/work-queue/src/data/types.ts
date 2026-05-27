@@ -16,6 +16,8 @@ export interface Project {
   status: ProjectStatus;
   /** Hex color string used for visual accent on project cards. */
   color: string;
+  /** User id of the project lead, or null when nobody is named. */
+  leadId: string | null;
   createdAt: string;
 }
 

@@ -29,6 +29,7 @@ import { dashboardLoader } from './loaders/dashboard.js';
 import { projectsLoader } from './loaders/projects.js';
 import { projectDetailLoader } from './loaders/project-detail.js';
 import { projectEditLoader } from './loaders/project-edit.js';
+import { newProjectLoader } from './loaders/new-project.js';
 import { taskDetailLoader } from './loaders/task-detail.js';
 import { profileViewLoader } from './loaders/profile-view.js';
 import { profileEditLoader } from './loaders/profile-edit.js';
@@ -46,7 +47,7 @@ export const DashboardRoute = createRoute('.', { component: DashboardPage, load:
 
 export const ProjectsRoute = createRoute('/projects', { component: ProjectsPage, load: projectsLoader });
 
-export const NewProjectRoute = createRoute('/projects/new', { component: NewProjectPage });
+export const NewProjectRoute = createRoute('/projects/new', { component: NewProjectPage, load: newProjectLoader });
 
 export const ProjectEditRoute = createRoute('/projects/:projectId/edit', { component: EditProjectPage, load: projectEditLoader });
 

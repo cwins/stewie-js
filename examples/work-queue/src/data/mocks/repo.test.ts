@@ -53,14 +53,14 @@ describe('getProject', () => {
 
 describe('createProject', () => {
   it('adds a new project and returns it', () => {
-    const project = createProject({ name: 'Test', description: 'Desc', color: '#000' });
+    const project = createProject({ name: 'Test', description: 'Desc', color: '#000', leadId: null });
     expect(project.id).toMatch(/^proj_/);
     expect(project.status).toBe('active');
     expect(getProject(project.id)).toBeDefined();
   });
 
   it('new project appears in getProjects()', () => {
-    createProject({ name: 'New', description: '', color: '#fff' });
+    createProject({ name: 'New', description: '', color: '#fff', leadId: null });
     expect(getProjects()).toHaveLength(4);
   });
 });
