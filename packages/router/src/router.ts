@@ -157,13 +157,41 @@ export function createRouter(initialUrl?: string): Router {
     return params;
   }
 
-  /** Apply a parsed URL to the reactive location store. */
+  /** Apply a parsed URL to the reactive location store.
+   *
+   * Each field is written only when its value actually changes. The store
+   * notifies subscribers on every assignment regardless of equality, so
+   * blindly re-writing identical values would re-trigger `matchedContent`
+   * and re-mount the route component for query-only or hash-only
+   * navigations. This guard is what lets query updates ride through
+   * `navigate()` without losing input focus on the matched page.
+   */
   function applyLocation(url: string, params?: Record<string, string>): void {
     const parsed = parseUrl(url);
-    location.pathname = parsed.pathname;
-    location.query = parsed.query;
-    location.hash = parsed.hash;
-    location.params = params ?? resolveParams(parsed.pathname);
+    if (location.pathname !== parsed.pathname) {
+      location.pathname = parsed.pathname;
+    }
+    if (!shallowEqualQuery(location.query, parsed.query)) {
+      location.query = parsed.query;
+    }
+    if (location.hash !== parsed.hash) {
+      location.hash = parsed.hash;
+    }
+    const nextParams = params ?? resolveParams(parsed.pathname);
+    if (!shallowEqualQuery(location.params, nextParams)) {
+      location.params = nextParams;
+    }
+  }
+
+  /** Cheap equality for the flat string maps used by query and params. */
+  function shallowEqualQuery(a: Record<string, string>, b: Record<string, string>): boolean {
+    const ak = Object.keys(a);
+    const bk = Object.keys(b);
+    if (ak.length !== bk.length) return false;
+    for (const k of ak) {
+      if (a[k] !== b[k]) return false;
+    }
+    return true;
   }
 
   /** Ensure a signal exists in _routeDataMap for the given key and return it. */
@@ -247,6 +275,11 @@ export function createRouter(initialUrl?: string): Router {
 
   // Holds the cleanup function for browser event listeners.
   let _listenersDisposer = () => {};
+
+  // Set true while `setQuery` calls into `history.*` so the Navigation API
+  // `navigate` listener (which would otherwise re-run guards and loaders for
+  // a same-document history mutation) treats this nav as a no-op.
+  let _suppressNavListener = false;
 
   /** Apply location update and push to browser history. */
   function applyLocationAndPush(url: string, replace: boolean): void {
@@ -351,6 +384,50 @@ export function createRouter(initialUrl?: string): Router {
       })();
     },
 
+    setQuery(patch, options) {
+      const push = options?.push ?? false;
+      const merged: Record<string, string> = { ...location.query };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === undefined) {
+          delete merged[key];
+        } else {
+          merged[key] = value;
+        }
+      }
+
+      if (shallowEqualQuery(location.query, merged)) {
+        // No effective change — skip both history and store writes so
+        // nothing downstream notifies on a no-op patch.
+        return;
+      }
+
+      const params = new URLSearchParams();
+      // Preserve insertion order; URLSearchParams handles encoding.
+      for (const [k, v] of Object.entries(merged)) {
+        params.set(k, v);
+      }
+      const search = params.toString();
+      const url = location.pathname + (search ? `?${search}` : '') + (location.hash ? `#${location.hash}` : '');
+
+      // Bypass the Navigation API path: history.* writes update the address
+      // bar without triggering our `navigate` listener's guard/loader cycle.
+      // The reactive store update below is what consumers observe.
+      _suppressNavListener = true;
+      try {
+        if (typeof globalThis.history !== 'undefined') {
+          if (push) {
+            globalThis.history.pushState(null, '', url);
+          } else {
+            globalThis.history.replaceState(null, '', url);
+          }
+        }
+      } finally {
+        _suppressNavListener = false;
+      }
+
+      location.query = merged;
+    },
+
     dismiss() {
       // Dismiss the current overlay/dialog by going back in history.
       // When a richer overlay routing model is in place this will pop the
@@ -404,6 +481,7 @@ export function createRouter(initialUrl?: string): Router {
       // so we don't also need a popstate listener.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const navHandler = (event: any) => {
+        if (_suppressNavListener) return;
         if (!event.canIntercept || event.hashChange || event.downloadRequest !== null) return;
         const destUrl = new URL(event.destination.url);
         const destPath = destUrl.pathname + destUrl.search + destUrl.hash;

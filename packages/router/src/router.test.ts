@@ -2,6 +2,32 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createRouter, useRouter, RouterContext } from './router.js';
 import { provide, effect } from '@stewie-js/core';
 
+/**
+ * Temporarily install a stub `history` on `globalThis` so setQuery's history
+ * writes can be observed. The router tests run in node, which has no DOM.
+ */
+function stubHistory(overrides: Partial<History>): () => void {
+  const prior = (globalThis as { history?: History }).history;
+  (globalThis as { history?: History }).history = {
+    length: 0,
+    scrollRestoration: 'auto',
+    state: null,
+    back: () => {},
+    forward: () => {},
+    go: () => {},
+    pushState: () => {},
+    replaceState: () => {},
+    ...overrides
+  } as History;
+  return () => {
+    if (prior === undefined) {
+      delete (globalThis as { history?: History }).history;
+    } else {
+      (globalThis as { history?: History }).history = prior;
+    }
+  };
+}
+
 describe('createRouter', () => {
   it('creates a router with a location', () => {
     const router = createRouter('/');
@@ -415,5 +441,164 @@ describe('Route data loading (load)', () => {
     // Stale data from the previous route must not bleed through.
     // The /with-data signal is reset to undefined when navigating away.
     expect(getRouteData(router, '/with-data')).toBeUndefined();
+  });
+});
+
+describe('query-only navigation does not re-mount the route', () => {
+  // Drive `effect` count on a function that closes over the location
+  // properties matchedContent watches. When the function re-runs, the route
+  // component would re-mount under a real Router. Asserting the function
+  // doesn't re-run is equivalent to asserting no re-mount.
+  function trackPathnameAndParamsReads(router: ReturnType<typeof createRouter>): { state: { runs: number }; dispose: () => void } {
+    const state = { runs: 0 };
+    const dispose = effect(() => {
+      state.runs++;
+      // Read both reactive properties matchedContent reads under a real Router.
+      void router.location.pathname;
+      void router.location.params;
+    });
+    return { state, dispose };
+  }
+
+  it('navigate() to the same pathname with a different query does not re-run pathname/params subscribers', async () => {
+    const router = createRouter('/search?q=a');
+    const { state, dispose } = trackPathnameAndParamsReads(router);
+    expect(state.runs).toBe(1);
+
+    await router.navigate('/search?q=ab');
+    expect(router.location.query).toEqual({ q: 'ab' });
+    expect(state.runs).toBe(1); // no re-mount
+
+    await router.navigate('/search?q=abc');
+    expect(router.location.query).toEqual({ q: 'abc' });
+    expect(state.runs).toBe(1);
+
+    dispose();
+  });
+
+  it('navigate() to a different pathname does re-run pathname/params subscribers', async () => {
+    const router = createRouter('/');
+    const { state, dispose } = trackPathnameAndParamsReads(router);
+    expect(state.runs).toBe(1);
+
+    await router.navigate('/other');
+    expect(state.runs).toBe(2);
+
+    dispose();
+  });
+});
+
+describe('setQuery', () => {
+  it('patches the query without re-running pathname/params subscribers', () => {
+    const router = createRouter('/search?q=a');
+    const state = { runs: 0 };
+    const dispose = effect(() => {
+      state.runs++;
+      void router.location.pathname;
+      void router.location.params;
+    });
+    expect(state.runs).toBe(1);
+
+    router.setQuery({ q: 'ab' });
+    expect(router.location.query).toEqual({ q: 'ab' });
+    expect(state.runs).toBe(1);
+
+    dispose();
+  });
+
+  it('notifies query subscribers reactively', () => {
+    const router = createRouter('/search?q=a');
+    const seen: string[] = [];
+    const dispose = effect(() => {
+      seen.push(router.location.query.q ?? '');
+    });
+    expect(seen).toEqual(['a']);
+
+    router.setQuery({ q: 'ab' });
+    expect(seen).toEqual(['a', 'ab']);
+
+    router.setQuery({ q: 'abc' });
+    expect(seen).toEqual(['a', 'ab', 'abc']);
+
+    dispose();
+  });
+
+  it('deletes keys when patch value is null or undefined', () => {
+    const router = createRouter('/?q=hi&sort=name');
+    router.setQuery({ q: null });
+    expect(router.location.query).toEqual({ sort: 'name' });
+
+    router.setQuery({ sort: undefined });
+    expect(router.location.query).toEqual({});
+  });
+
+  it('is a no-op when the patch produces an identical query', () => {
+    const router = createRouter('/?q=hi');
+    const seen: string[] = [];
+    const dispose = effect(() => {
+      seen.push(router.location.query.q ?? '');
+    });
+    expect(seen).toEqual(['hi']);
+
+    router.setQuery({ q: 'hi' });
+    expect(seen).toEqual(['hi']); // no extra notification
+
+    dispose();
+  });
+
+  it('does not run guards or loaders', async () => {
+    const guard = vi.fn().mockResolvedValue(true);
+    const load = vi.fn().mockResolvedValue({ value: 1 });
+    const router = createRouter('/search?q=a');
+    router._chains = [
+      {
+        leafPath: '/search',
+        levels: [{ fullPath: '/search', component: () => null, beforeEnter: guard, load }]
+      }
+    ];
+    await router.navigate('/search?q=a');
+    guard.mockClear();
+    load.mockClear();
+
+    router.setQuery({ q: 'b' });
+    expect(guard).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+    expect(router.location.query).toEqual({ q: 'b' });
+  });
+
+  it('updates browser history via replaceState by default', () => {
+    const replace = vi.fn();
+    const push = vi.fn();
+    const restore = stubHistory({ replaceState: replace, pushState: push });
+    try {
+      const router = createRouter('/search?q=a');
+      router.setQuery({ q: 'b' });
+      expect(replace).toHaveBeenCalledWith(null, '', '/search?q=b');
+      expect(push).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('uses pushState when push: true is passed', () => {
+    const replace = vi.fn();
+    const push = vi.fn();
+    const restore = stubHistory({ replaceState: replace, pushState: push });
+    try {
+      const router = createRouter('/search?q=a');
+      router.setQuery({ q: 'b' }, { push: true });
+      expect(push).toHaveBeenCalledWith(null, '', '/search?q=b');
+      expect(replace).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('preserves pathname and hash', () => {
+    const router = createRouter('/projects/42?tab=info#section');
+    router.setQuery({ tab: 'tasks' });
+    expect(router.location.pathname).toBe('/projects/42');
+    expect(router.location.hash).toBe('section');
+    expect(router.location.query).toEqual({ tab: 'tasks' });
   });
 });

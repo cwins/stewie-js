@@ -14,6 +14,21 @@ export interface NavigateOptions {
   state?: unknown;
 }
 
+/**
+ * Patch shape for {@link StewieRouterSPI.setQuery}. A `string` value sets or
+ * replaces the key; `null` or `undefined` deletes it.
+ */
+export type QueryPatch = Record<string, string | null | undefined>;
+
+export interface SetQueryOptions {
+  /**
+   * Use `history.pushState` instead of the default `history.replaceState`.
+   * Defaults to `false` — query updates usually shouldn't add a history
+   * entry per keystroke, but multi-step filter flows may want a back-button.
+   */
+  push?: boolean;
+}
+
 export interface RouteMatch {
   pattern: string;
   params: Record<string, string>;
@@ -50,6 +65,19 @@ export interface StewieRouterSPI {
   /** Reactive navigation lifecycle status. */
   readonly status: NavigationStatus;
   navigate(to: string | NavigateOptions): Promise<void>;
+  /**
+   * Patch the URL's query string in place — reactive `location.query`
+   * updates, browser history syncs, and that's it. Guards do not run,
+   * loaders do not re-run, and the matched route component does not
+   * re-mount. Use this for searchable / filterable UIs where query state
+   * must update on every keystroke without losing input focus.
+   *
+   * @example
+   *   onInput={(e) => router.setQuery({ q: e.target.value })}
+   *   // Clear a filter:
+   *   router.setQuery({ category: null });
+   */
+  setQuery(patch: QueryPatch, options?: SetQueryOptions): void;
   /**
    * Dismiss the current overlay/dialog destination and return to the
    * underlying view. Behaves like `back()` when no overlay model is active.
