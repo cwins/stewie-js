@@ -27,6 +27,20 @@ export interface SetQueryOptions {
    * entry per keystroke, but multi-step filter flows may want a back-button.
    */
   push?: boolean;
+  /**
+   * Re-run the matched chain's route loaders with the new query.
+   *
+   * Defaults to `true` because query params commonly identify the resource
+   * (e.g. `/product?productId=…`) or drive server-side filtering — in both
+   * cases the loader needs the new value. Pass `false` for client-side live
+   * search or pure UI state in the URL, where the page reads `useQuery()`
+   * reactively and the loader does not depend on the changing keys.
+   *
+   * Guards are never re-run; query updates do not cross an auth boundary.
+   * The route component never re-mounts either way — only `useRouteData()`
+   * and `useQuery()` subscribers see the change.
+   */
+  loaders?: boolean;
 }
 
 export interface RouteMatch {
@@ -66,18 +80,31 @@ export interface StewieRouterSPI {
   readonly status: NavigationStatus;
   navigate(to: string | NavigateOptions): Promise<void>;
   /**
-   * Patch the URL's query string in place — reactive `location.query`
-   * updates, browser history syncs, and that's it. Guards do not run,
-   * loaders do not re-run, and the matched route component does not
-   * re-mount. Use this for searchable / filterable UIs where query state
-   * must update on every keystroke without losing input focus.
+   * Patch the URL's query string and reactive `location.query` without
+   * re-mounting the matched route component.
+   *
+   * By default the matched chain's loaders re-run with the new query —
+   * this matches the common case where the query identifies the resource
+   * (`/product?id=…`) or drives server-side filtering. Pass
+   * `{ loaders: false }` for client-side live search or pure UI state in
+   * the URL where the page reads `useQuery()` reactively and the loader
+   * does not depend on the changing keys.
+   *
+   * Guards do not run. The route component does not re-mount. The
+   * returned promise resolves once any pending loaders finish; callers
+   * who don't care can ignore it.
    *
    * @example
-   *   onInput={(e) => router.setQuery({ q: e.target.value })}
-   *   // Clear a filter:
+   *   // server-driven filter (loader re-runs):
+   *   router.setQuery({ status: 'archived' });
+   *   // identity swap (loader re-runs):
+   *   router.setQuery({ productId: '12345' });
+   *   // client-side live search (skip loader rerun):
+   *   onInput={(e) => router.setQuery({ q: e.target.value }, { loaders: false })}
+   *   // delete a key:
    *   router.setQuery({ category: null });
    */
-  setQuery(patch: QueryPatch, options?: SetQueryOptions): void;
+  setQuery(patch: QueryPatch, options?: SetQueryOptions): Promise<void>;
   /**
    * Dismiss the current overlay/dialog destination and return to the
    * underlying view. Behaves like `back()` when no overlay model is active.

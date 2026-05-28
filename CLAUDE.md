@@ -250,7 +250,19 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 
   **Root cause:** Two layered bugs in `packages/router/src/router.ts`. (1) `applyLocation` wrote all four location store fields (pathname / query / hash / params) on every navigation, including writes that didn't change the value. The store notifies on every assignment regardless of equality, so `matchedContent` — which reads `location.pathname` and `location.params` — re-ran on every nav, re-creating the route component via `jsx(rootLevel.component, ...)` and re-mounting its subtree. (2) `runGuardsAndLoad` reset *all* per-level data signals to `undefined` before re-running loaders, so even consumers reading `useRouteData()` reactively saw a transient `undefined`.
 
-  **Fix:** `applyLocation` now compares each field to its current value before writing (`shallowEqualQuery` for the flat string maps). Query-only navigations no longer touch `pathname` or `params`, so `matchedContent` does not re-run, so the route does not re-mount. New SPI method `setQuery(patch, options?)` shipped with the explicit contract: updates `location.query` reactively, pushes/replaces history, never runs guards or loaders, never re-mounts the route component. `null` / `undefined` in the patch deletes the key; the default is `replaceState` (no per-keystroke history entries); pass `{ push: true }` for explicit push. Bypasses the Navigation API path via a sentinel flag so the in-flight `history.*` call doesn't loop back through the navigate listener. See `router.test.ts` "query-only navigation does not re-mount the route" and "setQuery" describe blocks for the locked-in behaviour.
+  **Fix:** `applyLocation` now compares each field to its current value before writing (`shallowEqualQuery` for the flat string maps). Query-only navigations no longer touch `pathname` or `params`, so `matchedContent` does not re-run, so the route does not re-mount.
+
+  New SPI method `setQuery(patch, options?): Promise<void>` shipped. Contract:
+  - URL update + reactive `location.query` update are **synchronous** — `useQuery()` consumers see the new value before any awaited loader work.
+  - Loaders **re-run by default** with the new query. Query commonly identifies the resource (`/product?productId=…`) or drives server-side filters, and that is the case most users default to. Loaders run *without* resetting their data signal to `undefined` first, so `useRouteData()` consumers continue to see the previous value during the in-flight fetch — no empty-state flash.
+  - Pass `{ loaders: false }` to skip the loader re-run. This is the live-search / pure-UI-state-in-URL case where the page reads `useQuery()` reactively and the loader does not depend on the changing keys.
+  - Guards **never** re-run. A query change does not cross an auth boundary.
+  - The route component **never** re-mounts.
+  - `null` / `undefined` in the patch deletes the key.
+  - Default history method is `replaceState`. Pass `{ push: true }` for an explicit history entry.
+  - Bypasses the Navigation API path via a sentinel flag so the in-flight `history.*` call doesn't loop back through the navigate listener.
+
+  See `router.test.ts` "query-only navigation does not re-mount the route" and "setQuery" describe blocks for the locked-in behaviour.
 
   **What this does not address yet:** view-transition coherence around query updates (the next open decision below) and the broader question of when `navigate()` to a same-pathname URL should re-run loaders (current behaviour: always reruns; future option: opt-in flag if the loader does not depend on query).
 

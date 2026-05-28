@@ -546,9 +546,11 @@ describe('setQuery', () => {
     dispose();
   });
 
-  it('does not run guards or loaders', async () => {
+  it('re-runs loaders by default with the new query but skips guards', async () => {
     const guard = vi.fn().mockResolvedValue(true);
-    const load = vi.fn().mockResolvedValue({ value: 1 });
+    const load = vi
+      .fn()
+      .mockImplementation((_params: Record<string, string>, query: Record<string, string>) => Promise.resolve({ q: query.q }));
     const router = createRouter('/search?q=a');
     router._chains = [
       {
@@ -560,10 +562,64 @@ describe('setQuery', () => {
     guard.mockClear();
     load.mockClear();
 
-    router.setQuery({ q: 'b' });
+    await router.setQuery({ q: 'b' });
     expect(guard).not.toHaveBeenCalled();
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(load).toHaveBeenCalledWith({}, { q: 'b' });
+    expect(router._routeDataMap.get('/search')?.()).toEqual({ q: 'b' });
+    expect(router.location.query).toEqual({ q: 'b' });
+  });
+
+  it('skips loaders when { loaders: false }', async () => {
+    const load = vi.fn().mockResolvedValue({ value: 1 });
+    const router = createRouter('/search?q=a');
+    router._chains = [
+      {
+        leafPath: '/search',
+        levels: [{ fullPath: '/search', component: () => null, load }]
+      }
+    ];
+    await router.navigate('/search?q=a');
+    load.mockClear();
+
+    await router.setQuery({ q: 'b' }, { loaders: false });
     expect(load).not.toHaveBeenCalled();
     expect(router.location.query).toEqual({ q: 'b' });
+  });
+
+  it('keeps prior route data visible while a default-mode reload is in flight', async () => {
+    let resolveLoad!: (data: unknown) => void;
+    let loadCalls = 0;
+    const load = (_p: Record<string, string>, query: Record<string, string>) => {
+      loadCalls++;
+      if (loadCalls === 1) return Promise.resolve({ q: query.q });
+      return new Promise((resolve) => {
+        resolveLoad = resolve as (d: unknown) => void;
+      });
+    };
+
+    const router = createRouter('/search?q=a');
+    router._chains = [
+      {
+        leafPath: '/search',
+        levels: [{ fullPath: '/search', component: () => null, load }]
+      }
+    ];
+
+    // Initial navigation seeds the data signal with { q: 'a' }.
+    await router.navigate('/search?q=a');
+    expect(router._routeDataMap.get('/search')?.()).toEqual({ q: 'a' });
+
+    const promise = router.setQuery({ q: 'b' });
+    // location.query updates synchronously, before the loader resolves.
+    expect(router.location.query).toEqual({ q: 'b' });
+    // Stale-but-valid data stays visible during the in-flight reload —
+    // no transient `undefined` flash through useRouteData().
+    expect(router._routeDataMap.get('/search')?.()).toEqual({ q: 'a' });
+
+    resolveLoad({ q: 'b' });
+    await promise;
+    expect(router._routeDataMap.get('/search')?.()).toEqual({ q: 'b' });
   });
 
   it('updates browser history via replaceState by default', () => {

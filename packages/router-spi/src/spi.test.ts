@@ -87,8 +87,8 @@ describe('@stewie-js/router-spi interface definitions', () => {
         return Promise.resolve();
       }
 
-      setQuery(): void {
-        // no-op
+      setQuery(): Promise<void> {
+        return Promise.resolve();
       }
     }
 
@@ -150,7 +150,7 @@ describe('@stewie-js/router-spi interface definitions', () => {
       forward: () => {},
       match: () => null,
       preload: () => Promise.resolve(),
-      setQuery: () => {}
+      setQuery: () => Promise.resolve()
     };
 
     expect(getPathname(mockRouter)).toBe('/test');

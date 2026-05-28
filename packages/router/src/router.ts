@@ -384,8 +384,9 @@ export function createRouter(initialUrl?: string): Router {
       })();
     },
 
-    setQuery(patch, options) {
+    async setQuery(patch, options) {
       const push = options?.push ?? false;
+      const runLoaders = options?.loaders ?? true;
       const merged: Record<string, string> = { ...location.query };
       for (const [key, value] of Object.entries(patch)) {
         if (value === null || value === undefined) {
@@ -425,7 +426,37 @@ export function createRouter(initialUrl?: string): Router {
         _suppressNavListener = false;
       }
 
+      // Update reactive store synchronously so `useQuery()` consumers see the
+      // new value before any awaited loader work begins.
       location.query = merged;
+
+      if (!runLoaders) return;
+
+      // Re-run the current chain's loaders with the new query. Same pathname
+      // so the chain doesn't change; skip guards (same route, no auth
+      // boundary crossing). Importantly, do NOT reset the data signals to
+      // undefined first — `useRouteData()` consumers continue to see the
+      // previous value while the new fetch is in flight, avoiding any
+      // intermediate empty-state flash.
+      let bestChain: FlatRouteChain | null = null;
+      let bestScore = -1;
+      for (const chain of router._chains) {
+        const result = matchRoute(chain.leafPath, location.pathname);
+        if (result && result.score > bestScore) {
+          bestChain = chain;
+          bestScore = result.score;
+        }
+      }
+      if (!bestChain) return;
+
+      const currentParams = { ...location.params };
+      const loadPromises = bestChain.levels
+        .filter((level) => level.load)
+        .map(async (level) => {
+          const data = await level.load!(currentParams, merged);
+          getOrCreateDataSignal(level.fullPath).set(data);
+        });
+      await Promise.all(loadPromises);
     },
 
     dismiss() {
