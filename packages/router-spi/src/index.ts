@@ -27,20 +27,6 @@ export interface SetQueryOptions {
    * entry per keystroke, but multi-step filter flows may want a back-button.
    */
   push?: boolean;
-  /**
-   * Re-run the matched chain's route loaders with the new query.
-   *
-   * Defaults to `true` because query params commonly identify the resource
-   * (e.g. `/product?productId=…`) or drive server-side filtering — in both
-   * cases the loader needs the new value. Pass `false` for client-side live
-   * search or pure UI state in the URL, where the page reads `useQuery()`
-   * reactively and the loader does not depend on the changing keys.
-   *
-   * Guards are never re-run; query updates do not cross an auth boundary.
-   * The route component never re-mounts either way — only `useRouteData()`
-   * and `useQuery()` subscribers see the change.
-   */
-  loaders?: boolean;
 }
 
 export interface RouteMatch {
@@ -80,31 +66,27 @@ export interface StewieRouterSPI {
   readonly status: NavigationStatus;
   navigate(to: string | NavigateOptions): Promise<void>;
   /**
-   * Patch the URL's query string and reactive `location.query` without
-   * re-mounting the matched route component.
+   * Patch the URL's query string and reactive `location.query` synchronously,
+   * without re-mounting the matched route component and without re-running
+   * guards or loaders. `useQuery()` subscribers see the new value
+   * immediately.
    *
-   * By default the matched chain's loaders re-run with the new query —
-   * this matches the common case where the query identifies the resource
-   * (`/product?id=…`) or drives server-side filtering. Pass
-   * `{ loaders: false }` for client-side live search or pure UI state in
-   * the URL where the page reads `useQuery()` reactively and the loader
-   * does not depend on the changing keys.
+   * For data that needs to refetch when query changes, declare the
+   * dependency at the fetch site:
    *
-   * Guards do not run. The route component does not re-mount. The
-   * returned promise resolves once any pending loaders finish; callers
-   * who don't care can ignore it.
+   *   const data = useResource(fetchProduct, () => location.query.productId);
+   *
+   * Loaders only run on `navigate()` (i.e. across guard boundaries).
    *
    * @example
-   *   // server-driven filter (loader re-runs):
-   *   router.setQuery({ status: 'archived' });
-   *   // identity swap (loader re-runs):
-   *   router.setQuery({ productId: '12345' });
-   *   // client-side live search (skip loader rerun):
-   *   onInput={(e) => router.setQuery({ q: e.target.value }, { loaders: false })}
-   *   // delete a key:
+   *   // Live search / filter — pure URL state:
+   *   router.setQuery({ q: e.target.value });
+   *   // Multi-step filter that wants a back-button entry:
+   *   router.setQuery({ status: 'archived' }, { push: true });
+   *   // Delete a key:
    *   router.setQuery({ category: null });
    */
-  setQuery(patch: QueryPatch, options?: SetQueryOptions): Promise<void>;
+  setQuery(patch: QueryPatch, options?: SetQueryOptions): void;
   /**
    * Dismiss the current overlay/dialog destination and return to the
    * underlying view. Behaves like `back()` when no overlay model is active.
