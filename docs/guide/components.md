@@ -185,13 +185,23 @@ function Button() {
 
 ## Async data
 
-`resource` wraps an async function and exposes reactive signals for loading state, data, and error:
+Stewie's async-data primitive is a pair: `defineResource` declares the fetcher at module scope (it carries no signals, so this is safe in SSR); `useResource` inside a component creates the reactive instance.
+
+```ts
+// data/users.ts
+import { defineResource } from '@stewie-js/core'
+
+export const fetchMe = defineResource((_: void, { signal }) =>
+  fetch('/api/me', { signal }).then(r => r.json())
+)
+```
 
 ```tsx
+import { useResource, Show } from '@stewie-js/core'
+import { fetchMe } from '../data/users'
+
 function UserProfile() {
-  const user = resource((signal) =>
-    fetch('/api/me', { signal }).then(r => r.json())
-  )
+  const user = useResource(fetchMe, () => undefined)
 
   return (
     <Show when={() => !user.loading()} fallback={<Spinner />}>
@@ -201,9 +211,11 @@ function UserProfile() {
 }
 ```
 
-The fetcher receives an `AbortSignal`. Pass it to `fetch()` so the network request is cancelled when the component unmounts or when `refetch()` is called. If you don't need cancellation you can ignore it.
+The fetcher's second argument is `{ signal: AbortSignal }`. Pass it to `fetch()` so the network request is cancelled when the source changes, `refetch()` is called, or the component unmounts.
 
-Use `user.error()` to check for failures and `user.refetch()` to re-trigger the fetch.
+The second argument to `useResource` is the **source thunk** — when it changes (reactively), the fetcher re-runs with the new value. `useResource(fetchUser, () => params.id)` refetches whenever the param signal changes; `useResource(fetchMe, () => undefined)` fetches once.
+
+Use `user.error()` to check for failures and `user.refetch()` to re-trigger the fetch. See the [Core API reference](../reference/core-api.md#async-data) for the full `Resource<T>` shape and the paired `defineAction`/`useAction` primitives for mutations.
 
 ---
 

@@ -51,11 +51,13 @@ Runs `fn` immediately and re-runs it whenever any reactive value read inside `fn
 
 ```ts
 const dispose = effect(() => {
-  document.title = `Count: ${count()}`
+  console.log(`Count: ${count()}`)
 })
 
 dispose()  // stop the effect
 ```
+
+> **Not for setting `document.title`.** Use [`useTitle`](#usetitlevalue-void) for that — it's the right primitive and works on SSR too. `effect()` is for general side-effects that don't have a dedicated primitive.
 
 `fn` may return a cleanup function. It is called before the next run and when the effect is disposed.
 
@@ -113,7 +115,7 @@ function DataLoader() {
 }
 ```
 
-This is the mechanism `resource()` uses to cancel in-flight requests when a component unmounts.
+This is the mechanism `useResource` uses to cancel in-flight requests when the source changes or the component unmounts.
 
 ---
 
@@ -147,21 +149,30 @@ See `getOwner` for the typical usage pattern.
 
 ---
 
-### `createRoot<T>(fn): T`
+### `reactiveScope<T>(fn): T`
 
-Creates a reactive ownership scope. Effects and computed values created inside `fn` are owned by this root and disposed together when `dispose()` is called.
+Creates a reactive ownership scope and runs `fn` inside it. Use this when you need to create signals, computeds, effects, or `useResource`/`useAction` instances **outside of a component body** — for example, in a worker, a non-component utility, or a test fixture.
 
 ```ts
-const dispose = createRoot(dispose => {
+import { reactiveScope, signal, effect } from '@stewie-js/core'
+
+const dispose = reactiveScope((dispose) => {
   const count = signal(0)
   effect(() => console.log(count()))
+  count.set(1)  // logs: 1
   return dispose
 })
 
-dispose()  // stops all effects created inside
+dispose()  // stops the effect
 ```
 
-The `dispose` argument is optional — `createRoot(() => { ... })` is the common form used by the renderer for each component.
+> **You don't need this inside a component body.** Component bodies are already reactive scopes — calling `signal()`, `effect()`, or `useResource()` directly at the top of a component is the idiomatic form. `reactiveScope` is only for code that runs outside the component lifecycle.
+
+The `dispose` argument is optional — `reactiveScope(() => { ... })` is fine when you don't need to tear down manually.
+
+### `createRoot<T>(fn): T`
+
+Lower-level variant of `reactiveScope` used by the renderer for each component. Most user code should reach for `reactiveScope` instead — the two are functionally equivalent; `createRoot` is named for its role in framework internals.
 
 ---
 
@@ -341,7 +352,7 @@ Catches errors thrown during rendering of its children and renders `fallback` in
 
 ### `<Suspense fallback>`
 
-Shows `fallback` while children are loading. Works with `resource().read()` and async data.
+Shows `fallback` while children are loading. Works with `useResource(...).read()` and async data.
 
 ```tsx
 <Suspense fallback={<Spinner />}>
@@ -365,18 +376,47 @@ Renders children only on the client. Renders nothing during SSR.
 
 ## Async Data
 
-### `resource<T>(fetcher): Resource<T>`
+Stewie has two paired primitives for async data: **resources** for reads (anything that fetches), and **actions** for writes (anything that mutates). Both follow the same `define*` / `use*` shape:
 
-Wraps an async function and exposes reactive signals for its loading state, data, and error. The fetcher is called immediately.
+- `define*` returns an opaque token. **Safe at module scope.** Carries no signals.
+- `use*` is a free function called inside a component (or `reactiveScope`). It creates the per-component instance owning `{ data, loading, error }` (resources) or `{ run, pending, error, lastRun }` (actions).
 
-The fetcher receives an `AbortSignal` that is cancelled automatically in two situations:
-- When `refetch()` is called — the previous in-flight request is aborted before the new one starts.
-- When the owning component unmounts — the in-flight request is aborted and its result is discarded.
+This split is what makes the definition shareable across files without becoming an accidental cross-request singleton in SSR.
+
+### `defineResource<S, T>(fetcher): ResourceDefinition<S, T>`
+
+Defines a query — a fetcher that takes a source value `S` and returns data `T`. Safe to declare at module scope and import from any file.
+
+The fetcher receives the current source value and an `{ signal }` object whose `AbortSignal` is cancelled when the source changes, `refetch()` is called, or the owning scope disposes.
 
 ```ts
-const users = resource((signal) =>
-  fetch('/api/users', { signal }).then(r => r.json())
+// data/users.ts — module scope is fine
+import { defineResource } from '@stewie-js/core'
+
+export const fetchUser = defineResource((id: string, { signal }) =>
+  fetch(`/api/users/${id}`, { signal }).then(r => r.json())
 )
+```
+
+### `useResource<S, T>(def, source): Resource<T>`
+
+Creates the per-component reactive instance. `source` is a thunk — when it changes (reactively), the fetcher re-runs with the new value.
+
+```tsx
+import { useResource, Show } from '@stewie-js/core'
+import { fetchUser } from '../data/users'
+import { useParams } from '@stewie-js/router'
+
+function ProfilePage() {
+  const params = useParams<{ id: string }>()
+  const user = useResource(fetchUser, () => params.id)
+
+  return (
+    <Show when={() => !user.loading()} fallback={<Spinner />}>
+      {() => <h1>{user.data()!.name}</h1>}
+    </Show>
+  )
+}
 ```
 
 **`Resource<T>` interface**
@@ -385,39 +425,120 @@ const users = resource((signal) =>
 |--------|-------------|
 | `data` | `Signal<T \| undefined>` — the resolved data, or `undefined` while loading. |
 | `loading` | `Signal<boolean>` — true while the fetch is in flight. |
-| `error` | `Signal<unknown>` — the thrown error, or `null` if none. |
+| `error` | `Signal<Error \| null>` — the thrown error, or `null` if none. |
 | `read()` | Suspense-compatible accessor — throws a Promise while loading, throws the error on failure, returns data when ready. |
-| `refetch()` | Abort the current fetch, then re-invoke the fetcher. Returns a Promise that resolves when the new fetch completes. |
+| `refetch()` | Abort the current fetch, then re-invoke the fetcher. Returns a Promise. |
 
-**DOM usage (recommended):**
+**Deduplication.** Multiple components calling `useResource(fetchUser, () => '1')` share one fetch through the underlying [data registry](server-api.md#data-registry). On SSR, the resolved data is replayed on the client without a refetch.
+
+**When to use this vs a route loader.** Route loaders run before the route mounts (good for the must-have-before-render data); `useResource` runs inside the component and refetches when its source changes (good for component-local data and query-reactive fetches). For URL-driven data that changes via `setQuery()`, prefer `useResource(fn, () => location.query.someKey)` — loaders don't re-run on `setQuery()`. See the [Stewie way guide](../guide/stewie-way.md) for a fuller walkthrough.
+
+### `defineAction<I, O>(fn): ActionDefinition<I, O>`
+
+Defines a mutation — an async function that takes an input `I` and returns `O`. Safe at module scope.
+
+```ts
+// actions/users.ts
+import { defineAction } from '@stewie-js/core'
+
+export const updateUserAction = defineAction(async (input: { id: string; name: string }) => {
+  const res = await fetch(`/api/users/${input.id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: input.name })
+  })
+  if (!res.ok) throw new Error('Update failed')
+  return res.json()
+})
+```
+
+The zero-arg overload (`defineAction(async () => ...)`) infers `I = void`, so `act.run()` takes no parameter.
+
+### `useAction<I, O>(def): Action<I, O>`
+
+Creates the per-component action instance.
 
 ```tsx
-function UserList() {
-  const users = resource((signal) =>
-    fetch('/api/users', { signal }).then(r => r.json())
-  )
+function EditName({ id }: { id: string }) {
+  const name = signal('')
+  const update = useAction(updateUserAction)
+
   return (
-    <Show when={() => !users.loading()} fallback={<Spinner />}>
-      {() => <ul>{users.data()!.map(u => <li>{u.name}</li>)}</ul>}
-    </Show>
+    <form onSubmit={async (e) => {
+      e.preventDefault()
+      const result = await update.run({ id, name: name.peek() })
+      if (update.lastRun() === 'success') navigate('/profile')
+    }}>
+      <input $value={name} disabled={update.pending()} />
+      <Show when={update.error}>{(err) => <p class="error">{err.message}</p>}</Show>
+      <button disabled={update.pending()}>Save</button>
+    </form>
   )
 }
 ```
 
-**SSR usage with `<Suspense>`:**
+**`Action<I, O>` interface**
+
+| Member | Description |
+|--------|-------------|
+| `run(input)` | Invoke the action. No-ops while `pending` is true. Returns `Promise<O \| undefined>` — `undefined` on error or while blocked. |
+| `pending` | `Signal<boolean>` — true while the action is in flight. |
+| `error` | `Signal<Error \| null>` — the caught error, or `null`. |
+| `lastRun` | `Signal<'idle' \| 'success' \| 'error' \| 'blocked'>` — useful for branching after void-returning actions. |
+| `reset()` | Clears `error` and `lastRun`. No-op while pending. |
+
+Post-mutation work (navigation, store sync, toasts) lives in caller code after `await act.run()`. No lifecycle callbacks.
+
+---
+
+## Head / Metadata
+
+Signal-driven primitives for `document.title` and `<meta>` tags. On the client they mutate `document.head` directly. On the server they register with the SSR render context — the renderer emits `<title>` / `<meta>` tags in the `<head>`, or as inline `<script>document.title = '…'</script>` patches for tags that resolve inside a Suspense boundary.
+
+Use these instead of writing `document.title = …` in an `effect`. They are SSR-safe, batched, and cleaned up automatically.
+
+### `useTitle(value): void`
+
+Reactively set `document.title`. Accepts a `string`, an accessor `() => string`, or a `Signal<string>`. Must be called inside a component or `reactiveScope()`.
 
 ```tsx
-function UserList() {
-  const users = resource((signal) =>
-    fetch('/api/users', { signal }).then(r => r.json())
-  )
-  const data = users.read()  // throws Promise — <Suspense> awaits it
-  return <ul>{data.map(u => <li>{u.name}</li>)}</ul>
+function ProductPage() {
+  const product = useResource(fetchProduct, () => params.id)
+  useTitle(() => product.data()?.name ?? 'Loading…')
+  return <article>...</article>
 }
-// wrap with: <Suspense fallback={<Spinner />}><UserList /></Suspense>
 ```
 
-For SSR, prefer route-level `load()` functions (see [Router API](router-api.md)) which run before rendering begins. `resource()` is best suited to client-side data fetching after the initial page load.
+If multiple `useTitle` calls are active at once, the last one to run wins (matching browser semantics — one title per document). The previous title is **not** restored on cleanup; restoring would require a stack and is brittle under async navigation.
+
+### `useMeta(props): void`
+
+Reactively manage one `<meta>` tag in `document.head`. Identity key is `name` or `property`; subsequent reactive updates change only the `content` attribute. On cleanup, the inserted tag is removed.
+
+```tsx
+function ArticlePage() {
+  const article = useResource(fetchArticle, () => params.slug)
+  useMeta({ name: 'description', content: () => article.data()?.excerpt ?? '' })
+  useMeta({ property: 'og:title', content: () => article.data()?.title ?? '' })
+  return <article>...</article>
+}
+```
+
+| Prop shape | Use for |
+|---|---|
+| `{ name, content }` | Standard meta tags (`description`, `keywords`, `viewport`, …). |
+| `{ property, content }` | OpenGraph / Twitter cards (`og:title`, `og:image`, `twitter:card`, …). |
+
+### `<Head>` component
+
+For occasional needs that don't fit `useTitle`/`useMeta` — link tags, custom meta — render arbitrary children into `document.head`:
+
+```tsx
+<Head>
+  <link rel="canonical" href={() => `https://example.com${location.pathname}`} />
+</Head>
+```
+
+On the server, `<Head>` children are emitted into the `<head>` of the rendered document.
 
 ---
 
