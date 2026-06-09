@@ -7,6 +7,7 @@
 - [Components](guide/components.md) — function components, JSX, control flow, context, lifecycle
 - [Routing](guide/routing.md) — Router setup, navigation, guards, data loading, lazy routes
 - [Server-Side Rendering](guide/ssr.md) — renderToString, streaming, hydration, ClientOnly, adapters
+- [The Stewie Way](guide/stewie-way.md) — decision-oriented guide: which primitive for which job
 
 ## Patterns
 
@@ -18,6 +19,6 @@ Practical patterns and non-obvious behaviours worth knowing about.
 
 ## Reference
 
-- [Core API](reference/core-api.md) — signals, computed, effects, store, context, control flow, resource, lazy, mount, hydrate
+- [Core API](reference/core-api.md) — signals, computed, effects, store, context, control flow, async data (resources + actions), head / metadata, lazy, mount, hydrate
 - [Router API](reference/router-api.md) — Router, Route, Link, hooks, guards
 - [Server API](reference/server-api.md) — renderToString, renderToStream, hydration registry
