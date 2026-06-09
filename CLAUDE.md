@@ -264,7 +264,7 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 
   See `router.test.ts` "query-only navigation does not re-mount the route" and the `setQuery` describe block for the locked-in behaviour.
 
-  **Known footgun (to be diagnosed):** if a route `load()` reads `location.query` non-reactively in its body and a caller uses `setQuery`, `useRouteData()` will hold stale data until the next real `navigate()`. Surfacing this as a dev-mode warning (and a `STW###` entry in `DIAGNOSTICS.md`) is the follow-up. The user-code fix is to move the query-dependent fetch into a `useResource` instead of a loader.
+  **Known footgun (STW075):** if a route `load(params, query)` reads its `query` argument and a caller uses `setQuery`, `useRouteData()` will hold stale data until the next real `navigate()`. Captured as a dev-mode warning in `DIAGNOSTICS.md` (Phase 3, dev-runtime, one-shot per route). User-code fix: move the query-dependent fetch into a `useResource` at the consumer.
 
   **What this does not address yet:** view-transition coherence around query updates (the next open decision below) and the broader question of when `navigate()` to a same-pathname URL should re-run loaders (current behaviour: always reruns; future option: opt-in flag if the loader does not depend on query).
 
@@ -283,20 +283,21 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **stewie-js** (2994 symbols, 5117 relationships, 248 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **stewie-js** (3808 symbols, 6595 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
 ## Always Do
 
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
 - **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **Run `gitnexus_impact` based on judgment** before edits that look non-trivial: modifying a widely-used symbol, changing a signature, touching something with many upstream callers, or any change where you're unsure of the blast radius. Skip it for obvious low-risk edits (comments, docstrings, isolated test files, a brand-new file with no callers yet). When you do run it, report the blast radius to the user.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
 - When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
 - When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
 
 ## Never Do
 
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
 - NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
 - NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.

@@ -419,6 +419,23 @@ Guards must return a boolean, a redirect descriptor, or explicitly `true`/`false
 
 **Message:** `navigate() called during a component render. Navigation must happen in event handlers, effects, or loaders — not synchronously during render.`
 
+### STW075 — `setQuery()` called on a route whose `load()` reads its `query` argument
+**Detection:** dev-runtime · **Severity:** warn (one-shot per route)
+
+`setQuery()` deliberately does *not* re-run guards or loaders — it is a synchronous URL + reactive `location.query` patch. If a route's `load(params, query)` reads its `query` argument, the data signal exposed by `useRouteData()` will hold stale data after `setQuery()` until the next real `navigate()`. The fix is to move query-reactive fetching into a `useResource` at the consumer:
+
+```ts
+// In the loader (stays the same — runs once per navigate):
+export const load = (_p, query) => fetchPage(query.page);
+
+// In the component (re-runs whenever location.query.search changes):
+const results = useResource(searchUsers, () => location.query.search);
+```
+
+Detection fires the first time `setQuery()` is called on a route whose chain contains a `load` whose source text references its second parameter. The check is best-effort (function-source string match) and warns at most once per route+key combination.
+
+**Message:** `setQuery({{ {key}: ... }}) was called on route '{path}', whose load() reads its query argument. setQuery does not re-run loaders — useRouteData() will keep the previous value. If you want this to refetch, either call navigate() with the new URL (re-runs guards + loaders) or move the query-dependent fetch into a useResource at the consumer.`
+
 ---
 
 ## SSR and hydration
@@ -598,6 +615,7 @@ No static equivalent; these require execution context.
 | STW051 | `consume()` outside a reactive scope |
 | STW072 | `useParams`/`useQuery`/`useRouteData` outside a router |
 | STW074 | `navigate()` during render |
+| STW075 | `setQuery()` on a route whose `load()` reads its query argument |
 | STW080–082 | Hydration mismatches (text, attribute, structural) |
 | STW084 | Browser-only API during SSR render |
 
