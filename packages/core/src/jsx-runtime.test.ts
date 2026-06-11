@@ -58,3 +58,28 @@ describe('Fragment', () => {
     expect(typeof Fragment).toBe('symbol');
   });
 });
+
+// Compile-time assertions: these don't assert behaviour, they assert that the
+// JSXChild type accepts shapes the runtime already supports. If the recursive
+// definition of JSXChild regresses, these stop compiling.
+describe('JSXChild type', () => {
+  it('accepts mixed siblings including an inline array (e.g. items.map())', () => {
+    // The case from the Pokemon writeup and the Work Queue UserPicker: a static
+    // child alongside `{items.map(...)}` in the children slot.
+    const items = [1, 2, 3];
+    const el = jsx('select', {
+      children: [
+        jsx('option', { value: '', children: 'None' }),
+        items.map((id) => jsx('option', { value: String(id), children: String(id) }))
+      ]
+    });
+    expect(el.type).toBe('select');
+  });
+
+  it('accepts null, undefined, false, true, strings, numbers, and reactive functions', () => {
+    const el = jsx('div', {
+      children: [null, undefined, false, true, 'text', 42, () => 'reactive']
+    });
+    expect(el.type).toBe('div');
+  });
+});

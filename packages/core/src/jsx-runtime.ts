@@ -7,8 +7,12 @@
 
 export type CSSProperties = Record<string, string | number>;
 
-// A single renderable child node — element, text, reactive function, or null.
-export type JSXChild = JSXElement | string | number | (() => unknown) | null;
+// A renderable child node. Recursive: nested arrays are allowed so that
+// `{items.map(item => <li>...)}` mixed with sibling children typechecks.
+// The DOM renderer and SSR streamer both flatten arrays recursively at runtime,
+// and treat `null` / `undefined` / `false` as "render nothing" — matching this
+// type's permissiveness.
+export type JSXChild = JSXElement | string | number | boolean | (() => unknown) | null | undefined | JSXChild[];
 
 export interface HTMLAttributes {
   class?: string | (() => string);
