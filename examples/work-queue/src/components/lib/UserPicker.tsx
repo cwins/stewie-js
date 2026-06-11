@@ -35,7 +35,9 @@ export function UserPicker({ users, value, onChange, label, inputId, emptyLabel 
       data-testid={testId}
     >
       <option value="">{emptyLabel}</option>
-      {users.map((u) => <option value={u.id}>{u.displayName}</option>)}
+      {users.map((u) => (
+        <option value={u.id}>{u.displayName}</option>
+      ))}
     </select>
   );
 

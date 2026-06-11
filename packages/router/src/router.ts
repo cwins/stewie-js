@@ -252,6 +252,8 @@ export function createRouter(initialUrl?: string): Router {
     // Reset ALL per-level data signals before loading the new chain.
     // This ensures stale data from a previous route does not bleed through
     // when navigating to a route whose path has a different fullPath key.
+    // Skipped during preload: nothing is committed, and a preload writing to
+    // the registry is the entire point of warming the cache.
     if (updateStatus) {
       status.phase = 'loading';
       for (const sig of _routeDataMap.values()) {
@@ -259,16 +261,16 @@ export function createRouter(initialUrl?: string): Router {
       }
     }
 
-    // Run loaders in parallel.
-    if (updateStatus) {
-      const loadPromises = bestChain.levels
-        .filter((level) => level.load)
-        .map(async (level) => {
-          const data = await level.load!(matchedParams, parsed.query);
-          getOrCreateDataSignal(level.fullPath).set(data);
-        });
-      await Promise.all(loadPromises);
-    }
+    // Run loaders in parallel. Both paths run them: navigate awaits before
+    // committing; preload awaits so the caller (Link hover) can chain on the
+    // returned promise.
+    const loadPromises = bestChain.levels
+      .filter((level) => level.load)
+      .map(async (level) => {
+        const data = await level.load!(matchedParams, parsed.query);
+        getOrCreateDataSignal(level.fullPath).set(data);
+      });
+    await Promise.all(loadPromises);
 
     return null;
   }
@@ -455,9 +457,31 @@ export function createRouter(initialUrl?: string): Router {
 
     async preload(to: string | NavigateOptions): Promise<void> {
       const url = typeof to === 'string' ? to : to.to;
-      // Run guards and loader without committing — side effects on _routeDataMap
-      // and status are suppressed so the current view is unaffected.
-      await runGuardsAndLoad(url, false);
+      // Kick off the lazy chunk download in parallel with guard/loader execution.
+      // Both deduplicate internally: a Link hovered many times still triggers
+      // exactly one fetch per route.
+      const parsed = parseUrl(url);
+      let bestChain: FlatRouteChain | null = null;
+      let bestScore = -1;
+      for (const chain of router._chains) {
+        const result = matchRoute(chain.leafPath, parsed.pathname);
+        if (result && result.score > bestScore) {
+          bestChain = chain;
+          bestScore = result.score;
+        }
+      }
+      const chunkPromises: Promise<void>[] = [];
+      if (bestChain) {
+        for (const level of bestChain.levels) {
+          // A lazy() component exposes `.preload()`. Eager components don't,
+          // and we just skip them.
+          const comp = level.component as unknown as { preload?: () => Promise<void> };
+          if (typeof comp?.preload === 'function') chunkPromises.push(comp.preload());
+        }
+      }
+      // Guards and loaders run with updateStatus=false so the current view is
+      // unaffected. Errors propagate; callers (Link hover) ignore them.
+      await Promise.all([runGuardsAndLoad(url, false), ...chunkPromises]);
     },
 
     _setLocation(url: string, params?: Record<string, string>) {

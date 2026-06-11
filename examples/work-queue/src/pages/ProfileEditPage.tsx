@@ -144,7 +144,9 @@ export function ProfileEditPage(): JSXElement {
               onChange={(e: Event) => $timezone.set((e.target as HTMLSelectElement).value)}
               data-testid="timezone-select"
             >
-              {TIMEZONES.map((tz) => <option value={tz}>{tz}</option>)}
+              {TIMEZONES.map((tz) => (
+                <option value={tz}>{tz}</option>
+              ))}
             </select>
           </div>
 

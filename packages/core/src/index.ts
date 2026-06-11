@@ -56,7 +56,7 @@ export { hydrate } from './hydrate.js';
 
 // Lazy-loaded components
 export { lazy, _LazyBoundary } from './lazy.js';
-export type { _LazyBoundaryProps } from './lazy.js';
+export type { _LazyBoundaryProps, LazyComponent } from './lazy.js';
 
 // Async resource primitive — defineResource + useResource.
 // defineResource(fn) creates no signals (safe at module scope).

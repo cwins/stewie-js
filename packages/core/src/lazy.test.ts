@@ -141,4 +141,52 @@ describe('lazy()', () => {
 
     expect(container.textContent).toContain('loaded');
   });
+
+  describe('preload()', () => {
+    it('triggers the factory without rendering', async () => {
+      let factoryCalls = 0;
+      const factory = () => {
+        factoryCalls++;
+        return Promise.resolve({ default: RealComp });
+      };
+      const LazyComp = lazy(factory);
+
+      expect(factoryCalls).toBe(0);
+      await LazyComp.preload();
+      expect(factoryCalls).toBe(1);
+    });
+
+    it('dedupes concurrent and repeat preload() calls', async () => {
+      let factoryCalls = 0;
+      const factory = () => {
+        factoryCalls++;
+        return Promise.resolve({ default: RealComp });
+      };
+      const LazyComp = lazy(factory);
+
+      await Promise.all([LazyComp.preload(), LazyComp.preload(), LazyComp.preload()]);
+      await LazyComp.preload(); // again, post-resolution
+      expect(factoryCalls).toBe(1);
+    });
+
+    it('preload() then mount renders immediately without re-fetching', async () => {
+      let factoryCalls = 0;
+      const factory = () => {
+        factoryCalls++;
+        return Promise.resolve({ default: RealComp });
+      };
+      const LazyComp = lazy(factory);
+
+      await LazyComp.preload();
+      expect(factoryCalls).toBe(1);
+
+      const container = document.createElement('div');
+      reactiveScope(() => {
+        mount(jsx(LazyComp, {}), container);
+      });
+      // Already-loaded path — the loaded signal starts true.
+      expect(container.textContent).toContain('loaded');
+      expect(factoryCalls).toBe(1);
+    });
+  });
 });

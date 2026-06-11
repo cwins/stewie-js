@@ -607,3 +607,48 @@ describe('setQuery', () => {
     expect(router.location.query).toEqual({ tab: 'tasks' });
   });
 });
+
+describe('preload', () => {
+  it('runs the matched chain loaders without committing the navigation', async () => {
+    const load = vi.fn().mockResolvedValue({ ok: true });
+    const router = createRouter('/');
+    router._chains = [{ leafPath: '/dest', levels: [{ fullPath: '/dest', component: () => null, load }] }];
+    await router.preload('/dest');
+    expect(load).toHaveBeenCalledTimes(1);
+    // Current location is still '/' — preload doesn't commit the navigation —
+    // but the destination's data signal IS warmed so a click resolves instantly.
+    expect(router.location.pathname).toBe('/');
+    expect(router._routeDataMap.get('/dest')?.()).toEqual({ ok: true });
+  });
+
+  it("does not reset other routes' data signals while preloading", async () => {
+    const router = createRouter('/');
+    router._chains = [
+      { leafPath: '/dest', levels: [{ fullPath: '/dest', component: () => null, load: () => Promise.resolve('warm') }] },
+      { leafPath: '/other', levels: [{ fullPath: '/other', component: () => null, load: () => Promise.resolve('keep') }] }
+    ];
+    await router.navigate('/other');
+    expect(router._routeDataMap.get('/other')?.()).toBe('keep');
+
+    await router.preload('/dest');
+    // /other's data signal is untouched — preload skips the cross-route reset.
+    expect(router._routeDataMap.get('/other')?.()).toBe('keep');
+    expect(router._routeDataMap.get('/dest')?.()).toBe('warm');
+  });
+
+  it("calls the component's preload() when it is a lazy boundary", async () => {
+    const preload = vi.fn().mockResolvedValue(undefined);
+    const lazyLike = Object.assign(() => null, { preload });
+    const router = createRouter('/');
+    router._chains = [{ leafPath: '/dest', levels: [{ fullPath: '/dest', component: lazyLike as unknown as () => null }] }];
+    await router.preload('/dest');
+    expect(preload).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips components without a preload() method', async () => {
+    const router = createRouter('/');
+    router._chains = [{ leafPath: '/dest', levels: [{ fullPath: '/dest', component: () => null }] }];
+    // Should not throw — eager components simply have no preload.
+    await router.preload('/dest');
+  });
+});

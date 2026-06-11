@@ -283,6 +283,51 @@ describe('Link DOM', () => {
     const { html } = await renderToString(jsx(Link as any, { to: '/x', children: 'X' }));
     expect(html).toContain('href="/x"');
   });
+
+  it('preloads the destination on mouseenter and focus', () => {
+    const container = document.createElement('div');
+    const router = createRouter('/');
+    const preloadSpy = vi.spyOn(router, 'preload').mockResolvedValue(undefined);
+
+    reactiveScope(() => {
+      mount(
+        jsx(RouterContext.Provider as any, {
+          value: router,
+          children: jsx(Link as any, { to: '/about', children: 'About' })
+        }),
+        container
+      );
+    });
+
+    const link = container.querySelector('a')!;
+    link.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(preloadSpy).toHaveBeenCalledWith({ to: '/about' });
+
+    preloadSpy.mockClear();
+    link.dispatchEvent(new FocusEvent('focus'));
+    expect(preloadSpy).toHaveBeenCalledWith({ to: '/about' });
+  });
+
+  it('does not preload when prefetch={false}', () => {
+    const container = document.createElement('div');
+    const router = createRouter('/');
+    const preloadSpy = vi.spyOn(router, 'preload').mockResolvedValue(undefined);
+
+    reactiveScope(() => {
+      mount(
+        jsx(RouterContext.Provider as any, {
+          value: router,
+          children: jsx(Link as any, { to: '/about', prefetch: false, children: 'About' })
+        }),
+        container
+      );
+    });
+
+    const link = container.querySelector('a')!;
+    link.dispatchEvent(new MouseEvent('mouseenter'));
+    link.dispatchEvent(new FocusEvent('focus'));
+    expect(preloadSpy).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------

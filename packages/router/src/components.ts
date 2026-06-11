@@ -68,6 +68,15 @@ export interface LinkProps {
   replace?: boolean;
   children: JSXElement | JSXElement[] | string;
   class?: string;
+  /**
+   * Whether to preload the destination on hover and focus. Defaults to `true`.
+   *
+   * Preloading runs the destination chain's guards + loaders (without
+   * committing the navigation) and warms any lazy component chunks, so a
+   * subsequent click resolves instantly. Set `false` to opt out — useful for
+   * links to expensive routes or links the user is unlikely to follow.
+   */
+  prefetch?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -499,7 +508,7 @@ export function Route(_props: RouteProps): JSXElement {
  * normally (open in new tab, etc.).
  */
 export function Link(props: LinkProps): JSXElement {
-  const { to, replace, class: className, children, ...rest } = props;
+  const { to, replace, class: className, children, prefetch, ...rest } = props;
   // Capture router synchronously during component render (consume works here).
   let router: Router | null = null;
   try {
@@ -518,12 +527,24 @@ export function Link(props: LinkProps): JSXElement {
       }
     : undefined;
 
+  // Prefetch on intent (hover, focus). Fire-and-forget: preload() dedupes
+  // internally and any errors are absorbed so a hover never produces a
+  // user-visible failure. Skipped when no router (SSR / plain anchor) or
+  // when the caller opts out with `prefetch={false}`.
+  const handlePrefetch =
+    router && prefetch !== false
+      ? () => {
+          router!.preload({ to }).catch(() => {});
+        }
+      : undefined;
+
   return jsx('a', {
     ...rest,
     href: to,
     class: className,
     children,
-    ...(handleClick ? { onClick: handleClick } : {})
+    ...(handleClick ? { onClick: handleClick } : {}),
+    ...(handlePrefetch ? { onMouseEnter: handlePrefetch, onFocus: handlePrefetch } : {})
   });
 }
 

@@ -146,6 +146,16 @@ function awaitOneStylesheet(href: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
+ * Shape of the component returned by {@link lazy}. Callable as a component;
+ * the `.preload()` method is for tooling — most app code never touches it.
+ * The router calls it during `preload(url)` and `<Link>` hover/focus to warm
+ * the boundary's chunk + CSS so the click-to-render flip is instant.
+ */
+export type LazyComponent<T extends Component> = T & {
+  preload(): Promise<void>;
+};
+
+/**
  * Creates a lazily-loaded component. The `factory` is a function that returns
  * a dynamic import — the bundler code-splits at this boundary.
  *
@@ -165,7 +175,7 @@ function awaitOneStylesheet(href: string): Promise<void> {
  * <Route path="/page" component={MyPage} />
  * ```
  */
-export function lazy<T extends Component>(factory: () => Promise<T | { default: T }>, id?: string): T {
+export function lazy<T extends Component>(factory: () => Promise<T | { default: T }>, id?: string): LazyComponent<T> {
   // Shared across all instances of this lazy component (one per lazy() call).
   let loadedComponent: T | null = null;
   let loadPromise: Promise<void> | null = null;
@@ -217,5 +227,11 @@ export function lazy<T extends Component>(factory: () => Promise<T | { default: 
     } as JSXElement;
   }
 
-  return LazyComponent as unknown as T;
+  // Expose a preload entry point so callers (e.g. router preload, hover/focus
+  // prefetch in <Link>) can warm the chunk + CSS without rendering. Deduped
+  // via the shared loadPromise: hovering the same Link many times triggers
+  // exactly one fetch.
+  (LazyComponent as unknown as LazyComponent<T>).preload = () => startLoad();
+
+  return LazyComponent as unknown as LazyComponent<T>;
 }
