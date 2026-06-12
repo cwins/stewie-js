@@ -421,6 +421,45 @@ export interface JsxReplacement {
  * transformed to direct DOM code. Returns replacements sorted in
  * reverse source order (so applying them doesn't shift earlier offsets).
  */
+/**
+ * Returns true if a JSX node sits inside another JSX subtree at any depth,
+ * even when wrapped in transparent expression constructs (parens, ternary,
+ * `||`/`??`, `as` cast, non-null assertion). The previous check only looked
+ * one level up the AST, so:
+ *
+ *     <div>{cond ? <span/> : <p/>}</div>
+ *     <div>{user.bio || <span/>}</div>
+ *
+ * both got their inner JSX flagged as "top-level" and rewritten to
+ * imperative `document.createElement` IIFEs, producing JSX/JS hybrid output
+ * that the JSX parser can no longer parse. Walking through transparent
+ * expressions until we find either a JSX parent (= still inside JSX) or
+ * something opaque (= genuine top-level) closes that gap.
+ */
+function isInsideJsxContext(node: ts.Node): boolean {
+  let current: ts.Node | undefined = node.parent;
+  while (current) {
+    if (ts.isJsxElement(current) || ts.isJsxFragment(current)) return true;
+    if (ts.isJsxExpression(current)) {
+      const grand = current.parent;
+      return ts.isJsxElement(grand) || ts.isJsxFragment(grand);
+    }
+    // Keep walking through expression constructs that don't break JSX context.
+    if (
+      ts.isParenthesizedExpression(current) ||
+      ts.isConditionalExpression(current) ||
+      ts.isBinaryExpression(current) ||
+      ts.isAsExpression(current) ||
+      ts.isNonNullExpression(current)
+    ) {
+      current = current.parent;
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
 export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[] {
   const replacements: JsxReplacement[] = [];
   const counter: Counter = { n: 0 };
@@ -445,14 +484,7 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
     //   <div>{<span/>}</div>           grandparent is JSX (insideJsx)
     //   <For>{item => <div/>}</For>    inside a render-prop (insideReactiveFn)
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) {
-      const parent = node.parent;
-      const insideJsx =
-        ts.isJsxElement(parent) ||
-        ts.isJsxFragment(parent) ||
-        // JsxExpression ({...}) whose grandparent is JSX
-        (ts.isJsxExpression(parent) && (ts.isJsxElement(parent.parent) || ts.isJsxFragment(parent.parent)));
-
-      if (!insideJsx && !insideReactiveFn && canTransformJsx(node, sourceFile)) {
+      if (!isInsideJsxContext(node) && !insideReactiveFn && canTransformJsx(node, sourceFile)) {
         const result = emitJsxToDom(node as ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment, sourceFile, counter);
 
         const setupCode = result.lines.join('\n    ');

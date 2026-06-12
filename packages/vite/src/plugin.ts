@@ -83,13 +83,21 @@ export function stewie(options?: StewiePluginOptions): Plugin {
       viteRoot = config.root;
     },
 
-    // Configure esbuild's jsxImportSource so JSX in .tsx files compiles to
-    // @stewie-js/core's descriptor runtime without relying on per-file pragma comments.
+    // Configure the JSX transform's import source so JSX in .tsx files compiles
+    // to @stewie-js/core's descriptor runtime without relying on per-file
+    // pragma comments. Vite 8+ uses oxc by default and deprecates the
+    // `esbuild` config key here, so set both for compat.
     config() {
       return {
         esbuild: {
           jsxImportSource: '@stewie-js/core'
-        }
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        oxc: {
+          jsx: {
+            importSource: '@stewie-js/core'
+          }
+        } as any
       };
     },
 
