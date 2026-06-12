@@ -122,7 +122,7 @@ These are the reasons Stewie exists rather than "just use X":
 - `renderToString` and `renderToStream` (streaming with progressive Suspense flushing)
 - `useTitle`, `useMeta`, `<Head>` — signal-driven head/metadata primitives; `renderToString` returns `headHtml`; `renderToStream` emits inline `<script>` patches for Suspense boundary flushes
 - True DOM-claiming hydration via `HydrationCursor` — including streaming-mode Suspense: when `hydrate()` runs before a streamed boundary's swap script fires, `renderSuspense` detects the `<div id="__ssN">` placeholder, leaves the fallback DOM in place, captures the active context, and waits via `MutationObserver` for the swap; on swap it re-seeds the `DataRegistry` from the inline `__STEWIE_DATA__` patch and sub-cursor-hydrates the post-swap nodes, with no refetch and no fallback flash
-- Client router with guards, data loading, lazy routes, View Transitions, Navigation API, History API fallback
+- Client router with guards, data loading, lazy routes, View Transitions (with `stewie-kind-*` / `stewie-direction-*` / `stewie-transition-*` CSS types), scroll restoration (manual mode; forward/traverse/hash defaults; opt-out via `navigate({ scroll: false })`), `<Link>` hover/focus prefetch, Navigation API, History API fallback
 - Layout routes via nested `<Route>` trees and `<Outlet />` — guards outermost→inner, parallel loaders, per-level `useRouteData()`, index routes via `path="."`, setup-time validation
 - Typed route definitions via `createRoute(path, config)` — single declaration carries the path, runtime config (component / `beforeEnter` / `load`), and `P` / `Q` type shapes. The returned value is callable as a JSX component (`<ProjectEditRoute />` mounts the route inside `<Router>`) and is also passed value-typed to `useParams(route)` / `useQuery(route)`. `P` is inferred from the path literal via `PathParams<Path>`; explicit `<P, Q>` generics override when the path has no params or the route carries query types. The legacy generic forms — `useParams<T>()` over a hand-written `RouteDefinition` or a bare param shape — remain as overloads for back-compat. Mixing raw `<Route>` JSX and `createRoute` components in the same tree works (Router's child-walker recognises both shapes). See `decision-records/0003-route-definitions-via-createRoute.md`.
 - SSR router with guard execution and `renderToString` integration
@@ -276,14 +276,36 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 
   This makes the docs-gap entry in "Not yet real" the highest-leverage backlog item: it would have prevented Pokemon's head/title workaround, the `reactiveScope` misuse, and probably the `resource` non-adoption.
 
-- **View Transitions and scroll restoration coherence (NEW 2026-05-28)** — Open. Pokemon writeup notes the router has View Transitions support but: "forward navigation transitions were inconsistent compared to browser back/forward; duplicate `view-transition-name` situations were easy to create accidentally; it was not obvious what the router guarantees around same-document transitions; scroll behavior also had to be managed manually at the app layer." They built a hand-rolled `appState.transition` store to remember the last-interacted slug for visual continuity.
+- ~~**View Transitions and scroll restoration coherence**~~ — Settled and shipped in 0.9.0. After a design pass and rubber-wall review the v1 contract is:
 
-  Low-priority compared to the query-state issue but worth tracking. The router probably wants: (i) a documented contract for what it does and does not do around `view-transition-name` collisions (or guidance that authors must scope names per-route), (ii) scroll restoration defaults that match browser back/forward and reset for forward navigations, (iii) a small `useTransitionContext()` or similar to expose "what triggered this navigation" so the destination can opt into a coherent visual.
+  **Two orthogonal fields on `NavigationStatus`:**
+  - `kind: 'push' | 'replace' | 'traverse' | 'reload'` — *mechanical*, mirrors Navigation API `navigationType`. In the popstate fallback only `traverse` is observable.
+  - `routeDirection: 'forward' | 'back' | 'default' | 'same'` — *structural*, computed by comparing the source chain to the destination chain (pattern prefix check). `same` means same chain with only params/query changed.
+
+  **Direction is structural, not perceptual.** This is the load-bearing framing — fought for in rubber-wall review. `/products/12345 → /products/98765` is `same` even though the user perceives forward motion, because the route tree didn't move. Trying to infer perceptual direction from params would be the MobX-recipe trap. App authors who want a slide between products use `stewie-kind-push` CSS or animate at the component level.
+
+  **`CreateRouteConfig.transition?: string`** — free-form transition group name, typically set on a layout route. Inherited by descendants via chain membership.
+
+  **View Transition `types[]` emitted:**
+  - Always: `stewie-kind-{kind}` and `stewie-direction-{routeDirection}`.
+  - Conditionally: `stewie-transition-{group}` **only when** both source and destination chains include a level with that transition name AND direction is `forward` or `back`. Sibling-tab moves (direction `default`) and param-only moves (direction `same`) do not emit the group, so authors don't have to write CSS to suppress unwanted slides.
+
+  **Scroll restoration:** `history.scrollRestoration = 'manual'`; router takes control. Forward (`push`/`replace`) → scroll to `(0, 0)`. Traverse → restore from history state (saved on each push). Hash nav (`/page#section`) → `element.scrollIntoView()`. Opt-out per call via `navigate({ to, scroll: false })`. All scroll work runs *inside* the VT update callback, same task, so the snapshot captures the post-scroll DOM.
+
+  **Redirects:** original navigation's `kind` does not carry through naively — the guard redirect re-navigates with `replace: true`, so the redirected nav's `kind` becomes `'replace'` and `routeDirection` is recomputed against the final destination. Prevents `/private → /login` from accumulating in history.
+
+  **Lazy + VT:** `router.preload()` is awaited on the matched chain's components before `startViewTransition` fires, so the new DOM is in place when the transition snapshots its end state. Otherwise the VT would snapshot an empty boundary and animate to nothing.
+
+  **`view-transition-name` uniqueness is the author's responsibility.** The router does not auto-scope names. Documented in `docs/guide/routing.md` with the slide cookbook.
+
+  **Explicitly out of scope for v1:** back/forward distinction within `traverse` (defer until needed; the Navigation API exposes it via index math but no canonical-app pressure yet); scroll-to-anchor after async data resolves; per-route scroll config; leaf-route transition override of layout transition (wait for the report).
+
+  **Open tripwire:** if a third canonical-app instance hand-rolls per-component perceptual direction (the `/products/12345 → /products/98765` case), revisit whether to add an opt-in `navigate({ direction: 'forward' })` override.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **stewie-js** (3808 symbols, 6595 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **stewie-js** (3839 symbols, 6637 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

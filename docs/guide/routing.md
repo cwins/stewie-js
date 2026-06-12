@@ -204,6 +204,145 @@ On the client, `<Router>` reads `window.location` by default so you don't need t
 
 ---
 
+## View Transitions and scroll
+
+Every navigation that commits a new URL runs inside a `document.startViewTransition()` call (where supported), letting you animate the route swap with CSS. The router also takes responsibility for scroll restoration — you don't need to scroll-to-top in `onClick` handlers or hand-roll a back/forward scroll cache.
+
+### What the router writes to `NavigationStatus`
+
+`useNavigationStatus()` (or `useRouter().status`) exposes:
+
+| Field | Values | Source |
+|---|---|---|
+| `kind` | `'push' \| 'replace' \| 'traverse' \| 'reload'` | The Navigation API spec value for what happened to the URL. `traverse` means back/forward button, programmatic `history.back/forward`, or `navigation.traverseTo()`. |
+| `routeDirection` | `'forward' \| 'back' \| 'default' \| 'same'` | Computed from the route tree by comparing source and destination chains. See below. |
+
+`kind` is *mechanical* — what the browser/history did. `routeDirection` is *structural* — where the navigation went in the route tree. They're orthogonal.
+
+### `routeDirection` is structural, not perceptual
+
+`routeDirection` answers "how did we move through the route tree?", not "did the user perceive forward motion?". This is deliberate.
+
+| Navigation | Direction | Why |
+|---|---|---|
+| `/settings → /settings/account` | `forward` | Destination chain extends the source chain (going deeper). |
+| `/settings/account → /settings` | `back` | Source chain extends the destination chain (going up). |
+| `/home → /profile` | `default` | Sibling subtrees; neither chain is a prefix of the other. |
+| `/settings/account → /settings/billing` | `default` | Sibling routes under a shared layout — neither extends the other. |
+| `/products/12345 → /products/98765` | `same` | Same route pattern; only params changed. |
+| `/search?q=a → /search?q=b` | `same` | Same route; only query changed. |
+
+> **Heads up.** `/products/12345 → /products/98765` via a "next product" button is `same`, not `forward`. The user perceives forward motion, but the route tree didn't move. If you want a slide animation for paginated detail pages, target `stewie-kind-push` in CSS or animate at the component level inside the route — the router won't infer perceptual direction for you.
+
+### Animating with CSS
+
+Inside `startViewTransition`, the router passes a `types[]` array so you can scope CSS rules. Every navigation emits:
+
+- `stewie-kind-{push|replace|traverse|reload}` — always.
+- `stewie-direction-{forward|back|default|same}` — always.
+- `stewie-transition-{groupName}` — conditional; see [transition groups](#transition-groups) below.
+
+CSS pattern for direction-aware animation:
+
+```css
+/* Default for any navigation: a quick fade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: stewie-fade 200ms;
+}
+
+/* Same-route (params/query change) — kill the animation entirely. */
+:active-view-transition-type(stewie-direction-same) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+@keyframes stewie-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+```
+
+### Transition groups
+
+Use `transition` on a layout route to scope a directional animation (e.g. a slide) to navigations that cross into or out of that layout:
+
+```tsx
+const SettingsLayoutRoute = createRoute('/settings', {
+  component: SettingsShell,
+  transition: 'slide'
+});
+```
+
+The router emits `stewie-transition-{name}` **only when**:
+1. Both the source and destination chains include a level with that transition name, AND
+2. `routeDirection` is `forward` or `back`.
+
+Sibling tabs under the same layout (`/settings/account → /settings/billing`) have direction `default` and so do not trigger the slide. Param-only changes inside the layout have direction `same`. This is by design: the slide tracks structural movement through the tree.
+
+Cookbook — slides inside a settings shell, fades everywhere else:
+
+```css
+/* Slide forward when entering deeper into the settings tree. */
+:active-view-transition-type(stewie-transition-slide):active-view-transition-type(stewie-direction-forward) {
+  ::view-transition-old(root) { animation: slide-out-left 280ms ease both; }
+  ::view-transition-new(root) { animation: slide-in-right 280ms ease both; }
+}
+/* Slide back when leaving the settings tree. */
+:active-view-transition-type(stewie-transition-slide):active-view-transition-type(stewie-direction-back) {
+  ::view-transition-old(root) { animation: slide-out-right 280ms ease both; }
+  ::view-transition-new(root) { animation: slide-in-left 280ms ease both; }
+}
+
+@keyframes slide-in-right  { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes slide-out-left  { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@keyframes slide-in-left   { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes slide-out-right { from { transform: translateX(0); } to { transform: translateX(100%); } }
+```
+
+`/settings → /settings/account` slides forward. `/settings/account → /settings` slides back. `/settings/account → /settings/billing` falls through to the global fade. `/home → /profile` falls through to the global fade. No per-link config required.
+
+### `view-transition-name` is the author's responsibility
+
+The router does not auto-scope `view-transition-name`. If you give two elements the same name on the same page, the View Transition will error and skip. When using named transitions for shared-element animation (e.g. a thumbnail morphing into a detail-page hero), generate unique names per element instance:
+
+```tsx
+<img view-transition-name={`product-${product.id}`} src={...} />
+```
+
+### Scroll restoration
+
+The router sets `history.scrollRestoration = 'manual'` and handles scrolling itself. Defaults:
+
+| Navigation | Behavior |
+|---|---|
+| Forward (`push` / `replace`) | Scroll to `(0, 0)`. |
+| Traverse (back / forward button) | Restore the scroll position saved on the previous entry. |
+| Hash navigation (`/page#section`) | Scroll the element with that `id` into view. |
+| Reload | No-op — let the browser handle it. |
+
+Scroll work happens inside the View Transition's `update` callback, in the same task as the location update, so the post-commit DOM is scrolled before the animation snapshots its end state.
+
+Opt out per call when you don't want any router-driven scrolling — useful for in-place filters and pagination that should preserve the user's position:
+
+```tsx
+router.navigate({ to: nextPageUrl, scroll: false });
+```
+
+### Lazy chunks and Suspense
+
+When the destination route is `lazy()`, the router awaits the chunk **before** `startViewTransition` fires, so the new DOM is in place when the transition snapshots its end state. Without that, the transition would snapshot an empty boundary and animate to nothing.
+
+Hover-prefetch on `<Link>` (the default) warms the chunk earlier, so even the first hop is usually instant.
+
+### Redirects
+
+When a `beforeEnter` guard returns a redirect URL, the router re-navigates to the target with `replace: true` semantics — `kind` becomes `'replace'` and `routeDirection` is computed against the redirect destination, not the original target. This prevents history from accumulating `/private → /login` pairs and keeps animations correct (a slide-into-settings should not run if the guard rerouted you to `/login`).
+
+---
+
 ## Further reading
 
 - [Router API Reference](../reference/router-api.md) — full API, route matching rules, types

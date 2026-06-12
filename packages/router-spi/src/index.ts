@@ -12,6 +12,21 @@ export interface NavigateOptions {
   to: string;
   replace?: boolean;
   state?: unknown;
+  /**
+   * Whether the router should manage scroll for this navigation. Defaults to
+   * `true`.
+   *
+   * When `true`:
+   * - Forward (`push`/`replace`) navigations scroll the document to (0, 0).
+   * - Traverse (back/forward button) navigations restore the saved scroll
+   *   position from history state.
+   * - Hash navigations (`#section`) scroll the matching element into view.
+   *
+   * Pass `false` to suppress all router scroll management for this call —
+   * useful for in-place updates (filter panels, pagination that preserves
+   * the user's position in the list).
+   */
+  scroll?: boolean;
 }
 
 /**
@@ -48,6 +63,40 @@ export interface RouteMatch {
 export type NavigationPhase = 'idle' | 'matching' | 'guarding' | 'loading' | 'committing' | 'error';
 
 /**
+ * How the URL change happened, mirroring the Navigation API's
+ * `navigationType`. Available to consumers (transition CSS, devtools, app
+ * code) so they can react to push vs traverse independently of route
+ * topology.
+ *
+ * - `push`     — a new history entry was created (most `navigate()` calls).
+ * - `replace`  — the current history entry was replaced.
+ * - `traverse` — the user moved through history (back/forward button,
+ *                programmatic `history.back/forward` or `navigation.traverseTo`).
+ * - `reload`   — a same-URL reload.
+ */
+export type NavigationKind = 'push' | 'replace' | 'traverse' | 'reload';
+
+/**
+ * Structural direction of the navigation, computed by comparing the source
+ * and destination route chains. **Structural, not perceptual.** A "next
+ * product" click that lands on a sibling under the same route pattern is
+ * `same` — the route tree didn't move, even though the user perceives
+ * forward motion. For perceptual direction within a same-route nav, key off
+ * `kind` and your own state.
+ *
+ * - `forward` — destination chain extends the source chain (going deeper).
+ *               `/settings → /settings/account`.
+ * - `back`    — source chain extends the destination chain (going up).
+ *               `/settings/account → /settings`.
+ * - `default` — sibling subtrees; neither chain is a prefix of the other.
+ *               `/home → /profile`.
+ * - `same`    — same chain, only params or query changed.
+ *               `/products/12345 → /products/98765`.
+ *               `/search?q=a → /search?q=b`.
+ */
+export type RouteDirection = 'back' | 'forward' | 'default' | 'same';
+
+/**
  * Reactive object describing the current navigation state.
  * Implementations expose this as a reactive store so that components can
  * subscribe to phase changes (e.g. to show a progress indicator).
@@ -58,6 +107,10 @@ export interface NavigationStatus {
   from?: string;
   /** URL being navigated to, set when a navigation begins. */
   to?: string;
+  /** What kind of URL operation triggered this navigation. Set when a navigation begins. */
+  kind?: NavigationKind;
+  /** Structural direction through the route tree. Set when a navigation begins. */
+  routeDirection?: RouteDirection;
 }
 
 export interface StewieRouterSPI {

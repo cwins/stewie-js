@@ -151,6 +151,33 @@ Returns `undefined` if the current route has no `load()` function.
 
 ---
 
+### `useNavigationStatus(): NavigationStatus`
+
+Returns a reactive object describing the in-flight (or last-completed) navigation. Use this for progress indicators, optimistic UI, or to branch CSS/behavior on what kind of navigation happened.
+
+```ts
+const status = useNavigationStatus()
+
+effect(() => {
+  if (status.phase === 'loading') showProgressBar()
+  else hideProgressBar()
+})
+```
+
+**`NavigationStatus` fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `phase` | `'idle' \| 'matching' \| 'guarding' \| 'loading' \| 'committing' \| 'error'` | Lifecycle of the in-flight navigation. |
+| `from` | `string \| undefined` | Source URL of the in-flight navigation. |
+| `to` | `string \| undefined` | Destination URL of the in-flight navigation. |
+| `kind` | `'push' \| 'replace' \| 'traverse' \| 'reload' \| undefined` | What kind of URL operation triggered this navigation. Mirrors the Navigation API spec. |
+| `routeDirection` | `'forward' \| 'back' \| 'default' \| 'same' \| undefined` | Structural direction through the route tree. See the [routing guide](../guide/routing.md#view-transitions-and-scroll) for the full table of cases. |
+
+Both `kind` and `routeDirection` are also relayed to View Transitions as `stewie-kind-{kind}` and `stewie-direction-{direction}` types so you can branch in CSS without touching component code. See the [View Transitions and scroll](../guide/routing.md#view-transitions-and-scroll) section of the routing guide.
+
+---
+
 ## Route Guards
 
 A guard is a function called before a route is activated. Return `true` to allow navigation, or a URL string to redirect instead.

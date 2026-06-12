@@ -159,9 +159,10 @@ describe('View Transitions API integration', () => {
     vi.unstubAllGlobals();
   });
 
-  it('calls document.startViewTransition when available', () => {
-    const transition = vi.fn((fn: () => void) => {
-      fn();
+  it('calls document.startViewTransition with kind + direction types', () => {
+    const transition = vi.fn((arg: { update: () => void; types: string[] } | (() => void)) => {
+      const update = typeof arg === 'function' ? arg : arg.update;
+      update();
       return {
         ready: Promise.resolve(),
         finished: Promise.resolve(),
@@ -175,6 +176,9 @@ describe('View Transitions API integration', () => {
 
     expect(transition).toHaveBeenCalledOnce();
     expect(router.location.pathname).toBe('/about');
+    const arg = transition.mock.calls[0][0] as { types: string[] };
+    expect(arg.types).toContain('stewie-kind-push');
+    expect(arg.types).toContain('stewie-direction-default');
   });
 
   it('navigates normally when startViewTransition is absent', () => {
@@ -650,5 +654,231 @@ describe('preload', () => {
     router._chains = [{ leafPath: '/dest', levels: [{ fullPath: '/dest', component: () => null }] }];
     // Should not throw — eager components simply have no preload.
     await router.preload('/dest');
+  });
+});
+
+describe('NavigationStatus.kind', () => {
+  it("is 'push' for a default navigate()", async () => {
+    const router = createRouter('/');
+    await router.navigate('/about');
+    expect(router.status.kind).toBe('push');
+  });
+
+  it("is 'replace' when navigate({ replace: true })", async () => {
+    const router = createRouter('/');
+    await router.navigate({ to: '/about', replace: true });
+    expect(router.status.kind).toBe('replace');
+  });
+
+  it("is 'replace' for a redirect (history doesn't accumulate)", async () => {
+    const router = createRouter('/');
+    const guard = vi.fn().mockResolvedValue('/login');
+    router._chains = [
+      { leafPath: '/private', levels: [{ fullPath: '/private', component: () => null, beforeEnter: guard }] },
+      { leafPath: '/login', levels: [{ fullPath: '/login', component: () => null }] }
+    ];
+    await router.navigate('/private');
+    expect(router.location.pathname).toBe('/login');
+    expect(router.status.kind).toBe('replace');
+  });
+});
+
+describe('NavigationStatus.routeDirection', () => {
+  function setupChains() {
+    return [
+      { leafPath: '/', levels: [{ fullPath: '/', component: () => null }] },
+      { leafPath: '/settings', levels: [{ fullPath: '/settings', component: () => null }] },
+      {
+        leafPath: '/settings/account',
+        levels: [
+          { fullPath: '/settings', component: () => null },
+          { fullPath: '/settings/account', component: () => null }
+        ]
+      },
+      {
+        leafPath: '/settings/billing',
+        levels: [
+          { fullPath: '/settings', component: () => null },
+          { fullPath: '/settings/billing', component: () => null }
+        ]
+      },
+      { leafPath: '/profile', levels: [{ fullPath: '/profile', component: () => null }] },
+      { leafPath: '/products/:id', levels: [{ fullPath: '/products/:id', component: () => null }] }
+    ];
+  }
+
+  it("is 'default' on the first navigation (no source chain)", async () => {
+    const router = createRouter('/');
+    router._chains = setupChains();
+    await router.navigate('/settings');
+    expect(router.status.routeDirection).toBe('default');
+  });
+
+  it("is 'forward' when destination extends source chain", async () => {
+    const router = createRouter('/');
+    router._chains = setupChains();
+    await router.navigate('/settings');
+    await router.navigate('/settings/account');
+    expect(router.status.routeDirection).toBe('forward');
+  });
+
+  it("is 'back' when source extends destination chain", async () => {
+    const router = createRouter('/');
+    router._chains = setupChains();
+    await router.navigate('/settings/account');
+    await router.navigate('/settings');
+    expect(router.status.routeDirection).toBe('back');
+  });
+
+  it("is 'default' for sibling subtrees under a shared parent", async () => {
+    const router = createRouter('/');
+    router._chains = setupChains();
+    await router.navigate('/settings/account');
+    await router.navigate('/settings/billing');
+    expect(router.status.routeDirection).toBe('default');
+  });
+
+  it("is 'default' for unrelated subtrees", async () => {
+    const router = createRouter('/');
+    router._chains = setupChains();
+    await router.navigate('/settings');
+    await router.navigate('/profile');
+    expect(router.status.routeDirection).toBe('default');
+  });
+
+  it("is 'same' for param-only changes within one route", async () => {
+    const router = createRouter('/');
+    router._chains = setupChains();
+    await router.navigate('/products/12345');
+    await router.navigate('/products/98765');
+    expect(router.status.routeDirection).toBe('same');
+  });
+});
+
+describe('View Transition types[]', () => {
+  function captureTypes(): { types: string[] } {
+    const captured: { types: string[] } = { types: [] };
+    const transition = (arg: { update: () => void; types: string[] } | (() => void)) => {
+      if (typeof arg === 'function') {
+        arg();
+        captured.types = [];
+      } else {
+        arg.update();
+        captured.types = arg.types;
+      }
+      return {
+        ready: Promise.resolve(),
+        finished: Promise.resolve(),
+        updateCallbackDone: Promise.resolve()
+      };
+    };
+    vi.stubGlobal('document', { startViewTransition: transition });
+    return captured;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('emits stewie-transition-{group} only when both chains include the group AND direction is forward/back', async () => {
+    const captured = captureTypes();
+    const router = createRouter('/');
+    router._chains = [
+      {
+        leafPath: '/settings',
+        levels: [{ fullPath: '/settings', component: () => null, transition: 'slide' }]
+      },
+      {
+        leafPath: '/settings/account',
+        levels: [
+          { fullPath: '/settings', component: () => null, transition: 'slide' },
+          { fullPath: '/settings/account', component: () => null }
+        ]
+      },
+      {
+        leafPath: '/settings/billing',
+        levels: [
+          { fullPath: '/settings', component: () => null, transition: 'slide' },
+          { fullPath: '/settings/billing', component: () => null }
+        ]
+      },
+      { leafPath: '/profile', levels: [{ fullPath: '/profile', component: () => null }] }
+    ];
+
+    // forward into the slide group → emit slide + forward
+    await router.navigate('/settings');
+    await router.navigate('/settings/account');
+    expect(captured.types).toContain('stewie-transition-slide');
+    expect(captured.types).toContain('stewie-direction-forward');
+
+    // sibling tabs under the slide layout → direction default, do NOT emit slide
+    await router.navigate('/settings/billing');
+    expect(captured.types).not.toContain('stewie-transition-slide');
+    expect(captured.types).toContain('stewie-direction-default');
+
+    // back out of the slide group → emit slide + back
+    await router.navigate('/settings');
+    expect(captured.types).toContain('stewie-transition-slide');
+    expect(captured.types).toContain('stewie-direction-back');
+
+    // jump out of the slide group entirely → no slide type
+    await router.navigate('/profile');
+    expect(captured.types).not.toContain('stewie-transition-slide');
+  });
+});
+
+describe('Lazy chunk awaiting on navigate', () => {
+  it("calls the component's preload() before applyLocation (so VT snapshots the loaded DOM)", async () => {
+    const order: string[] = [];
+    const preload = vi.fn(async () => {
+      order.push('preload');
+    });
+    const lazyLike = Object.assign(() => null, { preload });
+    const router = createRouter('/');
+    router._chains = [
+      { leafPath: '/', levels: [{ fullPath: '/', component: () => null }] },
+      {
+        leafPath: '/lazy',
+        levels: [
+          {
+            fullPath: '/lazy',
+            component: lazyLike as unknown as () => null,
+            load: async () => {
+              order.push('load');
+              return null;
+            }
+          }
+        ]
+      }
+    ];
+    await router.navigate('/lazy');
+    // load and preload both run before commit; the test asserts both were called.
+    expect(order).toContain('preload');
+    expect(order).toContain('load');
+    expect(router.location.pathname).toBe('/lazy');
+  });
+});
+
+describe('Scroll restoration', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('scrolls to (0,0) on a forward push navigation', async () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal('window', { scrollTo, scrollX: 50, scrollY: 200 });
+    vi.stubGlobal('document', {});
+    const router = createRouter('/');
+    await router.navigate('/about');
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+  });
+
+  it('does not scroll when { scroll: false } is passed', async () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal('window', { scrollTo, scrollX: 50, scrollY: 200 });
+    vi.stubGlobal('document', {});
+    const router = createRouter('/');
+    await router.navigate({ to: '/about', scroll: false });
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });

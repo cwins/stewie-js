@@ -20,6 +20,7 @@ interface TypedRouteMeta {
   component: Component;
   beforeEnter?: RouteGuard;
   load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+  transition?: string;
 }
 
 function isTypedRoute(value: unknown): value is TypedRouteMeta {
@@ -59,6 +60,17 @@ export interface RouteProps {
    * Receives the matched URL params and query string as arguments.
    */
   load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+  /**
+   * Transition group name. Free-form string. When a navigation moves
+   * *between* this route level and a descendant or ancestor, the View
+   * Transition emits the type `stewie-transition-{name}` so CSS can scope
+   * a directional animation to the move. Typically set on a layout route
+   * (`/settings`) so all child navigations inside it can share a slide
+   * animation while moves out of the group fall back to the default.
+   *
+   * See docs/guide/routing.md for the emission rule and CSS cookbook.
+   */
+  transition?: string;
   /** Nested <Route> elements that define child routes under this layout. */
   children?: JSXElement | JSXElement[];
 }
@@ -88,6 +100,7 @@ interface RouteConfig {
   component: Component;
   beforeEnter?: RouteGuard;
   load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+  transition?: string;
   children?: JSXElement | JSXElement[];
 }
 
@@ -151,6 +164,7 @@ function extractRouteConfigs(children: JSXElement | JSXElement[] | undefined): R
         component: c.props.component as Component,
         beforeEnter: c.props.beforeEnter as RouteGuard | undefined,
         load: c.props.load as ((params: Record<string, string>, query: Record<string, string>) => Promise<unknown>) | undefined,
+        transition: c.props.transition as string | undefined,
         children: c.props.children as JSXElement | JSXElement[] | undefined
       });
       continue;
@@ -161,6 +175,7 @@ function extractRouteConfigs(children: JSXElement | JSXElement[] | undefined): R
         component: c.type.component,
         beforeEnter: c.type.beforeEnter,
         load: c.type.load,
+        transition: c.type.transition,
         children: c.props.children as JSXElement | JSXElement[] | undefined
       });
       continue;
@@ -199,7 +214,8 @@ function walkRoutes(configs: RouteConfig[], ancestorLevels: RouteChainLevel[], a
       fullPath,
       component: config.component,
       beforeEnter: config.beforeEnter,
-      load: config.load
+      load: config.load,
+      transition: config.transition
     };
 
     const childConfigs = extractRouteConfigs(config.children);
@@ -562,6 +578,12 @@ export interface CreateRouteConfig {
   component: Component;
   beforeEnter?: RouteGuard;
   load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+  /**
+   * Transition group name. See {@link RouteProps.transition}. Typically set
+   * on a layout route to scope a directional animation to navigations that
+   * cross into or out of that layout.
+   */
+  transition?: string;
 }
 
 /**
@@ -625,6 +647,7 @@ export function createRoute(
       component: config.component,
       beforeEnter: config.beforeEnter,
       load: config.load,
+      transition: config.transition,
       ...(props?.children !== undefined ? { children: props.children } : {})
     });
   Object.assign(fn, {
@@ -632,7 +655,8 @@ export function createRoute(
     path,
     component: config.component,
     beforeEnter: config.beforeEnter,
-    load: config.load
+    load: config.load,
+    transition: config.transition
   });
   return fn as unknown as TypedRoute<Record<string, string>, Record<string, string | undefined>>;
 }

@@ -22,7 +22,7 @@ These exist and work — not listed as open items below.
 | `renderToStream` | `@stewie-js/server` | Progressive streaming with Suspense boundary flushing |
 | True hydration / DOM reuse | `@stewie-js/core` | `_hydrateInto()` walks existing SSR DOM via `HydrationCursor`; reactive subscriptions attach to existing nodes |
 | Hydration mismatch detection | `@stewie-js/core` | Dev-mode warning in `hydrate.ts` |
-| View Transitions | `@stewie-js/router` | `document.startViewTransition` wrapping in router |
+| View Transitions + scroll restoration | `@stewie-js/router` | `document.startViewTransition({ update, types })` with `stewie-kind-*` / `stewie-direction-*` / `stewie-transition-*` types for CSS scoping; `routeDirection` computed from chain-prefix comparison (`forward`/`back`/`default`/`same`); `transition?: string` on layout routes for opt-in group animations; `scrollRestoration='manual'` with forward→(0,0) / traverse→restore / hash→scrollIntoView defaults and `navigate({ scroll: false })` opt-out |
 | Client-side routing, `<Link>` | `@stewie-js/router` | History + Navigation API, parameterized routes |
 | Route guards (`beforeEnter`) | `@stewie-js/router` | Async allow/redirect on `navigate()` |
 | Route-level data loading (`load`) | `@stewie-js/router` | Async loader result via `useRouteData()`; `_routeData` resets to `undefined` on every route change so stale data never bleeds into routes without a loader |
@@ -219,7 +219,7 @@ This is an enhancement to `@stewie-js/vite` (build time) and `@stewie-js/server`
 
 **Phase 2 — modulepreload + client hydration gating.** Emit `<link rel="modulepreload">` for the `.js`/`.mjs` assets in each boundary's manifest entry alongside the existing CSS links. Client hydration of a lazy boundary should gate on its CSS link `load` events before attaching reactive effects, to eliminate any FOUC during the hydration window.
 
-**Phase 3 — router preloading on hover/focus.** `<Link>` warms the next route's chunks when the user hovers or focuses it. To avoid double-loading assets the SSR already shipped, adopt the Loadable Components pattern: tag every emitted `<link>` and `<script>` with `data-stewie-id` so the router can read the DOM to know what's already loaded, then diff against the per-route manifest entries and only emit the missing ones. Vite's `manifest.json` is the URL map; the inline component-to-assets dep graph composes naturally with the existing per-boundary flush.
+**Phase 3 — shipped (0.9.0).** `<Link>` warms the next route's chunks on hover/focus via `router.preload(to)`, which calls the SPI's `preload()` on any `lazy()` component in the matched chain and runs guards/loaders for cache warming. `lazy()` returns a `LazyComponent<T>` whose `.preload()` is deduplicated through the shared `loadPromise`, so hovering the same link many times triggers exactly one factory call. Opt out per call with `<Link prefetch={false}>`. The router also awaits these chunks before `startViewTransition` fires, so the VT snapshot captures the loaded DOM instead of an empty boundary. SSR-emitted asset deduplication via `data-stewie-id` tagging (the Loadable Components pattern) was descoped — Vite's `ssr-manifest.json` is sufficient for the SSR side, and the client-side dedup happens inside `lazy()`'s `loadPromise` cache rather than via DOM scanning.
 
 **Why this is architecturally different:** Because `lazy()` is a first-class framework primitive and `renderToStream` already has a per-boundary flush hook, the ssr-manifest is a natural bridge between Vite's build-time output and the render-time boundary ordering. Libraries participate by importing CSS normally — they do not wrap the renderer.
 
@@ -313,8 +313,9 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 23. ~~**Progressive asset streaming — Phase 1**~~ — done; `@stewie-js/vite` injects manifest IDs into `lazy()` calls; `renderToStream` accepts a `manifest` and emits deduped per-boundary `<link rel="stylesheet">` before each lazy flush
 24. ~~**Lazy hydration preserves SSR DOM**~~ — done; `renderLazy` now late-hydrates the still-in-DOM SSR nodes when the factory resolves instead of removing and re-rendering
 25. **SSR + hydration correctness for Suspense and resources** — `DataRegistry` SPI (settled) + `useResource` integration + inline SSR payload emission + `renderSuspense` cursor claim. The three Suspense-fix sub-tasks and the registry land together; this is the next item
-26. **Progressive asset streaming — Phase 2** — `<link rel="modulepreload">` for JS chunks alongside the existing CSS links; client hydration gating on CSS load
-27. **Progressive asset streaming — Phase 3** — Loadable-style `data-stewie-id` attrs on emitted tags; router preloads next-route assets on hover/focus, diffing against what the DOM already has
-28. Edge-first testing phases 2–4
-29. Cloudflare adapter
-30. Typed route params and query
+26. ~~**Progressive asset streaming — Phase 2**~~ — done in 0.8.x; `<link rel="modulepreload">` for JS chunks alongside the existing CSS links; client hydration gates on CSS load
+27. ~~**Progressive asset streaming — Phase 3**~~ — done in 0.9.0; `<Link>` hover/focus prefetch via `router.preload()`, `lazy().preload()` deduplicated through `loadPromise`, `prefetch={false}` opt-out
+28. ~~**View Transitions + scroll restoration coherence**~~ — done in 0.9.0; `NavigationStatus.kind` (Navigation API enum) + `routeDirection` (structural chain-prefix comparison); VT `types[]` carry `stewie-kind-*` / `stewie-direction-*` / `stewie-transition-*` for CSS scoping; `transition?: string` on layout routes for group animations; `scrollRestoration='manual'` with forward→(0,0) / traverse→restore / hash→scrollIntoView defaults and `navigate({ scroll: false })` opt-out
+29. Edge-first testing phases 2–4
+30. Cloudflare adapter
+31. Typed route params and query

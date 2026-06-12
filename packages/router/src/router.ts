@@ -5,21 +5,138 @@ import type { Signal } from '@stewie-js/core';
 import { consume } from '@stewie-js/core';
 import { createLocationStore, parseUrl } from './location.js';
 import type { RouterStore } from './location.js';
-import type { StewieRouterSPI, NavigateOptions, RouteMatch, NavigationStatus } from '@stewie-js/router-spi';
+import type { StewieRouterSPI, NavigateOptions, RouteMatch, NavigationStatus, NavigationKind, RouteDirection } from '@stewie-js/router-spi';
 import { matchRoute } from './matcher.js';
 
 // ---------------------------------------------------------------------------
 // Browser API feature detection
 // ---------------------------------------------------------------------------
 
-/** Run `fn` inside a View Transition if the API is available; otherwise run it directly. */
-function withViewTransition(fn: () => void): void {
+/**
+ * Run `fn` inside a View Transition, passing the optional `types` array so
+ * CSS can match `:active-view-transition-type(stewie-…)` selectors. Falls
+ * back to a direct call when `startViewTransition` is unavailable (no DOM,
+ * non-Chromium browsers).
+ */
+function withViewTransition(fn: () => void, types?: string[]): void {
   if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (document as any).startViewTransition(fn);
+    if (types && types.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (document as any).startViewTransition({ update: fn, types });
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (document as any).startViewTransition(fn);
+    }
   } else {
     fn();
   }
+}
+
+/**
+ * Compute the structural direction of a navigation by comparing source and
+ * destination chains. Structural, not perceptual — see {@link RouteDirection}.
+ */
+function computeRouteDirection(source: FlatRouteChain | null, dest: FlatRouteChain): RouteDirection {
+  if (!source) return 'default';
+  if (source === dest || source.leafPath === dest.leafPath) return 'same';
+  const s = source.levels;
+  const d = dest.levels;
+  const minLen = Math.min(s.length, d.length);
+  let sharedPrefix = 0;
+  for (let i = 0; i < minLen; i++) {
+    if (s[i].fullPath === d[i].fullPath) sharedPrefix++;
+    else break;
+  }
+  if (sharedPrefix === s.length && s.length < d.length) return 'forward';
+  if (sharedPrefix === d.length && d.length < s.length) return 'back';
+  return 'default';
+}
+
+/**
+ * Build the View Transition `types` array for a navigation.
+ * Always emits `stewie-kind-{kind}` and `stewie-direction-{direction}`.
+ * Emits `stewie-transition-{group}` only when both chains contain a level
+ * with the same `transition` and direction is forward or back — sibling
+ * (default) and param-only (same) moves don't trigger group transitions.
+ * The innermost (deepest) shared group wins.
+ */
+function computeVTTypes(
+  kind: NavigationKind,
+  direction: RouteDirection,
+  source: FlatRouteChain | null,
+  dest: FlatRouteChain | null
+): string[] {
+  const types: string[] = [`stewie-kind-${kind}`, `stewie-direction-${direction}`];
+  if ((direction === 'forward' || direction === 'back') && source && dest) {
+    const srcGroups = new Set<string>();
+    for (const l of source.levels) if (l.transition) srcGroups.add(l.transition);
+    // Walk destination from leaf to root so the innermost shared group wins.
+    for (let i = dest.levels.length - 1; i >= 0; i--) {
+      const g = dest.levels[i].transition;
+      if (g && srcGroups.has(g)) {
+        types.push(`stewie-transition-${g}`);
+        break;
+      }
+    }
+  }
+  return types;
+}
+
+/** Trigger `.preload()` on any lazy components in the chain. Resolves once all complete. */
+function awaitLazyChunks(chain: FlatRouteChain): Promise<void> {
+  const promises: Promise<void>[] = [];
+  for (const level of chain.levels) {
+    const comp = level.component as unknown as { preload?: () => Promise<void> };
+    if (typeof comp?.preload === 'function') promises.push(comp.preload());
+  }
+  return promises.length === 0 ? Promise.resolve() : Promise.all(promises).then(() => undefined);
+}
+
+/**
+ * Save the current window scroll position into the current history entry's
+ * state, so a later traverse can restore it. No-op outside the browser.
+ */
+function saveCurrentScroll(): void {
+  if (typeof globalThis.history === 'undefined' || typeof globalThis.window === 'undefined') return;
+  const cur = globalThis.history.state as Record<string, unknown> | null;
+  const next = {
+    ...cur,
+    _stewie_scroll: [globalThis.window.scrollX, globalThis.window.scrollY] as [number, number]
+  };
+  try {
+    globalThis.history.replaceState(next, '');
+  } catch {
+    // history.state is read-only or replaceState rejected — give up silently
+  }
+}
+
+/**
+ * Apply scroll behavior for a navigation. Called inside the VT update
+ * callback so the scroll lands on the post-commit DOM in the same task.
+ *
+ * - traverse → restore from history state
+ * - hash present → scrollIntoView on matching element
+ * - otherwise (forward push/replace/reload) → scroll to (0, 0)
+ */
+function applyScrollBehavior(kind: NavigationKind, hash: string): void {
+  if (typeof globalThis.window === 'undefined') return;
+  if (kind === 'traverse') {
+    const state = (globalThis.history?.state as Record<string, unknown> | null) ?? null;
+    const saved = state?._stewie_scroll as [number, number] | undefined;
+    if (saved) {
+      globalThis.window.scrollTo(saved[0], saved[1]);
+      return;
+    }
+    // Fall through: no saved position, default to top.
+  }
+  if (hash) {
+    const el = typeof document !== 'undefined' ? document.getElementById(hash) : null;
+    if (el) {
+      el.scrollIntoView();
+      return;
+    }
+  }
+  globalThis.window.scrollTo(0, 0);
 }
 
 /** Returns true if the Navigation API is available in this environment. */
@@ -76,6 +193,8 @@ export interface RouteChainLevel {
   component: unknown;
   beforeEnter?: RouteGuard;
   load?: (params: Record<string, string>, query: Record<string, string>) => Promise<unknown>;
+  /** Transition group name declared on the route at this level, if any. */
+  transition?: string;
 }
 
 /**
@@ -127,6 +246,9 @@ export interface Router extends StewieRouterSPI {
   _routes: RouterRouteConfig[];
   // Internal: per-level data signals keyed by fullPath of each chain level
   _routeDataMap: Map<string, Signal<unknown>>;
+  // Internal: the chain currently committed to the location store, used as
+  // the source for routeDirection computation on the next navigation.
+  _currentChain: FlatRouteChain | null;
   // Internal: remove browser event listeners attached by createRouter()
   _dispose(): void;
   // Internal: run guards + loader for the given URL, returns redirect URL or null
@@ -206,11 +328,17 @@ export function createRouter(initialUrl?: string): Router {
     return _routeDataMap.get(key)!;
   }
 
+  interface PreparedChain {
+    chain: FlatRouteChain;
+    params: Record<string, string>;
+  }
+
   /**
    * Find the best-matching chain for a URL and run its guards (outermost→inner)
-   * and loaders (in parallel). Returns the redirect URL if a guard blocks, or null to proceed.
+   * and loaders (in parallel). Returns the prepared chain, `{ redirect }` if
+   * a guard blocked, or `null` if nothing matched.
    */
-  async function runGuardsAndLoad(url: string, updateStatus = true): Promise<string | null> {
+  async function runGuardsAndLoad(url: string, updateStatus = true): Promise<PreparedChain | { redirect: string } | null> {
     const parsed = parseUrl(url);
 
     if (updateStatus) {
@@ -244,7 +372,7 @@ export function createRouter(initialUrl?: string): Router {
         const result = await level.beforeEnter(url, location.pathname);
         if (result !== true) {
           if (updateStatus) status.phase = 'idle';
-          return result as string;
+          return { redirect: result as string };
         }
       }
     }
@@ -272,7 +400,7 @@ export function createRouter(initialUrl?: string): Router {
       });
     await Promise.all(loadPromises);
 
-    return null;
+    return { chain: bestChain, params: matchedParams };
   }
 
   // Holds the cleanup function for browser event listeners.
@@ -283,18 +411,68 @@ export function createRouter(initialUrl?: string): Router {
   // a same-document history mutation) treats this nav as a no-op.
   let _suppressNavListener = false;
 
-  /** Apply location update and push to browser history. */
-  function applyLocationAndPush(url: string, replace: boolean): void {
+  // Programmatic navigation handoff to the Navigation API listener: navigate()
+  // has already run guards/loaders/lazy-await; the listener should commit
+  // using these prepared values without redoing the work. Cleared by the
+  // listener on consumption (whether it ran the handler or not).
+  let _pendingProgrammaticChain: FlatRouteChain | null = null;
+  let _pendingProgrammaticParams: Record<string, string> | undefined = undefined;
+  let _pendingProgrammaticKind: NavigationKind | null = null;
+  let _pendingProgrammaticScroll = true;
+
+  // Set the browser's scroll restoration to manual so the router owns it.
+  // Without this, browsers automatically restore scroll on history navigations
+  // before the new route's content is rendered, which is visually awful.
+  if (typeof globalThis.history !== 'undefined' && 'scrollRestoration' in globalThis.history) {
+    try {
+      globalThis.history.scrollRestoration = 'manual';
+    } catch {
+      // Read-only in some test stubs; nothing to do.
+    }
+  }
+
+  /**
+   * Commit a navigation: write to the reactive location store, update
+   * browser history (if requested), apply scroll behavior, and run all of
+   * the above inside a View Transition with the right `types` so CSS can
+   * branch on kind / direction / transition group.
+   */
+  function commit(opts: {
+    url: string;
+    params?: Record<string, string>;
+    kind: NavigationKind;
+    destChain: FlatRouteChain | null;
+    /** 'push' / 'replace' to write history; null to leave history untouched (Navigation API already wrote it). */
+    historyMode: 'push' | 'replace' | null;
+    scroll: boolean;
+  }): void {
+    const sourceChain = router._currentChain;
+    const direction: RouteDirection = opts.destChain ? computeRouteDirection(sourceChain, opts.destChain) : 'default';
+    status.kind = opts.kind;
+    status.routeDirection = direction;
+    const types = computeVTTypes(opts.kind, direction, sourceChain, opts.destChain);
+
+    // Stash the current scroll position into the outgoing history entry, but
+    // only when we're about to push a new one. Replace and traverse don't
+    // need this — replace overwrites the current entry, traverse is already
+    // moving to an entry that has (or doesn't have) its own saved state.
+    if (opts.scroll && opts.historyMode === 'push') saveCurrentScroll();
+
+    const hash = parseUrl(opts.url).hash;
     withViewTransition(() => {
-      applyLocation(url);
-    });
-    if (typeof globalThis.history !== 'undefined') {
-      if (replace) {
-        globalThis.history.replaceState(null, '', url);
+      applyLocation(opts.url, opts.params);
+      if (opts.scroll) applyScrollBehavior(opts.kind, hash);
+    }, types);
+
+    if (opts.historyMode && typeof globalThis.history !== 'undefined') {
+      if (opts.historyMode === 'push') {
+        globalThis.history.pushState(null, '', opts.url);
       } else {
-        globalThis.history.pushState(null, '', url);
+        globalThis.history.replaceState(null, '', opts.url);
       }
     }
+
+    router._currentChain = opts.destChain;
   }
 
   const router: Router = {
@@ -302,6 +480,7 @@ export function createRouter(initialUrl?: string): Router {
     status,
     _chains: [],
     _routeDataMap,
+    _currentChain: null,
 
     // Compatibility shim: setting _routes converts to single-level chains.
     set _routes(configs: RouterRouteConfig[]) {
@@ -335,48 +514,91 @@ export function createRouter(initialUrl?: string): Router {
     },
 
     _runGuardsAndLoad(url: string): Promise<string | null> {
-      return runGuardsAndLoad(url);
+      return runGuardsAndLoad(url).then((result) => {
+        if (result === null) return null;
+        if ('redirect' in result) return result.redirect;
+        return null;
+      });
     },
 
     navigate(to: string | NavigateOptions): Promise<void> {
       const url = typeof to === 'string' ? to : to.to;
       const replace = typeof to !== 'string' && !!to.replace;
+      const scroll = typeof to === 'string' ? true : to.scroll !== false;
+      const kind: NavigationKind = replace ? 'replace' : 'push';
 
       // Synchronous fast path — no guards or loaders registered on any chain level.
       const hasGuardsOrLoaders = router._chains.some((chain) => chain.levels.some((l) => l.beforeEnter || l.load));
       if (!hasGuardsOrLoaders) {
+        // Match the destination chain so kind/direction/VT-types are still
+        // computed even on the no-guard fast path. Eager components have no
+        // .preload() so the await is a no-op.
+        const parsed = parseUrl(url);
+        let destChain: FlatRouteChain | null = null;
+        let bestScore = -1;
+        let matchedParams: Record<string, string> = {};
+        for (const chain of router._chains) {
+          const r = matchRoute(chain.leafPath, parsed.pathname);
+          if (r && r.score > bestScore) {
+            destChain = chain;
+            bestScore = r.score;
+            matchedParams = r.params;
+          }
+        }
         status.phase = 'committing';
         status.from = location.pathname;
         status.to = url;
         if (hasNavigationApi()) {
+          // Navigation API path: hand off to navigation.navigate and let the
+          // listener commit. Set the chain so the listener's commit() sees it.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (globalThis as any).navigation.navigate(url, { history: replace ? 'replace' : 'push' });
         } else {
-          applyLocationAndPush(url, replace);
+          commit({ url, params: matchedParams, kind, destChain, historyMode: replace ? 'replace' : 'push', scroll });
         }
         status.phase = 'idle';
         return Promise.resolve();
       }
 
-      // Async path — run guards and loaders, then apply location.
+      // Async path — run guards and loaders, await lazy chunks, then commit.
       return (async () => {
         try {
-          const redirect = await runGuardsAndLoad(url);
-          if (redirect !== null) {
-            return router.navigate(redirect);
+          const result = await runGuardsAndLoad(url);
+          if (result === null) return;
+          if ('redirect' in result) {
+            // Redirect to the guard's target with replace semantics so the
+            // history doesn't accumulate "/private → /login" pairs. The
+            // recursive call's kind becomes 'replace', which matches "the
+            // engine swapped the destination underneath you."
+            return router.navigate({ to: result.redirect, replace: true, scroll });
           }
 
           status.phase = 'committing';
+          // Warm any lazy chunks in the destination chain BEFORE
+          // startViewTransition, so the new DOM is present when the
+          // transition snapshots the post-update state. Without this, the VT
+          // would snapshot an empty boundary and then animate to nothing.
+          await awaitLazyChunks(result.chain);
+
           if (hasNavigationApi()) {
-            // Navigation API path: just issue the navigation. The 'navigate' event
-            // listener below will intercept it and call applyLocation inside a View
-            // Transition — so we must NOT call applyLocation or startViewTransition
-            // here, otherwise the transition fires twice and the browser logs
-            // "Transition was skipped".
+            // Navigation API path: hand off to navigation.navigate; the
+            // listener will commit. Stash the prepared chain so the listener
+            // doesn't re-do work.
+            _pendingProgrammaticChain = result.chain;
+            _pendingProgrammaticParams = result.params;
+            _pendingProgrammaticKind = kind;
+            _pendingProgrammaticScroll = scroll;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (globalThis as any).navigation.navigate(url, { history: replace ? 'replace' : 'push' });
           } else {
-            applyLocationAndPush(url, replace);
+            commit({
+              url,
+              params: result.params,
+              kind,
+              destChain: result.chain,
+              historyMode: replace ? 'replace' : 'push',
+              scroll
+            });
           }
           status.phase = 'idle';
         } catch (err) {
@@ -470,18 +692,11 @@ export function createRouter(initialUrl?: string): Router {
           bestScore = result.score;
         }
       }
-      const chunkPromises: Promise<void>[] = [];
-      if (bestChain) {
-        for (const level of bestChain.levels) {
-          // A lazy() component exposes `.preload()`. Eager components don't,
-          // and we just skip them.
-          const comp = level.component as unknown as { preload?: () => Promise<void> };
-          if (typeof comp?.preload === 'function') chunkPromises.push(comp.preload());
-        }
-      }
+      const chunkPromise = bestChain ? awaitLazyChunks(bestChain) : Promise.resolve();
       // Guards and loaders run with updateStatus=false so the current view is
-      // unaffected. Errors propagate; callers (Link hover) ignore them.
-      await Promise.all([runGuardsAndLoad(url, false), ...chunkPromises]);
+      // unaffected. The result (matched chain or redirect) is discarded — we
+      // ran them for cache-warming side effects, not for control flow.
+      await Promise.all([runGuardsAndLoad(url, false), chunkPromise]);
     },
 
     _setLocation(url: string, params?: Record<string, string>) {
@@ -503,33 +718,54 @@ export function createRouter(initialUrl?: string): Router {
         if (!event.canIntercept || event.hashChange || event.downloadRequest !== null) return;
         const destUrl = new URL(event.destination.url);
         const destPath = destUrl.pathname + destUrl.search + destUrl.hash;
+        // The Navigation API exposes a precise navigationType — trust it for
+        // `kind`, falling back to 'push' if absent (older browsers).
+        const eventKind: NavigationKind = (event.navigationType as NavigationKind) ?? 'push';
+
         event.intercept({
-          // The handler is async so the Navigation API shows a loading state while
-          // guards / loaders run.
-          //
           // event.userInitiated is true for browser-UI navigations (back/forward
-          // button, address bar, link clicks that the browser handles natively).
-          // It is false for programmatic navigation.navigate() calls — those come
-          // from our own navigate() which already ran guards. Checking this flag
-          // prevents running guards twice for programmatic navigations.
+          // button, address bar, link clicks the browser handles natively).
+          // It is false for programmatic navigation.navigate() calls — those
+          // come from our own navigate() which already ran guards + awaited
+          // lazy chunks and stashed the prepared chain in _pendingProgrammatic*.
           handler: event.userInitiated
             ? async () => {
-                const redirect = await runGuardsAndLoad(destPath);
-                if (redirect !== null) {
-                  // Guard redirected. Apply the redirect URL directly so the
-                  // reactive location and browser history both show the target.
+                const result = await runGuardsAndLoad(destPath);
+                if (result === null) return;
+                if ('redirect' in result) {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  (globalThis as any).navigation.navigate(redirect, { history: 'replace' });
+                  (globalThis as any).navigation.navigate(result.redirect, { history: 'replace' });
                   return;
                 }
-                withViewTransition(() => {
-                  applyLocation(destPath);
+                await awaitLazyChunks(result.chain);
+                commit({
+                  url: destPath,
+                  params: result.params,
+                  kind: eventKind,
+                  destChain: result.chain,
+                  // Navigation API already wrote history; don't double-write.
+                  historyMode: null,
+                  scroll: true
                 });
               }
             : () => {
-                // Programmatic path — guards already ran in navigate(); just apply.
-                withViewTransition(() => {
-                  applyLocation(destPath);
+                // Programmatic path — navigate() already prepared the chain
+                // and awaited any lazy chunks. Apply with the stashed values.
+                const destChain = _pendingProgrammaticChain;
+                const params = _pendingProgrammaticParams;
+                const kind = _pendingProgrammaticKind ?? eventKind;
+                const scroll = _pendingProgrammaticScroll;
+                _pendingProgrammaticChain = null;
+                _pendingProgrammaticParams = undefined;
+                _pendingProgrammaticKind = null;
+                _pendingProgrammaticScroll = true;
+                commit({
+                  url: destPath,
+                  params,
+                  kind,
+                  destChain,
+                  historyMode: null,
+                  scroll
                 });
               }
         });
@@ -547,15 +783,23 @@ export function createRouter(initialUrl?: string): Router {
       const popHandler = () => {
         const url = globalThis.location.pathname + globalThis.location.search + globalThis.location.hash;
         (async () => {
-          const redirect = await runGuardsAndLoad(url);
-          if (redirect !== null) {
+          const result = await runGuardsAndLoad(url);
+          if (result === null) return;
+          if ('redirect' in result) {
             // Re-enter navigate() so the redirect target's own guards and
             // loaders run, rather than bypassing them with a bare location push.
-            await router.navigate({ to: redirect, replace: true });
+            await router.navigate({ to: result.redirect, replace: true });
             return;
           }
-          withViewTransition(() => {
-            applyLocation(url);
+          await awaitLazyChunks(result.chain);
+          commit({
+            url,
+            params: result.params,
+            kind: 'traverse',
+            destChain: result.chain,
+            // popstate fired because history already moved; don't write again.
+            historyMode: null,
+            scroll: true
           });
         })();
       };
