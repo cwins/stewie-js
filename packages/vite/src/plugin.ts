@@ -89,13 +89,17 @@ export function stewie(options?: StewiePluginOptions): Plugin {
     // `esbuild` config key here, so set both for compat.
     config() {
       return {
+        // Vite 8+ uses oxc. Older versions used esbuild. The esbuild key here
+        // is the legacy path; oxc takes precedence when both are set, but
+        // keeping esbuild lets the plugin run on Vite 7 too.
         esbuild: {
           jsxImportSource: '@stewie-js/core'
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         oxc: {
           jsx: {
-            importSource: '@stewie-js/core'
+            importSource: '@stewie-js/core',
+            runtime: 'automatic'
           }
         } as any
       };

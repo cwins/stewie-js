@@ -109,8 +109,22 @@ export function transformFile(parsed: ParsedFile, analysis: AnalysisResult, opti
   let source = parsed.source;
   const replacements: Replacement[] = [];
 
-  // Auto-wrap: reactive reads in JSX expressions that aren't already functions
-  for (const candidate of analysis.autoWrapCandidates) {
+  // Auto-wrap: reactive reads in JSX expressions that aren't already functions.
+  // When candidates nest — e.g. `{ x ? (...){f()}...) : ... }` where both the
+  // outer JsxExpression and an inner `{f()}` get flagged — we keep only the
+  // outermost one. Applying both would corrupt the output: replacements are
+  // applied in reverse source order, but an inner replacement shifts later
+  // offsets, so the outer replacement's `end` (computed from the original
+  // source) becomes stale and the outer wrap doesn't fully consume the
+  // original closing brace. The outer wrap subsumes the inner one anyway —
+  // its `() =>` makes the whole subtree reactive.
+  const wrapCandidates = analysis.autoWrapCandidates.filter(
+    (c) =>
+      !analysis.autoWrapCandidates.some(
+        (other) => other !== c && other.start <= c.start && other.end >= c.end
+      )
+  );
+  for (const candidate of wrapCandidates) {
     replacements.push({
       start: candidate.start,
       end: candidate.end,
