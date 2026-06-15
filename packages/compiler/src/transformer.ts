@@ -119,10 +119,7 @@ export function transformFile(parsed: ParsedFile, analysis: AnalysisResult, opti
   // original closing brace. The outer wrap subsumes the inner one anyway —
   // its `() =>` makes the whole subtree reactive.
   const wrapCandidates = analysis.autoWrapCandidates.filter(
-    (c) =>
-      !analysis.autoWrapCandidates.some(
-        (other) => other !== c && other.start <= c.start && other.end >= c.end
-      )
+    (c) => !analysis.autoWrapCandidates.some((other) => other !== c && other.start <= c.start && other.end >= c.end)
   );
   for (const candidate of wrapCandidates) {
     replacements.push({

@@ -1,0 +1,59 @@
+/* View Transition styling — exercises the router's per-navigation types[].
+ *
+ * The router emits `stewie-kind-{push|replace|traverse|reload}` and
+ * `stewie-direction-{forward|back|default|same}` on every navigation, plus
+ * `stewie-transition-{groupName}` when a `transition` is declared on a
+ * shared layout route. See docs/guide/routing.md for the full contract.
+ *
+ * What this stylesheet demonstrates:
+ *
+ * 1. A subtle global cross-fade for every navigation.
+ * 2. A hard suppression on direction=same — i.e. tab switches that change
+ *    only `?tab=…`, paginated filters, and other in-place URL updates. These
+ *    should never animate; doing so would feel like a page swap when the
+ *    user just toggled a filter.
+ * 3. A traverse-specific gentler curve so back/forward feels recognizably
+ *    different from a forward push.
+ *
+ * The richer slide pattern (forward/back directional slides via a
+ * `transition` group) needs the route table to expose a real layout route
+ * — work-queue's current routing is flat under AppShellRoute, so all
+ * intra-app navigations resolve as `direction: 'default'`. The CSS below
+ * is the cookbook recipe that ships with `direction: 'default'` apps.
+ */
+
+@keyframes wq-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes wq-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* Default: a 180ms cross-fade for every navigation. */
+::view-transition-old(root) {
+  animation: wq-fade-out 180ms ease both;
+}
+::view-transition-new(root) {
+  animation: wq-fade-in 180ms ease both;
+}
+
+/* Back/forward: slightly longer curve so the user senses the historical move. */
+:active-view-transition-type(stewie-kind-traverse)::view-transition-old(root) {
+  animation-duration: 240ms;
+}
+:active-view-transition-type(stewie-kind-traverse)::view-transition-new(root) {
+  animation-duration: 240ms;
+}
+
+/* Same-route nav (params/query changed) — kill the animation. The user is
+ * filtering or paginating in place; treating it like a page swap would
+ * feel wrong. */
+:active-view-transition-type(stewie-direction-same)::view-transition-old(root) {
+  animation: none;
+}
+:active-view-transition-type(stewie-direction-same)::view-transition-new(root) {
+  animation: none;
+}

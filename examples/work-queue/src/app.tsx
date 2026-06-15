@@ -33,6 +33,7 @@ import {
   LoginRoute
 } from './routes.js';
 import './styles.css';
+import './transitions.css';
 
 // ---------------------------------------------------------------------------
 // Route mounting
