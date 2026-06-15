@@ -19,6 +19,9 @@ let server: ChildProcess | undefined;
 
 export async function setup(): Promise<void> {
   // Build client + SSR bundles. Output goes to dist/client and dist/server.
+  // The package's `prebuild` hook seeds an empty mocks payload when
+  // `./.temp-mocks/data.json` is missing, so this works in CI without
+  // requiring `pnpm run mock:create` (which hits the network).
   console.log('[browser-setup] building for production…');
   execSync('pnpm run build', { cwd: ROOT, stdio: 'inherit' });
 

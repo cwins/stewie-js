@@ -11,6 +11,7 @@
     "mock:create": "tsx src/get-mock-data.ts --overwrite",
     "dev": "tsx src/server.ts",
     "dev:temp-mock": "pnpm run mock:create && VITE_USE_TEMP_MOCK=true tsx src/server.ts",
+    "prebuild": "test -f ./src/.temp-mocks/data.json || pnpm run mock:create-empty",
     "build": "vite build && vite build --ssr",
     "build:temp-mock": "VITE_USE_TEMP_MOCK=true vite build && vite build --ssr",
     "preview": "NODE_ENV=production tsx src/server.ts",
