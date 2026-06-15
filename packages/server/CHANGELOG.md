@@ -1,3 +1,20 @@
+# [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **server:** clear typecheck errors in test files ([712828d](https://github.com/cwins/stewie-js/commit/712828d8e55830004c3169f603383e5935897e8a))
+
+
+### Features
+
+* **@stewie-js/core:** streaming-mode Suspense hydration ([e332dc1](https://github.com/cwins/stewie-js/commit/e332dc131f0c4a84feb1f929e6f49f5fcf06647f))
+* **@stewie-js/router:** nested layout routes via <Outlet /> ([55f81c5](https://github.com/cwins/stewie-js/commit/55f81c5643db3f53caa56d33cfa6ec78a792e754))
+* **@stewie-js/server:** emit __STEWIE_MANIFEST__ with rendered lazy ids ([1faed67](https://github.com/cwins/stewie-js/commit/1faed67928cea5b59398f199146cd1807e1202b5))
+* **@stewie-js/server:** emit modulepreload for lazy boundary JS chunks ([ecc218c](https://github.com/cwins/stewie-js/commit/ecc218c51256144be983239f86179ffd77b6a33e))
+* **core,server:** head/metadata primitives — useTitle, useMeta, <Head> ([c60860b](https://github.com/cwins/stewie-js/commit/c60860ba7dd34e3a9d9a1edee097a2d2916c209f))
+* SSR replay via DataRegistry + Suspense hydration cursor ([bc737c1](https://github.com/cwins/stewie-js/commit/bc737c1d52b61a623f08d04267a5f5c4410160c3))
+* **vite,server,core:** progressive asset streaming via Vite ssr-manifest (Phase 1) ([76d6626](https://github.com/cwins/stewie-js/commit/76d6626b50004164bfe04144b7bbd0e10a85cbb3))
 
 # [0.8.0](https://github.com/cwins/stewie-js/compare/v0.7.1...v0.8.0) (2026-04-28)
 

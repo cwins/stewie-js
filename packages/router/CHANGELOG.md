@@ -1,3 +1,20 @@
+# [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **router:** query-only navigation no longer re-mounts the matched route ([1f8e476](https://github.com/cwins/stewie-js/commit/1f8e4762b7ebedb19f9349b823c1204e95d90f9c))
+* **router:** setQuery never runs guards or loaders ([96046a0](https://github.com/cwins/stewie-js/commit/96046a0ea7fd8162e8b5d2c61daa414bc30b4ff0))
+* **router:** setQuery re-runs loaders by default; opt out for live-search ([d3d32b5](https://github.com/cwins/stewie-js/commit/d3d32b5980844d76a687aaabc9b0063593eda1ee))
+
+
+### Features
+
+* **@stewie-js/router:** nested layout routes via <Outlet /> ([55f81c5](https://github.com/cwins/stewie-js/commit/55f81c5643db3f53caa56d33cfa6ec78a792e754))
+* **@stewie-js/router:** typed route definitions via createRoute() ([1762a80](https://github.com/cwins/stewie-js/commit/1762a8098641ff56d807c3ec2683ea72823d6975))
+* **@stewie-js/router:** typed route params and query via RouteDefinition ([c68c119](https://github.com/cwins/stewie-js/commit/c68c119882b1fa5aeb032d9f76802157db81fa9a))
+* **router:** hover/focus prefetch on <Link>; lazy().preload() entry point ([59e2fa6](https://github.com/cwins/stewie-js/commit/59e2fa64620d242a1f347aba5bd3afd73195f2c7))
+* **router:** View Transitions + scroll restoration coherence ([47d21e8](https://github.com/cwins/stewie-js/commit/47d21e826ec73ba9afe4641c290f95492e7aca31))
 
 # [0.8.0](https://github.com/cwins/stewie-js/compare/v0.7.1...v0.8.0) (2026-04-28)
 

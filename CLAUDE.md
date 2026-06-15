@@ -8,7 +8,7 @@ This file is the canonical reference for the Stewie framework. Read it at the st
 
 A small, coherent TypeScript web framework for modern runtimes. It covers reactivity, rendering, SSR, routing, a compiler, testing utilities, devtools, and scaffolding — all designed together as a whole rather than assembled from third-party pieces.
 
-**Current version:** 0.8.0
+**Current version:** 0.9.0
 **Package scope:** `@stewie-js/*`
 **Monorepo manager:** pnpm workspaces
 
@@ -305,7 +305,7 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **stewie-js** (3891 symbols, 6706 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **stewie-js** (3894 symbols, 6706 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

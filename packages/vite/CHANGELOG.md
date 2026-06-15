@@ -1,3 +1,15 @@
+# [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **compiler,vite:** JSX-in-JSX detection through transparent expression nodes; oxc config for Vite 8+ ([859612b](https://github.com/cwins/stewie-js/commit/859612b2f6998c7c34ffcde9b33b8a233b9bf7f2))
+* **compiler:** drop enclosed auto-wrap candidates so nested wraps don't corrupt JSX ([70c7b6f](https://github.com/cwins/stewie-js/commit/70c7b6f4a14464c069088fb00d2a2b799b9bb19c))
+
+
+### Features
+
+* **vite,server,core:** progressive asset streaming via Vite ssr-manifest (Phase 1) ([76d6626](https://github.com/cwins/stewie-js/commit/76d6626b50004164bfe04144b7bbd0e10a85cbb3))
 
 # [0.8.0](https://github.com/cwins/stewie-js/compare/v0.7.1...v0.8.0) (2026-04-28)
 

@@ -1,4 +1,4 @@
-export const version = '0.8.0';
+export const version = '0.9.0';
 
 export { stewie } from './plugin.js';
 export type { StewiePluginOptions } from './plugin.js';

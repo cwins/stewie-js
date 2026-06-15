@@ -1,3 +1,16 @@
+# [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **router:** query-only navigation no longer re-mounts the matched route ([1f8e476](https://github.com/cwins/stewie-js/commit/1f8e4762b7ebedb19f9349b823c1204e95d90f9c))
+* **router:** setQuery never runs guards or loaders ([96046a0](https://github.com/cwins/stewie-js/commit/96046a0ea7fd8162e8b5d2c61daa414bc30b4ff0))
+* **router:** setQuery re-runs loaders by default; opt out for live-search ([d3d32b5](https://github.com/cwins/stewie-js/commit/d3d32b5980844d76a687aaabc9b0063593eda1ee))
+
+
+### Features
+
+* **router:** View Transitions + scroll restoration coherence ([47d21e8](https://github.com/cwins/stewie-js/commit/47d21e826ec73ba9afe4641c290f95492e7aca31))
 
 # [0.8.0](https://github.com/cwins/stewie-js/compare/v0.7.1...v0.8.0) (2026-04-28)
 

@@ -3,6 +3,6 @@ import { version } from './index.js';
 
 describe('@stewie-js/adapter-node', () => {
   it('exports version', () => {
-    expect(version).toBe('0.8.0');
+    expect(version).toBe('0.9.0');
   });
 });

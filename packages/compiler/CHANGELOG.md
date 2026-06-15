@@ -1,3 +1,17 @@
+# [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **compiler,vite:** JSX-in-JSX detection through transparent expression nodes; oxc config for Vite 8+ ([859612b](https://github.com/cwins/stewie-js/commit/859612b2f6998c7c34ffcde9b33b8a233b9bf7f2))
+* **compiler:** drop enclosed auto-wrap candidates so nested wraps don't corrupt JSX ([70c7b6f](https://github.com/cwins/stewie-js/commit/70c7b6f4a14464c069088fb00d2a2b799b9bb19c))
+
+
+### Features
+
+* **compiler:** extend autowrap to plain accessor reads, remove STW030 ([f083f22](https://github.com/cwins/stewie-js/commit/f083f222cdabc5d72f9e66366abbdf2eda080dc5))
+* **core,server:** head/metadata primitives — useTitle, useMeta, <Head> ([c60860b](https://github.com/cwins/stewie-js/commit/c60860ba7dd34e3a9d9a1edee097a2d2916c209f))
+* **work-queue:** exercise router's View Transition types via transitions.css ([3271aff](https://github.com/cwins/stewie-js/commit/3271aff2c72ecb0ff3c3ec19654bc2f647ae3abe))
 
 # [0.8.0](https://github.com/cwins/stewie-js/compare/v0.7.1...v0.8.0) (2026-04-28)
 

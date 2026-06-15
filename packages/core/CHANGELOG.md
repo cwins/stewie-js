@@ -1,3 +1,21 @@
+# [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **core:** preserve SSR DOM through lazy() factory resolution on hydration ([b26a7c5](https://github.com/cwins/stewie-js/commit/b26a7c59c80be49567212de79fe56acad5605864))
+
+
+### Features
+
+* **@stewie-js/core:** DataRegistry SPI + useResource integration ([c818279](https://github.com/cwins/stewie-js/commit/c81827981b91a35e7cedb95735a963ca46de8596))
+* **@stewie-js/core:** gate lazy() resolution on CSS load ([22ca497](https://github.com/cwins/stewie-js/commit/22ca497b35452069a03a23de406fb044caee8edb))
+* **@stewie-js/core:** streaming-mode Suspense hydration ([e332dc1](https://github.com/cwins/stewie-js/commit/e332dc131f0c4a84feb1f929e6f49f5fcf06647f))
+* **core,server:** head/metadata primitives — useTitle, useMeta, <Head> ([c60860b](https://github.com/cwins/stewie-js/commit/c60860ba7dd34e3a9d9a1edee097a2d2916c209f))
+* **core:** JSXChild allows nested arrays, undefined, and boolean ([9c1111c](https://github.com/cwins/stewie-js/commit/9c1111c91e0ef4c22e2811ed987b8b3076bf8e46))
+* **router:** hover/focus prefetch on <Link>; lazy().preload() entry point ([59e2fa6](https://github.com/cwins/stewie-js/commit/59e2fa64620d242a1f347aba5bd3afd73195f2c7))
+* SSR replay via DataRegistry + Suspense hydration cursor ([bc737c1](https://github.com/cwins/stewie-js/commit/bc737c1d52b61a623f08d04267a5f5c4410160c3))
+* **vite,server,core:** progressive asset streaming via Vite ssr-manifest (Phase 1) ([76d6626](https://github.com/cwins/stewie-js/commit/76d6626b50004164bfe04144b7bbd0e10a85cbb3))
 
 # [0.8.0](https://github.com/cwins/stewie-js/compare/v0.7.1...v0.8.0) (2026-04-28)
 

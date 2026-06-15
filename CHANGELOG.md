@@ -1,3 +1,36 @@
+# [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
+
+
+### Bug Fixes
+
+* **compiler,vite:** JSX-in-JSX detection through transparent expression nodes; oxc config for Vite 8+ ([859612b](https://github.com/cwins/stewie-js/commit/859612b2f6998c7c34ffcde9b33b8a233b9bf7f2))
+* **compiler:** drop enclosed auto-wrap candidates so nested wraps don't corrupt JSX ([70c7b6f](https://github.com/cwins/stewie-js/commit/70c7b6f4a14464c069088fb00d2a2b799b9bb19c))
+* **core:** preserve SSR DOM through lazy() factory resolution on hydration ([b26a7c5](https://github.com/cwins/stewie-js/commit/b26a7c59c80be49567212de79fe56acad5605864))
+* **router:** query-only navigation no longer re-mounts the matched route ([1f8e476](https://github.com/cwins/stewie-js/commit/1f8e4762b7ebedb19f9349b823c1204e95d90f9c))
+* **router:** setQuery never runs guards or loaders ([96046a0](https://github.com/cwins/stewie-js/commit/96046a0ea7fd8162e8b5d2c61daa414bc30b4ff0))
+* **router:** setQuery re-runs loaders by default; opt out for live-search ([d3d32b5](https://github.com/cwins/stewie-js/commit/d3d32b5980844d76a687aaabc9b0063593eda1ee))
+* **server:** clear typecheck errors in test files ([712828d](https://github.com/cwins/stewie-js/commit/712828d8e55830004c3169f603383e5935897e8a))
+
+
+### Features
+
+* **@stewie-js/adapter-cloudflare:** Cloudflare Workers Module Worker adapter ([c8c0449](https://github.com/cwins/stewie-js/commit/c8c04496ee6c27d42c90b5455137f6e7d1c10921))
+* **@stewie-js/core:** DataRegistry SPI + useResource integration ([c818279](https://github.com/cwins/stewie-js/commit/c81827981b91a35e7cedb95735a963ca46de8596))
+* **@stewie-js/core:** gate lazy() resolution on CSS load ([22ca497](https://github.com/cwins/stewie-js/commit/22ca497b35452069a03a23de406fb044caee8edb))
+* **@stewie-js/core:** streaming-mode Suspense hydration ([e332dc1](https://github.com/cwins/stewie-js/commit/e332dc131f0c4a84feb1f929e6f49f5fcf06647f))
+* **@stewie-js/router:** nested layout routes via <Outlet /> ([55f81c5](https://github.com/cwins/stewie-js/commit/55f81c5643db3f53caa56d33cfa6ec78a792e754))
+* **@stewie-js/router:** typed route definitions via createRoute() ([1762a80](https://github.com/cwins/stewie-js/commit/1762a8098641ff56d807c3ec2683ea72823d6975))
+* **@stewie-js/router:** typed route params and query via RouteDefinition ([c68c119](https://github.com/cwins/stewie-js/commit/c68c119882b1fa5aeb032d9f76802157db81fa9a))
+* **@stewie-js/server:** emit __STEWIE_MANIFEST__ with rendered lazy ids ([1faed67](https://github.com/cwins/stewie-js/commit/1faed67928cea5b59398f199146cd1807e1202b5))
+* **@stewie-js/server:** emit modulepreload for lazy boundary JS chunks ([ecc218c](https://github.com/cwins/stewie-js/commit/ecc218c51256144be983239f86179ffd77b6a33e))
+* **compiler:** extend autowrap to plain accessor reads, remove STW030 ([f083f22](https://github.com/cwins/stewie-js/commit/f083f222cdabc5d72f9e66366abbdf2eda080dc5))
+* **core,server:** head/metadata primitives — useTitle, useMeta, <Head> ([c60860b](https://github.com/cwins/stewie-js/commit/c60860ba7dd34e3a9d9a1edee097a2d2916c209f))
+* **core:** JSXChild allows nested arrays, undefined, and boolean ([9c1111c](https://github.com/cwins/stewie-js/commit/9c1111c91e0ef4c22e2811ed987b8b3076bf8e46))
+* **router:** hover/focus prefetch on <Link>; lazy().preload() entry point ([59e2fa6](https://github.com/cwins/stewie-js/commit/59e2fa64620d242a1f347aba5bd3afd73195f2c7))
+* **router:** View Transitions + scroll restoration coherence ([47d21e8](https://github.com/cwins/stewie-js/commit/47d21e826ec73ba9afe4641c290f95492e7aca31))
+* SSR replay via DataRegistry + Suspense hydration cursor ([bc737c1](https://github.com/cwins/stewie-js/commit/bc737c1d52b61a623f08d04267a5f5c4410160c3))
+* **vite,server,core:** progressive asset streaming via Vite ssr-manifest (Phase 1) ([76d6626](https://github.com/cwins/stewie-js/commit/76d6626b50004164bfe04144b7bbd0e10a85cbb3))
+* **work-queue:** exercise router's View Transition types via transitions.css ([3271aff](https://github.com/cwins/stewie-js/commit/3271aff2c72ecb0ff3c3ec19654bc2f647ae3abe))
 
 # [0.8.0](https://github.com/cwins/stewie-js/compare/v0.7.1...v0.8.0) (2026-04-28)
 
