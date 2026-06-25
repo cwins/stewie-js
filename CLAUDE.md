@@ -126,9 +126,10 @@ These are the reasons Stewie exists rather than "just use X":
 - Layout routes via nested `<Route>` trees and `<Outlet />` — guards outermost→inner, parallel loaders, per-level `useRouteData()`, index routes via `path="."`, setup-time validation
 - Typed route definitions via `createRoute(path, config)` — single declaration carries the path, runtime config (component / `beforeEnter` / `load`), and `P` / `Q` type shapes. The returned value is callable as a JSX component (`<ProjectEditRoute />` mounts the route inside `<Router>`) and is also passed value-typed to `useParams(route)` / `useQuery(route)`. `P` is inferred from the path literal via `PathParams<Path>`; explicit `<P, Q>` generics override when the path has no params or the route carries query types. The legacy generic forms — `useParams<T>()` over a hand-written `RouteDefinition` or a bare param shape — remain as overloads for back-compat. Mixing raw `<Route>` JSX and `createRoute` components in the same tree works (Router's child-walker recognises both shapes). See `decision-records/0003-route-definitions-via-createRoute.md`.
 - SSR router with guard execution and `renderToString` integration
+- Progressive asset streaming (Phases 1–3): per-boundary `<link rel="stylesheet">` and `<link rel="modulepreload">` emission via Vite's `ssr-manifest.json`; client-side gating in `lazy()` so a boundary's content does not flip until its CSS chunk loads; `<Link>` hover/focus prefetch via `router.preload()`, with `lazy().preload()` deduped through the shared `loadPromise` and `<Link prefetch={false}>` opt-out. SSR-emitted `data-stewie-id` dedup (the Loadable Components pattern) was descoped — the ssr-manifest covers the SSR side and `lazy()`'s `loadPromise` cache covers the client side
 - Compiler: auto-wrap, `$prop` transform, source maps, module-scope validation
 - Vite plugin with HMR
-- Node and Bun HTTP adapters
+- Node, Bun, and Cloudflare Workers HTTP adapters (Cloudflare is a minimal Module Worker wrapper; `env` / `ctx` propagation to the app handler is deferred)
 - Devtools panel: Renders, Stores, Routes, Graph tabs (with live signal dependency visualization)
 - `@stewie-js/testing` mount and query utilities
 - `create-stewie` CLI (static and SSR templates)
@@ -136,8 +137,8 @@ These are the reasons Stewie exists rather than "just use X":
 
 ## What Is Not Yet Real
 
-- **Progressive asset streaming — Phase 3** — Phases 1 and 2 are complete: per-boundary `<link rel="stylesheet">` and `<link rel="modulepreload">` emission via Vite's `ssr-manifest.json` (no custom manifest needed), and client-side gating in `lazy()` so the boundary's content does not flip until its CSS chunk loads. Still missing: router preloading on hover/focus with Loadable-style `data-stewie-id` attrs (Phase 3)
-- **Decision-oriented docs** — no "Stewie way" guides; no public docs at all
+- **Decision-oriented docs — publishing + completion** — draft content exists under `docs/` (guides: getting-started, reactivity, routing, ssr, components, **stewie-way**; `docs/patterns/`; `docs/reference/` API pages). What is missing: a published, discoverable docs *site* and completion of the "Stewie way" decision guides. The field evidence still stands — two canonical apps (Work Queue, external Pokemon demo) failed to discover shipped primitives (`useTitle`/`useMeta`/`<Head>`, `defineResource`/`useResource`, "component bodies are reactive scopes"). Draft markdown alone has not closed the discoverability gap; publishing + a "this is the Stewie way" guide is the highest-leverage remaining work. See the "Discoverability of existing primitives" decision below.
+- **Diagnostics — partial** — `DIAGNOSTICS.md` blueprints ~52 `STW###` codes; ~20 are implemented in package source today (STW001-007, 010, 011, 014, 022, 030, 040, 042, 052, 073, 083, 092, 094, 095). The remaining ~30 (compiler rules + dev-runtime warnings, per-code silencing, docs links) are not yet built.
 - **Deno adapter** — not yet written. (`@stewie-js/adapter-cloudflare` shipped 0.8.0 as a minimal Module Worker wrapper; `env` / `ctx` propagation to the app handler is deferred until a cross-adapter context-propagation design is settled.)
 - **Edge-first test phases 2–4** — streaming confidence tests, router edge-flow tests, adapter conformance suite
 
@@ -305,7 +306,7 @@ When bumping versions, update all `packages/*/package.json`, `examples/*/package
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **stewie-js** (3894 symbols, 6706 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **stewie-js** (3891 symbols, 6705 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

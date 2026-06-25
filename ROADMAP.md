@@ -39,11 +39,17 @@ These exist and work — not listed as open items below.
 | Devtools panel | `@stewie-js/devtools` | Renders tab (component names, old→new values, caller frames, anchor highlighting for Show/For/Switch), Stores tab, Routes tab, Graph tab (live signal dep visualization, disposal tracking) |
 | Testing utilities | `@stewie-js/testing` | `mount`, query helpers, signal assertions |
 | `create-stewie` CLI | `create-stewie` | Static and SSR scaffolding with router option |
-| `defineResource` + `useResource` | `@stewie-js/core` | Signals (`data`, `loading`, `error`), `read()` for Suspense, `refetch()`. SSR replay via `DataRegistry` not yet wired — see "SSR + Hydration Correctness" below |
+| `defineResource` + `useResource` | `@stewie-js/core` | Signals (`data`, `loading`, `error`), `read()` for Suspense, `refetch()`, `AbortController` cancellation. SSR replay via `DataRegistry` wired — see "SSR + Hydration Correctness" below |
 | `defineAction` + `useAction` | `@stewie-js/core` | `pending`, `error`, `lastRun`, `reset`; concurrent `run()` no-ops while pending |
 | `useTitle`, `useMeta`, `<Head>` | `@stewie-js/core` | Signal-driven `document.head` mutations; `renderToString` returns `headHtml`; `renderToStream` emits per-boundary inline `<script>` head patches |
 | Progressive asset streaming — Phase 1 | `@stewie-js/vite`, `@stewie-js/server` | Vite plugin rewrites `lazy(() => import('./X'))` to include the manifest id; `renderToStream` accepts a `manifest` option and emits deduped `<link rel="stylesheet">` per lazy boundary |
 | Lazy hydration preserves SSR DOM | `@stewie-js/core` | `renderLazy` late-hydrates the still-in-DOM SSR nodes via a sub-cursor when the factory resolves — no flicker, no re-render |
+| Layout routes + `<Outlet />` | `@stewie-js/router` | Nested `<Route>` trees; guards outermost→inner, parallel loaders, per-level `useRouteData()`, index routes via `path="."`, setup-time validation |
+| Typed routes via `createRoute` | `@stewie-js/router` | Single declaration carries path + runtime config + `P`/`Q` types; value is callable as a JSX component and value-typed to `useParams(route)` / `useQuery(route)`; legacy generic forms kept as overloads |
+| `setQuery(patch, options?)` | `@stewie-js/router` | Synchronous URL + reactive `location.query` update; no guards/loaders run, no route remount; `replaceState` default, `{ push: true }` opt-in |
+| `DataRegistry` + Suspense SSR replay | `@stewie-js/core`, `@stewie-js/server` | Store-backed keyed registry; inline-near-consumer SSR payloads; `useResource` reads registry first; Suspense hydration claims via `collectUntilComment('Suspense')` for both `renderToString` and `renderToStream` |
+| Progressive asset streaming — Phases 2 & 3 | `@stewie-js/vite`, `@stewie-js/server`, `@stewie-js/router` | `<link rel="modulepreload">` + client-side CSS-load gating in `lazy()`; `<Link>` hover/focus prefetch via `router.preload()`, `lazy().preload()` deduped through `loadPromise`, `prefetch={false}` opt-out |
+| Cloudflare Workers adapter | `@stewie-js/adapter-cloudflare` | Minimal Module Worker wrapper (0.8.0); `env` / `ctx` propagation deferred |
 
 ---
 
@@ -70,13 +76,13 @@ Both renderers now emit identical boundary/anchor comment semantics (`<!---->`, 
 ~~**Router SPI enhancements**~~
 `NavigationPhase`, `NavigationStatus`, `dismiss()`, and `preload()` added to `@stewie-js/router-spi` and implemented in `@stewie-js/router`. `useNavigationStatus()` exported from the router.
 
-**Typed params and query**
-`useParams<{ id: string }>()` and `useQuery<{ tab: string }>()` with types inferred from route definitions rather than requiring manual annotation.
+~~**Typed params and query**~~
+Shipped via `createRoute(path, config)`. `P` is inferred from the path literal (`PathParams<Path>`); `useParams(route)` / `useQuery(route)` are value-typed from the route. The legacy `useParams<{ id: string }>()` annotation form remains as a back-compat overload. See `decision-records/0003-route-definitions-via-createRoute.md`.
 
 ### Adapters
 
-**`@stewie-js/adapter-cloudflare`**
-Cloudflare Workers and Pages adapter. Workers speak `Request`/`Response` natively so the core logic is thin, but the streaming path needs validation in that environment.
+~~**`@stewie-js/adapter-cloudflare`**~~
+Shipped 0.8.0 as a minimal Module Worker wrapper — Workers speak `Request`/`Response` natively so the core logic is thin. Remaining: `env` / `ctx` propagation to the app handler (deferred until a cross-adapter context-propagation design is settled) and streaming-path validation in the Workers environment.
 
 **`@stewie-js/adapter-deno`**
 `Deno.serve` adapter, similar in scope to the existing Bun adapter.
@@ -225,17 +231,13 @@ This is an enhancement to `@stewie-js/vite` (build time) and `@stewie-js/server`
 
 ### SSR + Hydration Correctness for Suspense and Resources
 
-Two coupled gaps that show up the moment an SSR app uses `Suspense` around a `useResource` consumer.
+**Shipped.** Both coupled gaps below are resolved, for `renderToString` and `renderToStream`. Verified end-to-end by `hydration-integration.test.ts` (zero refetches, no fallback flash, in either mode).
 
 **Lazy hydration — fixed.** `renderLazy` previously claimed SSR nodes during hydration but only attached reactive effects when `loaded()` was already true on the first effect run — a near-impossible case, since the dynamic import is async. The factory then resolved, the SSR nodes were *removed* and re-rendered fresh: visible flicker, server work discarded. Now `renderLazy` tracks an explicit `needsHydration` flag and takes a hydration path (sub-cursor over the still-in-DOM SSR nodes) when `loaded` flips post-firstRun.
 
-**Suspense hydration — open.** `renderSuspense` does not engage the `HydrationCursor` at all (`packages/core/src/dom-renderer.ts:707`). It creates a fresh `<!--Suspense-->` anchor and re-renders children client-side. If children throw a Promise on hydration (because `useResource` data wasn't replayed from SSR), the fallback flashes back in even though SSR already streamed the resolved content. The fix has three coordinated parts and they have to land together to be meaningful:
+**Suspense hydration — fixed.** SSR emits `<!--Suspense-->` after resolved boundary content (both renderers); `renderSuspense` claims via `collectUntilComment('Suspense')` and runs children with a sub-cursor (mirrors `renderShow`); `useResource` reads from the seeded `DataRegistry` before fetching, so SSR-resolved data doesn't re-throw and the fallback never flashes back in. The streaming-mode placeholder-div path (`<div id="__ssN">`) is also handled: `renderSuspense` defers via `MutationObserver`, re-seeds the registry from the inline patch on swap, then sub-cursor-hydrates the post-swap nodes, preserving context across the deferral.
 
-1. SSR emits `<!--Suspense-->` anchor at end of boundary content (both `renderToString` and `renderToStream`).
-2. `renderSuspense` claims via `collectUntilComment('Suspense')` and runs children with a sub-cursor (mirrors `renderShow`).
-3. `useResource` reads from a `DataRegistry` (see next item) so SSR-resolved data doesn't re-throw.
-
-**`DataRegistry` SPI — open.** Single primitive shared by SSR replay and client-side cache. Settled interface: `has` / `get` / `set` / `serialize` / `serializeByKey` / `hydrate` / `hydrateByKey`. Backed by a reactive `store()` so cache invalidation and devtools fall out for free. Key derivation is `${defId}:${stableSerialize(args)}`. SSR emits `serializeByKey` payloads inline near each consuming component (not in a single end-of-stream blob) so a Suspense boundary's data lands with its content and progressive hydration is preserved. Hydration cursor consumes the inline payloads and calls `hydrateByKey`. `useResource` checks the registry first on every call.
+**`DataRegistry` SPI — shipped.** Single primitive shared by SSR replay and client-side cache. Interface: `has` / `get` / `set` / `serialize` / `serializeByKey` / `hydrate` / `hydrateByKey`. Backed by a reactive `store()` so cache invalidation and devtools fall out for free. Key derivation is `${defId}:${stableSerialize(args)}`. SSR emits `serializeByKey` payloads inline near each consuming component (not in a single end-of-stream blob) so a Suspense boundary's data lands with its content and progressive hydration is preserved. The hydration cursor consumes the inline payloads and calls `hydrateByKey`. `useResource` checks the registry first on every call.
 
 Side benefits the registry gets us:
 
@@ -304,18 +306,18 @@ Phases 2–4 are deferred until Phase 1 proves stable and until `resource()` can
 14. ~~**Conformance CI — layers 2 and 3**~~ — done; scaffold ships with test files; conformance suite runs vitest (layer 2) and vite build (layer 3) for all six combinations
 15. ~~**Compiler Bug 1**~~ — done (type-aware auto-wrap via ts.TypeChecker, heuristic fallback for plain JS)
 16. ~~**Browser tests — ssr-and-routing example**~~ — done; 11 Playwright tests run against prod build via `test:browser`; scaffold browser test story deferred pending CI solution
-17. **Canonical reference app (Work Queue) — Phase 1** — SSR app shell, route table, local data repo, dashboard + projects list; also the design testbed for actions/mutations and head/metadata patterns
-18. **Diagnostics — dev-mode and build-time** — compiler + dev-runtime checks for common mistakes (signal not called in JSX, module-scope reactive primitives, `$prop` on non-signal, missing context provider, etc.); stable codes, docs page, per-code silencing
-19. **Documentation site + decision-oriented guides** — API reference plus "the Stewie way" guides (signal vs store vs resource, route load vs resource, mutation patterns, etc.)
+17. ~~**Canonical reference app (Work Queue) — Phase 1**~~ — done and well past Phase 1; `examples/work-queue` ships an SSR app (actions, loaders, pages, components, browser + gating tests) and served as the design testbed for actions/mutations, head/metadata, auth/guard, and reactive-props observations now recorded in CLAUDE.md
+18. **Diagnostics — dev-mode and build-time** *(partial)* — `DIAGNOSTICS.md` blueprints ~52 `STW###` codes; ~20 are implemented in source today. Remaining: ~30 codes (compiler rules + dev-runtime warnings), the docs page mapping each code to a fix, and per-code silencing
+19. **Documentation site + decision-oriented guides** *(in progress)* — draft markdown exists under `docs/` (guides incl. `stewie-way.md`, `docs/patterns/`, `docs/reference/`). Remaining: a published, discoverable docs *site* and completion of the "Stewie way" decision guides. Highest-leverage remaining item per the discoverability evidence (two canonical apps re-invented shipped primitives)
 20. **Form primitives** — settled: no `createForm()` in v1. Forms compose from existing primitives (signals for fields/touched, computeds for validation/dirty, `useAction` for submit lifecycle, `signal.peek()` for the submit snapshot). Tripwire: extract a `field(signal, initial)` helper only after 3+ Work Queue forms grow the same multi-field touched/dirty pattern.
-21. **Actions / mutations** — `defineAction` + `useAction` (settled spec above). Includes the parallel `defineResource` + `useResource` reshape of the existing flat `resource()`. New diagnostics STW005/STW006 for `useAction`/`useResource` outside component scope.
+21. ~~**Actions / mutations**~~ — done (shipped 0.7.x). `defineAction` + `useAction` (settled spec above), plus the parallel `defineResource` + `useResource` reshape of the flat `resource()`. Diagnostics STW005/STW006 for `useAction`/`useResource` outside component scope are implemented.
 22. ~~**Head / metadata primitives**~~ — done; `useTitle`/`useMeta`/`<Head>` ship in core; `renderToString` returns `headHtml`; `renderToStream` emits inline `<script>` patches for Suspense boundary flushes
 23. ~~**Progressive asset streaming — Phase 1**~~ — done; `@stewie-js/vite` injects manifest IDs into `lazy()` calls; `renderToStream` accepts a `manifest` and emits deduped per-boundary `<link rel="stylesheet">` before each lazy flush
 24. ~~**Lazy hydration preserves SSR DOM**~~ — done; `renderLazy` now late-hydrates the still-in-DOM SSR nodes when the factory resolves instead of removing and re-rendering
-25. **SSR + hydration correctness for Suspense and resources** — `DataRegistry` SPI (settled) + `useResource` integration + inline SSR payload emission + `renderSuspense` cursor claim. The three Suspense-fix sub-tasks and the registry land together; this is the next item
+25. ~~**SSR + hydration correctness for Suspense and resources**~~ — done. `DataRegistry` SPI (settled) + `useResource` integration + inline SSR payload emission + `renderSuspense` cursor claim all shipped, for both `renderToString` and `renderToStream` (incl. the streaming-mode placeholder-div deferral path). Verified by `hydration-integration.test.ts`: zero refetches, no fallback flash
 26. ~~**Progressive asset streaming — Phase 2**~~ — done in 0.8.x; `<link rel="modulepreload">` for JS chunks alongside the existing CSS links; client hydration gates on CSS load
 27. ~~**Progressive asset streaming — Phase 3**~~ — done in 0.9.0; `<Link>` hover/focus prefetch via `router.preload()`, `lazy().preload()` deduplicated through `loadPromise`, `prefetch={false}` opt-out
 28. ~~**View Transitions + scroll restoration coherence**~~ — done in 0.9.0; `NavigationStatus.kind` (Navigation API enum) + `routeDirection` (structural chain-prefix comparison); VT `types[]` carry `stewie-kind-*` / `stewie-direction-*` / `stewie-transition-*` for CSS scoping; `transition?: string` on layout routes for group animations; `scrollRestoration='manual'` with forward→(0,0) / traverse→restore / hash→scrollIntoView defaults and `navigate({ scroll: false })` opt-out
 29. Edge-first testing phases 2–4
-30. Cloudflare adapter
-31. Typed route params and query
+30. **Cloudflare adapter** *(minimal shipped)* — `@stewie-js/adapter-cloudflare` ships as a minimal Module Worker wrapper (0.8.0). Remaining: `env` / `ctx` propagation to the app handler (deferred until a cross-adapter context-propagation design is settled) and streaming-path validation in the Workers environment
+31. ~~**Typed route params and query**~~ — done. `createRoute(path, config)` carries path + runtime config + `P`/`Q` type shapes; the returned value is callable as a JSX component and passed value-typed to `useParams(route)` / `useQuery(route)`. Legacy generic forms remain as back-compat overloads. See `decision-records/0003-route-definitions-via-createRoute.md`
