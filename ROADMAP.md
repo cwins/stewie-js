@@ -189,6 +189,13 @@ API reference is table stakes. What Stewie actually needs is "the Stewie way" �
 
 These guides are more valuable than a complete API listing. They turn a technically capable framework into one that people can learn confidently and use consistently.
 
+**Directives from the 2026-07-06 React/Solid comparison review (apply when writing the guides):**
+
+- **Acknowledge the Solid lineage on control flow, then pivot.** `<Show>` / `<For>` / `<Switch>` deliberately match Solid's proven shape (`when` / `each` / `fallback`). Say so explicitly and immediately show what *is* different — silence reads as accidental copying, renaming them would be the actual mistake.
+- **Lead the router docs with `createRoute`, not `<Link>`.** The `createRoute` value (simultaneously a JSX component, the `useParams`/`useQuery` argument, and the `P`/`Q` type carrier) is the single most novel router API and has no Solid/React-Router equivalent.
+- **Give `$prop` two-way binding real prominence.** It's a genuine compiler differentiator with SwiftUI (not Solid) lineage and is currently under-marketed relative to its novelty.
+- **Frame primitives honestly.** Convergent primitives (`signal`/`effect`/`computed`/`store`) are correct, not novel; don't oversell a different API *shape* as a moat. Lead differentiation messaging with the WinterCG/edge boundary and the first-party data story (see CLAUDE.md "Messaging Rules").
+
 ### Developer Experience
 
 - ~~**`_appMounted` flag**~~ — `mount()` now calls `_setAppMounted()` which suppresses the "outside reactive scope" warning after mount. SSR-safety is preserved (warning still fires on server before any mount).
@@ -247,7 +254,7 @@ Side benefits the registry gets us:
 
 Out of scope for v1: any of those cache features. The minimum is the SPI plus inline replay, sized so the registry is comfortable to make a public export later.
 
-Long-term: route loaders should be expressed *via* `defineResource` so a loader fetching `/api/user/1` and a `useResource(fetchUser, () => 1)` share identity through the same registry entry. Today they sit in namespaced regions of the same registry (`route:${path}:${paramsHash}` vs `${defId}:${argsHash}`); the unification is a follow-on refactor that doesn't change the SPI.
+**Loader/resource dedup — identified as load-bearing (2026-07-06 React/Solid comparison review).** Route loaders should be expressed *via* `defineResource` so a loader fetching `/api/user/1` and a `useResource(fetchUser, () => 1)` share identity through the same registry entry. Today they sit in namespaced regions of the same registry (`route:${path}:${paramsHash}` vs `${defId}:${argsHash}`); the unification is a follow-on refactor that doesn't change the SPI. This is no longer just a nice-to-have: until a loader and a same-endpoint `useResource` dedupe through one entry, the "first-party data story" bet only *looks* unified (two namespaces in one store). Prioritize this over other data-layer polish.
 
 ### Diagnostics — dev-mode and build-time
 
