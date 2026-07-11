@@ -80,9 +80,37 @@ Event handlers are plain functions:
 
 Stewie uses `class` (not `className`) and other standard HTML attribute names.
 
+### Two-way binding with `$prop`
+
+Wiring a form input to a signal by hand means reading it in one place and writing it back in an event handler:
+
+```tsx
+<input value={name()} onInput={e => name.set((e.target as HTMLInputElement).value)} />
+```
+
+The compiler gives you a shorthand: prefix the prop with `$` and pass the signal. `$value={name}` expands to exactly the read-plus-write pair above:
+
+```tsx
+<input $value={name} />          {/* value={name()} + onInput → name.set(...) */}
+<input type="checkbox" $checked={done} />   {/* checked={done()} + onChange → done.set(...) */}
+<select $value={sort}>...</select>          {/* select fires change, not input — handled */}
+```
+
+This is a compiler convenience, not a new runtime concept: `$value` compiles down to the same fine-grained binding you'd write yourself, so there's no wrapper, no special element, and nothing to learn beyond the `$` prefix. The convention is borrowed from SwiftUI's `$` bindings.
+
+- `$value` on a text input binds via `onInput`; on a `<select>` it binds via `onChange`.
+- `$checked` binds a checkbox via `onChange` and `e.target.checked`.
+- Passing both `$value` and a plain `value` on the same element is a conflict the compiler flags.
+
+`$prop` requires the `@stewie-js/vite` compiler plugin. Without it, write the read/write pair by hand — the runtime is identical either way.
+
 ---
 
 ## Control flow
+
+Stewie's control-flow components — `<Show>`, `<For>`, `<Switch>`/`<Match>` — deliberately match the shape SolidJS established, down to the `when` / `each` / `fallback` prop names. That shape is proven and there was no reason to rename it for the sake of looking different. If you're coming from Solid, these will feel familiar on purpose.
+
+What's Stewie's, underneath the familiar surface: these compile to **fine-grained, real-DOM updates with no virtual DOM and no diffing** — a `<Show>` toggling only swaps its own branch, a `<For>` reorders with a keyed LIS reconcile that moves the minimum number of nodes. The same components run identically under SSR, streaming, and DOM-claiming hydration, and the devtools **Renders** tab highlights exactly which anchor updated and why. The API is shared; the machinery and the coherence with the rest of the framework are the point.
 
 ### `<Show>` — conditional rendering
 
