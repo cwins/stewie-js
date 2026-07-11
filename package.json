@@ -16,6 +16,9 @@
     "lint:fix": "oxlint --fix packages/*/src examples/*/src --ignore-pattern '**/*.d.ts'",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "clean": "find packages -name dist -type d -prune -exec rm -rf {} + 2>/dev/null; find packages/*/src -name '*.js' -o -name '*.js.map' -o -name '*.d.ts' -o -name '*.d.ts.map' 2>/dev/null | xargs rm -f; true",
     "prepare": "husky"
   },
@@ -28,6 +31,7 @@
     "oxfmt": "^0.43.0",
     "oxlint": "^1.56.0",
     "typescript": "^5.8.0",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.9"
   },
   "packageManager": "pnpm@10.28.2"
