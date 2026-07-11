@@ -19,7 +19,7 @@ count.peek()      // read without subscribing
 
 Signals can hold any value: primitives, objects, arrays, or `null`.
 
-The key rule: **signals must be created inside a component or `createRoot()`**, not at module scope. In dev mode, creating a signal at module scope logs a warning.
+The key rule: **signals must be created inside a component or `reactiveScope()`**, not at module scope. In dev mode, creating a signal at module scope logs a warning.
 
 ---
 

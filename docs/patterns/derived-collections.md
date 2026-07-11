@@ -56,7 +56,7 @@ None of these are reactive. They run once when the component function executes.
 
 ```tsx
 function ProjectTasks({ projectId }: { projectId: string }) {
-  const app = inject(AppContext)
+  const app = consume(AppContext)
 
   // reactive derivation — stays live as app.tasks changes
   const tasks = computed(() =>

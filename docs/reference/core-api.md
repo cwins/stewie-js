@@ -28,7 +28,7 @@ count.update(n => n + 1)  // functional update
 | `sig.set(value)` | Write a new value. No-op if the value is strictly equal to the current value. |
 | `sig.update(fn)` | Write the result of `fn(currentValue)`. |
 
-Signals must be created inside a component or `createRoot()` — not at module scope. In dev mode, creating a signal at module scope logs a warning.
+Signals must be created inside a component or `reactiveScope()` — not at module scope. In dev mode, creating a signal at module scope logs a warning.
 
 ---
 
@@ -102,7 +102,7 @@ effect(() => {
 
 Registers a cleanup function that runs when the current reactive root (component) is disposed — i.e., when the component unmounts.
 
-Call inside a component body or inside `createRoot()`. If called outside any root it is silently ignored.
+Call inside a component body or inside `reactiveScope()`. If called outside any root it is silently ignored.
 
 ```ts
 function DataLoader() {
@@ -121,12 +121,12 @@ This is the mechanism `useResource` uses to cancel in-flight requests when the s
 
 ### `getOwner(): Owner | null`
 
-Returns the current reactive ownership scope, or `null` if called outside any `createRoot()`.
+Returns the current reactive ownership scope, or `null` if called outside any reactive scope.
 
 Use this together with `runInOwner` to track effects and cleanup functions created in async continuations (after `await`) back to their originating root.
 
 ```ts
-createRoot(async (dispose) => {
+reactiveScope(async (dispose) => {
   const owner = getOwner()   // capture before first await
   const data = await loadData()
 
@@ -170,10 +170,6 @@ dispose()  // stops the effect
 
 The `dispose` argument is optional — `reactiveScope(() => { ... })` is fine when you don't need to tear down manually.
 
-### `createRoot<T>(fn): T`
-
-Lower-level variant of `reactiveScope` used by the renderer for each component. Most user code should reach for `reactiveScope` instead — the two are functionally equivalent; `createRoot` is named for its role in framework internals.
-
 ---
 
 ## Store
@@ -196,7 +192,7 @@ Deep nesting is automatically proxied on access. Array mutation methods (`push`,
 
 Changing `state.user.name` does **not** notify subscribers of `state.user.role` or `state.todos` — subscriptions are path-level, not object-level.
 
-Like `signal`, `store` must be created inside a component or `createRoot()`.
+Like `signal`, `store` must be created inside a component or `reactiveScope()`.
 
 ---
 
@@ -204,7 +200,7 @@ Like `signal`, `store` must be created inside a component or `createRoot()`.
 
 ### `createContext<T>(defaultValue?): Context<T>`
 
-Creates a typed context token. The optional `defaultValue` is returned by `inject()` when no provider is found. Omitting it means `inject()` will throw if called without a matching provider.
+Creates a typed context token. The optional `defaultValue` is returned by `consume()` when no provider is found. Omitting it means `consume()` will throw if called without a matching provider.
 
 ```ts
 const ThemeContext = createContext<'light' | 'dark'>('light')
@@ -225,13 +221,13 @@ provide(ThemeContext, 'dark', () => {
 
 ---
 
-### `inject<T>(context): T`
+### `consume<T>(context): T`
 
-Reads the nearest provided value for `context`. Throws if no provider is found and the context has no default value.
+Reads the nearest provided value for `context`. Throws if no provider is found and the context has no default value. Pairs with `provide(context, value, fn)`: an ancestor provides, a descendant consumes.
 
 ```ts
 function Button() {
-  const theme = inject(ThemeContext)
+  const theme = consume(ThemeContext)
   return <button class={theme}>Click</button>
 }
 ```

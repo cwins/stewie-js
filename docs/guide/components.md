@@ -32,7 +32,7 @@ function Counter() {
 }
 ```
 
-You do not need to call `createRoot()` inside a component — the renderer already provides a reactive scope. See [When to Use `createRoot`](../patterns/create-root.md).
+You do not need to call `reactiveScope()` inside a component — the renderer already provides a reactive scope. See [When to Use `reactiveScope`](../patterns/reactive-scope.md).
 
 ---
 
@@ -151,16 +151,16 @@ const ThemeContext = createContext<'light' | 'dark'>('light')
 </ThemeContext.Provider>
 ```
 
-**Injecting:**
+**Consuming:**
 
 ```ts
 function Button() {
-  const theme = inject(ThemeContext)
+  const theme = consume(ThemeContext)
   return <button class={theme}>Click</button>
 }
 ```
 
-`inject` reads the nearest provided value. If no provider is found, it returns the default value passed to `createContext`. If there is no default, it throws.
+`consume` reads the nearest provided value. If no provider is found, it returns the default value passed to `createContext`. If there is no default, it throws.
 
 ### Reactive context values
 
@@ -176,7 +176,7 @@ const theme = signal<'light' | 'dark'>('light')
 
 ```ts
 function Button() {
-  const theme = inject(ThemeContext)
+  const theme = consume(ThemeContext)
   return <button class={() => theme()}>Click</button>
 }
 ```

@@ -15,7 +15,7 @@ Practical patterns and non-obvious behaviours worth knowing about.
 
 - [Reactive Branches and Child Component Props](patterns/reactive-branches.md)
 - [Derived Collections from Store State](patterns/derived-collections.md)
-- [When to Use `createRoot`](patterns/create-root.md)
+- [When to Use `reactiveScope`](patterns/reactive-scope.md)
 
 ## Reference
 
