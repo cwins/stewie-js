@@ -52,6 +52,37 @@ Declares a route mapping inside a `<Router>`. This component is never rendered d
 
 ---
 
+### `createRoute<P, Q>(path, config): TypedRoute<P, Q>`
+
+Declares a typed route in one place. The returned value is callable as a JSX component (render it directly inside `<Router>`) and carries phantom `P` (params) and `Q` (query) types that `useParams(route)` / `useQuery(route)` read to recover the shape at the call site without a generic argument.
+
+```ts
+// P inferred from the path literal via PathParams<Path>
+const ProjectEditRoute = createRoute(
+  '/projects/:projectId/edit',
+  { component: EditProjectPage, load: projectEditLoader }
+)
+
+// Explicit generics when there are no params or a query shape to type
+const LoginRoute = createRoute<{}, { redirect?: string }>(
+  '/login',
+  { component: LoginPage }
+)
+```
+
+**`config` (`CreateRouteConfig`)**
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `component` | `Component` | Component rendered when the route matches. |
+| `beforeEnter` | `RouteGuard` | Guard called before activation. |
+| `load` | `(params, query) => Promise<unknown>` | Async loader; result via `useRouteData()`. |
+| `transition` | `string` | View-transition group name; typically set on a layout route. |
+
+The first overload infers `P` from the path literal; the second accepts explicit `<P, Q>` generics. Children (for layout routes) are declared at the JSX usage site, not in `config`. Raw `<Route>` and `createRoute` components can be mixed in the same `<Router>` tree.
+
+---
+
 ### `<Link to replace? class?>`
 
 Client-side navigation anchor. Prevents full-page reloads and uses `router.navigate()` to handle the click. Falls back to a plain `<a href>` when used outside a `<Router>` or during SSR.
@@ -87,9 +118,27 @@ router.navigate('/login')
 router.navigate({ to: '/dashboard', replace: true })
 router.back()
 router.forward()
+router.setQuery({ q: 'shoes' })              // filter/search — no remount
 ```
 
 Throws if called outside a `<Router>`.
+
+**`setQuery(patch, options?): void`**
+
+Synchronously updates the URL query string and the reactive `location.query` **without** running guards or loaders and without remounting the route — the right tool for filters and live search where `navigate()` would tear down the route subtree and lose input focus.
+
+```ts
+router.setQuery({ q: e.currentTarget.value })   // replaceState (default)
+router.setQuery({ status: 'archived' }, { push: true })  // adds a history entry
+router.setQuery({ category: null })             // null/undefined deletes the key
+```
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `patch` | `Record<string, string \| null \| undefined>` | Keys to set; `null`/`undefined` deletes. |
+| `options.push` | `boolean` | Use `pushState` instead of the default `replaceState`. |
+
+Declare query-reactive data at the fetch site — `useResource(fn, () => location.query.key)` — not via a loader, so it stays out of the routing lifecycle. See the [routing guide](../guide/routing.md#updating-the-query-without-re-running-the-route) and the STW075 footgun.
 
 ---
 
@@ -119,21 +168,23 @@ Because `location` is a `store()`, fine-grained subscriptions apply. A component
 
 ---
 
-### `useParams<T>(): T`
+### `useParams(route)` / `useParams<T>(): T`
 
-Returns the route parameter map for the current route. Generic for typed access.
+Returns the route parameter map for the current route. Prefer passing a `createRoute` route for value-typed access with no annotation; fall back to the generic form for raw `<Route>` definitions.
 
 ```ts
-const { id } = useParams<{ id: string }>()
+const { id } = useParams(UserRoute)        // value-typed from the route
+const { id } = useParams<{ id: string }>() // raw-route form
 ```
 
 ---
 
-### `useQuery<T>(): T`
+### `useQuery(route)` / `useQuery<T>(): T`
 
-Returns the parsed query string for the current URL. Generic for typed access.
+Returns the parsed query string for the current URL. Same two forms as `useParams`.
 
 ```ts
+const { tab, page } = useQuery(SettingsRoute)
 const { tab, page } = useQuery<{ tab: string; page: string }>()
 ```
 

@@ -36,6 +36,63 @@ Route changes use the View Transitions API when available, giving you smooth ani
 
 ---
 
+## Typed routes with `createRoute`
+
+`<Route>` works, but it splits a route across two declarations: the JSX (`path`, `component`, `load`) and — if you want typed params — a separate hand-written type passed to `useParams<T>()`. Rename a path segment and the type silently drifts out of sync.
+
+`createRoute(path, config)` collapses both into one value. The path, the runtime config (component, guard, loader), and the param/query **types** live in a single declaration:
+
+```ts
+import { createRoute } from '@stewie-js/router'
+
+// P is inferred from the path literal — { projectId: string }
+export const ProjectEditRoute = createRoute(
+  '/projects/:projectId/edit',
+  { component: EditProjectPage, load: projectEditLoader }
+)
+
+// No params, but a typed query — pass explicit generics
+export const LoginRoute = createRoute<{}, { redirect?: string }>(
+  '/login',
+  { component: LoginPage }
+)
+```
+
+The returned value **is** the route component — render it directly inside `<Router>`:
+
+```tsx
+<Router>
+  <ProjectEditRoute />
+  <LoginRoute />
+</Router>
+```
+
+And it carries its own types, so `useParams` / `useQuery` become value-typed with no annotation — pass the route itself:
+
+```ts
+function EditProjectPage() {
+  const { projectId } = useParams(ProjectEditRoute)   // string, no generic needed
+  const { redirect } = useQuery(LoginRoute)           // string | undefined
+}
+```
+
+Layout routes work the same way — children are declared at the JSX usage site, not in the config:
+
+```tsx
+export const AppShellRoute = createRoute('/', { component: AppShellLayout })
+
+<Router>
+  <AppShellRoute>
+    <DashboardRoute />
+    <ProjectEditRoute />
+  </AppShellRoute>
+</Router>
+```
+
+`createRoute` is the recommended way to declare routes. Raw `<Route>` remains the underlying primitive — it still works, and you can mix both shapes in the same tree (the `<Router>` child-walker recognises each). Reach for raw `<Route>` when you don't need typed params; reach for `createRoute` the moment a route has `:params` or a query shape worth typing.
+
+---
+
 ## Links
 
 Use `<Link>` for client-side navigation. It renders an `<a>` tag but intercepts clicks to avoid full-page reloads.
@@ -82,30 +139,69 @@ router.forward()
 
 Access the current route's parameters with `useParams`. Parameters are the `:name` segments in the route path.
 
+If the route was declared with `createRoute`, pass the route for value-typed params with no annotation:
+
 ```tsx
 import { useParams } from '@stewie-js/router'
 
 function UserDetail() {
-  const { id } = useParams<{ id: string }>()
+  const { id } = useParams(UserRoute)   // typed from the route's path literal
   // id is reactive — reading it subscribes to param changes
   return <p>User: {id}</p>
 }
+```
+
+For raw `<Route>` definitions, annotate the shape instead:
+
+```tsx
+const { id } = useParams<{ id: string }>()
 ```
 
 ---
 
 ## Query string
 
+Read query values with `useQuery` — value-typed from a `createRoute` route, or annotated for raw routes:
+
 ```tsx
 import { useQuery } from '@stewie-js/router'
 
 function SearchPage() {
-  const { q, page } = useQuery<{ q: string; page: string }>()
+  const { q, page } = useQuery(SearchRoute)   // or useQuery<{ q: string; page: string }>()
   return <p>Searching for: {q}</p>
 }
 ```
 
 Because `location` is a store, a component reading only `query.q` is not notified when `query.page` changes.
+
+### Updating the query without re-running the route
+
+For filters and live search, you want the URL and `useQuery()` to update on every keystroke **without** re-running guards, re-running loaders, or remounting the route. Calling `navigate()` for that would tear down and rebuild the route subtree — losing input focus. Use `setQuery` instead:
+
+```tsx
+function SearchBox() {
+  const router = useRouter()
+  const q = useQuery(SearchRoute).q
+
+  return (
+    <input
+      value={q}
+      onInput={e => router.setQuery({ q: e.currentTarget.value })}
+    />
+  )
+}
+```
+
+`setQuery(patch, options?)` is a synchronous URL + `location.query` annotation:
+
+- The URL and the reactive `location.query` update **immediately** — `useQuery()` consumers see the new value on the same tick.
+- **No guards run. No loaders run. The route never remounts.**
+- `null` or `undefined` in the patch deletes that key.
+- Default history method is `replaceState`; pass `{ push: true }` to add a back-button entry (e.g. a multi-step filter flow).
+
+Query-reactive **data** belongs at the fetch site, not the URL site: declare it with `useResource(fn, () => location.query.someKey)` so the dependency lives where the fetch is, deduplicates by registry key, and stays out of the routing lifecycle. Loaders are for cross-boundary navigation where guards also need to run — a filter or search box does not cross that boundary.
+
+> **Footgun (STW075):** if a route's `load(params, query)` reads its `query` argument and you mutate that key with `setQuery`, `useRouteData()` will hold stale data until the next real `navigate()`. Move the query-dependent fetch into a `useResource` at the consumer.
 
 ---
 
