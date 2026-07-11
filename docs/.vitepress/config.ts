@@ -5,6 +5,8 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
   title: 'Stewie',
   description: 'A small, coherent TypeScript web framework for modern runtimes.',
+  // Deployed as a GitHub project page at https://cwins.github.io/stewie-js/
+  base: '/stewie-js/',
   cleanUrls: true,
   lastUpdated: true,
 
