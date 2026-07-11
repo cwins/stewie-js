@@ -1,37 +1,36 @@
-# Stewie Docs
+---
+layout: home
 
-Stewie is a small, coherent TypeScript web framework for modern runtimes. You write plain, obvious components; fine-grained reactivity and the compiler turn them into **localized DOM updates** — when a signal changes, only the expression that read it updates, with no virtual DOM and no diffing.
+hero:
+  name: Stewie
+  text: A coherent TypeScript framework for the edge
+  tagline: Fine-grained reactivity, SSR, routing, and a compiler — designed together, running on any WinterCG runtime.
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /guide/getting-started
+    - theme: alt
+      text: The Stewie Way
+      link: /guide/stewie-way
+    - theme: alt
+      text: API Reference
+      link: /reference/core-api
 
-What makes Stewie worth choosing over assembling your own stack:
-
-- **Edge-first / WinterCG.** `@stewie-js/core` and `@stewie-js/server` use only standard Web APIs (`Request`, `Response`, `ReadableStream`) — no Node-specific APIs. Your app runs on Node, Bun, Cloudflare Workers, and Deno without a shim layer, and CI enforces that boundary.
-- **A first-party data story.** Route loaders → SSR state transfer → true DOM-claiming hydration → clean client pickup is one coherent contract, not user-assembled glue. `defineResource`/`defineAction` and a shared data registry back it.
-- **Typed routing built in.** `createRoute` collapses a route's path, config, and param/query types into one declaration — no second source of truth to keep in sync.
-- **Explanatory devtools** that show *what* updated, *why*, and *what it subscribed to*.
-
-Routing, SSR, testing, devtools, and the compiler are designed together as one framework rather than assembled from third-party pieces — so the pieces fit without compatibility hunting.
-
-New here? Start with [Getting Started](guide/getting-started.md), then [The Stewie Way](guide/stewie-way.md) for which primitive to reach for when.
-
-## Guide
-
-- [Getting Started](guide/getting-started.md) — scaffold, manual setup, first component
-- [Reactivity](guide/reactivity.md) — signals, computed, effects, store, the subscription model
-- [Components](guide/components.md) — function components, JSX, control flow, context, lifecycle
-- [Routing](guide/routing.md) — Router setup, navigation, guards, data loading, lazy routes
-- [Server-Side Rendering](guide/ssr.md) — renderToString, streaming, hydration, ClientOnly, adapters
-- [The Stewie Way](guide/stewie-way.md) — decision-oriented guide: which primitive for which job
-
-## Patterns
-
-Practical patterns and non-obvious behaviours worth knowing about.
-
-- [Reactive Branches and Child Component Props](patterns/reactive-branches.md)
-- [Derived Collections from Store State](patterns/derived-collections.md)
-- [When to Use `reactiveScope`](patterns/reactive-scope.md)
-
-## Reference
-
-- [Core API](reference/core-api.md) — signals, computed, effects, store, context, control flow, async data (resources + actions), head / metadata, lazy, mount, hydrate
-- [Router API](reference/router-api.md) — Router, Route, Link, hooks, guards
-- [Server API](reference/server-api.md) — renderToString, renderToStream, hydration registry
+features:
+  - title: Edge-first / WinterCG
+    details: core and server use only standard Web APIs — Request, Response, ReadableStream. Runs on Node, Bun, Cloudflare Workers, and Deno without a shim layer, and CI enforces the boundary.
+    link: /guide/ssr
+  - title: A first-party data story
+    details: Route loaders → SSR state transfer → true DOM-claiming hydration → clean client pickup is one coherent contract, backed by defineResource / defineAction and a shared data registry.
+    link: /guide/ssr
+  - title: Localized updates
+    details: You write plain components; fine-grained reactivity updates only the expression that read a signal. No virtual DOM, no diffing.
+    link: /guide/reactivity
+  - title: Typed routing built in
+    details: createRoute collapses a route's path, config, and param/query types into one declaration — no second source of truth to keep in sync.
+    link: /guide/routing
+  - title: Explanatory devtools
+    details: Tooling that shows what updated, why it updated, and what it subscribed to — reinforcing the mental model, not just exposing internals.
+  - title: One designed whole
+    details: Routing, SSR, testing, devtools, and the compiler are designed together rather than assembled from third-party pieces, so they fit without compatibility hunting.
+---
