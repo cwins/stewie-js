@@ -250,6 +250,28 @@ function MyList() {
 
 **Message:** `Component '{name}' returns a function instead of a JSX element. Did you mean to return the JSX directly, or wrap the body in a lazy()/For/Show primitive?`
 
+### STW033 — `Reactive<T>` prop value reads no reactive sources (dead thunk)
+**Detection:** compiler-heuristic · **Severity:** warn · **Dual:** no
+
+```tsx
+// Suspicious — passed to a Reactive<string> prop, but the thunk body
+// touches no signal/computed/store, so it will never update.
+<UserChip name={() => getRandomName()} />
+```
+
+The type system cannot distinguish a live accessor from a dead one — `() => T`
+is structurally a valid `Reactive<T>` regardless of what its body reads (see
+`decision-records/0004`). This is a best-effort lint that scans the arrow body
+for reactive reads using the same machinery as `containsReactiveRead`. It has
+false negatives (reads through helper functions) and must **not** fire on a
+deliberately-static escape hatch where the author clearly intends a constant —
+so it only warns on thunks that both read nothing reactive *and* call other
+functions / compute values (a bare `() => 'literal'` constant is fine and
+silent). Compiler-only: at runtime a thunk that reads nothing is indistinguishable
+from one whose dependencies simply haven't changed.
+
+**Message:** `Value passed to reactive prop '{prop}' is a function that reads no signals, stores, or computed values — it will never update. If it should be reactive, read a signal inside it; if it's meant to be constant, this is fine and you can silence STW033.`
+
 ---
 
 ## Reactive scope and lifecycle
