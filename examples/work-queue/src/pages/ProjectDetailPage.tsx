@@ -376,10 +376,10 @@ export function ProjectDetailPage(): JSXElement {
           <span class="project-lead-label">Lead</span>
           {(() => {
             const lead = data.project.leadId ? (usersById[data.project.leadId] ?? null) : null;
-            if (!lead) return <UserChip user={null} />;
+            if (!lead) return <UserChip user={() => null} />;
             return (
               <Link to={`/profile/${lead.id}`} class="project-lead-link">
-                <UserChip user={lead} />
+                <UserChip user={() => lead} />
               </Link>
             );
           })()}

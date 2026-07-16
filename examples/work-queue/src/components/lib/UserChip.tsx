@@ -1,17 +1,15 @@
 /// <reference types="vite/client" />
-import type { JSXElement } from '@stewie-js/core';
+import type { JSXElement, Reactive } from '@stewie-js/core';
 import type { UserPublic } from '../../data/types.js';
 
 interface UserChipProps {
-  // Accepts a plain value or accessor so callers can pass either a stable
-  // loader value or a reactive lookup (e.g. () => userMap[task().assigneeId]).
-  user: UserPublic | null | (() => UserPublic | null);
+  // Accessor-typed reactive prop (ADR 0004). Callers pass a live lookup
+  // (`() => usersById()[id]`) or a constant thunk (`() => lead`) for a static
+  // value. Accessor-only — not `T | (() => T)` — so there's no static arm a
+  // caller could pass by mistake and silently lose reactivity.
+  user: Reactive<UserPublic | null>;
   /** Display variant. `compact` hides the name and shows only the avatar. */
   variant?: 'default' | 'compact';
-}
-
-function resolve<T>(v: T | (() => T)): () => T {
-  return typeof v === 'function' ? (v as () => T) : () => v;
 }
 
 function initials(displayName: string): string {
@@ -22,11 +20,10 @@ function initials(displayName: string): string {
 }
 
 export function UserChip({ user, variant = 'default' }: UserChipProps): JSXElement {
-  const get = resolve(user);
   return (
     <span class={() => `user-chip user-chip-${variant}`} data-testid="user-chip">
       {() => {
-        const u = get();
+        const u = user();
         if (!u) {
           return (
             <>
