@@ -16,6 +16,31 @@ export interface Computed<T> {
   (): T;
 }
 
+/**
+ * A reactive (live) value: a zero-arg accessor that returns the current `T`
+ * and, when read inside a reactive context, subscribes to its updates.
+ *
+ * Use it to type props that should track updates:
+ *
+ * ```ts
+ * interface UserChipProps {
+ *   user: Reactive<UserPublic | null>   // live — re-reads when the source changes
+ *   compact: boolean                     // static — set once
+ * }
+ * ```
+ *
+ * `Reactive<T>` is a plain structural alias for `() => T`, so `Signal<T>` and
+ * `Computed<T>` (both callable) satisfy it directly, and a store field connects
+ * through a thunk (`user={() => state.viewer}`). It names *intent* — "this prop
+ * is live" — where a bare `() => T` does not. With the `@stewie-js/vite`
+ * compiler, callers can pass a value or reactive expression (`user={viewer()}`)
+ * and it is auto-wrapped; without the compiler, pass the accessor yourself
+ * (`user={() => viewer()}`). Either way the runtime is identical.
+ *
+ * See `decision-records/0004-reactive-props-and-the-Reactive-type.md`.
+ */
+export type Reactive<T> = () => T;
+
 export type Dispose = () => void;
 
 export interface Scope {

@@ -2,7 +2,7 @@
 
 export const version = '0.9.0';
 
-export type { Signal, Computed, Dispose, Scope, Subscribable, Subscriber, Owner } from './reactive.js';
+export type { Signal, Computed, Reactive, Dispose, Scope, Subscribable, Subscriber, Owner } from './reactive.js';
 export {
   signal,
   computed,
