@@ -34,6 +34,41 @@ function Counter() {
 
 You do not need to call `reactiveScope()` inside a component — the renderer already provides a reactive scope. See [When to Use `reactiveScope`](../patterns/reactive-scope.md).
 
+### Props: static by default, reactive when typed `Reactive<T>`
+
+A plain prop type is a **static** value, captured once at mount:
+
+```tsx
+function Greeting({ name }: { name: string }) {
+  return <h1>Hello, {name}!</h1>   // never changes after mount
+}
+```
+
+To let a prop **track updates**, type it as an accessor with `Reactive<T>` and read it by calling it:
+
+```tsx
+import type { Reactive } from '@stewie-js/core'
+
+function Greeting({ name }: { name: Reactive<string> }) {
+  return <h1>Hello, {name()}!</h1>   // re-reads when the source changes
+}
+```
+
+Callers pass an accessor — a signal directly, a thunk, or a constant thunk for a static value:
+
+```tsx
+<Greeting name={firstName} />              {/* firstName is a Signal<string> */}
+<Greeting name={() => user().displayName} />  {/* a reactive lookup */}
+<Greeting name={() => 'Guest'} />          {/* static escape hatch — a constant */}
+```
+
+Two things worth knowing:
+
+- **It's destructure-safe.** `const { name } = props; …name()` still tracks — the reactivity is in *calling* the accessor, not in accessing the property, so pulling `name` out of the props object loses nothing.
+- **`Reactive<T>` is just `() => T`.** It names intent ("this prop is live"). `Signal<T>` and `Computed<T>` satisfy it directly because they're callable.
+
+Type a prop `Reactive<T>` when a reusable component should reflect later changes to the value; leave it a plain `T` when it's genuinely set-once. See [The Stewie Way](stewie-way.md#passing-reactive-data-to-child-components).
+
 ---
 
 ## JSX

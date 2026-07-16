@@ -94,6 +94,36 @@ The compiler's module-scope-validation pass enforces this as a hard error at bui
 
 ---
 
+## Passing reactive data to child components
+
+**When a reusable component should reflect later changes to a value, type that prop `Reactive<T>` (an accessor). When it's genuinely set-once, leave it a plain `T`.**
+
+```tsx
+import type { Reactive } from '@stewie-js/core'
+
+interface UserChipProps {
+  user: Reactive<UserPublic | null>   // live — re-reads when the source changes
+  variant?: 'default' | 'compact'     // static — set once at mount
+}
+
+function UserChip({ user, variant }: UserChipProps) {
+  return <span>{() => user()?.displayName ?? 'Unassigned'}</span>   // call it to read
+}
+```
+
+Callers pass an accessor — a signal directly (`user={viewer}`), a reactive lookup (`user={() => usersById()[id]}`), or a constant thunk as the static escape hatch (`user={() => lead}`).
+
+**Type it accessor-only — not `T | (() => T)`.** The union looks friendlier but reintroduces a footgun: a caller who wanted reactivity can pass the plain-value arm by mistake and silently lose updates, and TypeScript won't complain. Accessor-only makes that unrepresentable, and it needs no `resolve()` helper — the component always just calls `user()`.
+
+Two things that make this comfortable rather than ceremony:
+
+- **It's destructure-safe.** `const { user } = props; …user()` still tracks — reactivity is in *calling* the accessor, not in accessing the property. (This is why Stewie doesn't need Solid's `splitProps`/`mergeProps`.)
+- **There's no per-render cost.** Component bodies run once at setup — there's no re-render loop — so an inline `() => …` isn't reallocated every frame the way it would be in React. A static one is even called only once.
+
+Think of `Reactive<T>` as Stewie's honest "this prop is live" marker. It's a plain alias for `() => T`, so `Signal<T>` and `Computed<T>` satisfy it directly.
+
+---
+
 ## Writing data: actions, not effects
 
 For anything that writes — form submits, button-triggered mutations, optimistic updates — use `defineAction` + `useAction`. They give you `pending`, `error`, and `lastRun` for free, and they no-op while a previous run is in flight (so a button mash doesn't fire twice).

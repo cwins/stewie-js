@@ -32,10 +32,14 @@ export interface Computed<T> {
  * `Reactive<T>` is a plain structural alias for `() => T`, so `Signal<T>` and
  * `Computed<T>` (both callable) satisfy it directly, and a store field connects
  * through a thunk (`user={() => state.viewer}`). It names *intent* — "this prop
- * is live" — where a bare `() => T` does not. With the `@stewie-js/vite`
- * compiler, callers can pass a value or reactive expression (`user={viewer()}`)
- * and it is auto-wrapped; without the compiler, pass the accessor yourself
- * (`user={() => viewer()}`). Either way the runtime is identical.
+ * is live" — where a bare `() => T` does not.
+ *
+ * Callers pass an accessor: a signal/computed directly (`user={viewer}`), a
+ * thunk (`user={() => lookup()}`), or a constant thunk as the static escape
+ * hatch (`user={() => value}`). The consumer reads it by calling it
+ * (`props.user()`), which subscribes to updates. (Auto-wrapping a plain
+ * call-site expression like `user={viewer()}` is a planned compiler pass — see
+ * the ADR — not yet shipped, so pass the accessor explicitly for now.)
  *
  * See `decision-records/0004-reactive-props-and-the-Reactive-type.md`.
  */
