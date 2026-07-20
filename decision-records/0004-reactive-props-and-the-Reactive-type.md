@@ -130,11 +130,20 @@ the `() => T` from signatures.** Concretely:
 - **Compiler stays optional; correctness never depends on it.** Compiler-off
   code is more verbose (explicit `() =>`), never silently wrong. Stage 2
   (removing contagion via (b)/(c)) is shelved and may never be needed.
-- **Prototype risk to retire before relying on it:** confirm the `Reactive`
-  alias symbol survives generic instantiation through
-  `checker.getTypeAtLocation` on the prop declaration. If it does not, the
-  auto-wrap falls back to the accessor-shape heuristic (which already exists for
-  intrinsics).
+- **Prototype risk — RETIRED (spike, 2026-07-20).** A TypeChecker spike over an
+  in-memory program confirmed the `Reactive` alias symbol is detectable at the
+  JSX/call-site via `getContextualType(attributeInitializer).aliasSymbol`, and
+  it (a) distinguishes `Reactive<T>` from a bare `() => T` and from a plain
+  value, (b) **survives generic instantiation** (`item: Reactive<T>`
+  instantiated to `Reactive<string>` still carries the alias symbol resolving to
+  core), and (c) survives cross-module import (identity resolves back to core's
+  declaration). So the primary detection is the alias symbol, not the
+  accessor-shape heuristic — which is *more* precise (it won't wrap an incidental
+  `() => T` prop such as an event callback). A syntactic fallback (resolve the
+  `TypeReferenceNode.typeName` to core's `Reactive`) also works independently of
+  alias-symbol preservation. The remaining implementation confirmation is narrow:
+  that JSX-attribute contextual typing behaves identically to the object-literal
+  proxy the spike used (same contextual-typing machinery — expected to transfer).
 - **Auto-wrap of component props is narrower than full (c):** because the wrap
   is *gated on the declared prop type being accessor-shaped*, it leaves `ref`,
   `as`, `children`, and static `T` props untouched by construction — which
