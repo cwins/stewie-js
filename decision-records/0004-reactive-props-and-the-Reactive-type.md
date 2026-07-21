@@ -85,11 +85,17 @@ the `() => T` from signatures.** Concretely:
    the plain-`() =>` and `name={mySignal}` ergonomics, and pull straight toward
    compiler-required. Not worth it.
 
-5. **Dead-thunk detection is not part of the type story.** Whether an accessor
-   is actually wired to a signal (vs. `() => getRandomName()`) cannot be seen by
-   the type system — even branding only checks the annotation, not the body. If
-   we want to flag "this `Reactive<T>` reads no reactive sources," it is a
-   best-effort **lint** (DIAGNOSTICS.md `STW033`), orthogonal to this decision.
+5. **Dead-thunk detection is not feasible — descoped (2026-07-21).** Whether an
+   accessor is actually wired to a signal (vs. `() => getRandomName()`) cannot be
+   seen by the type system — even branding only checks the annotation, not the
+   body. A best-effort lint (`STW033`) was planned, but attempting it showed it
+   is *undecidable*: a plain function and a reactive accessor are type-identical
+   (`() => T`, no `.peek()`), so any rule that flags `() => getRandomName()` also
+   flags idiomatic accessor-chaining like `() => usersById()[id]` — which fires
+   on our own canonical app (`TaskRow`). Runtime detection is no better. STW033 is
+   descoped; the type layer already catches the *decidable* mistakes (a bare value
+   or snapshotted `signal()` where `() => T` is expected is a type error), so
+   reactive props need no lint.
 
 ## Rationale
 
@@ -119,19 +125,23 @@ the `() => T` from signatures.** Concretely:
   to "why not just do what Solid/React do": because our execution model makes the
   honest, no-magic version the natural one — the author writes the accessor and
   the child calls it, with nothing hidden.
-- **The alias-symbol hook is how the compiler recognizes a `Reactive` prop.** A
+- **The alias-symbol hook: a validated technique with no current consumer.** A
   plain alias is structurally identical to `() => T`, so it grants no extra
-  *type-system* power — but the TypeChecker exposes the alias symbol, so the
-  *compiler* can recognize props declared with core's `Reactive` precisely
-  (distinct from incidental thunks like event handlers). This is not needed for
-  auto-wrap (dropped) — it is how STW033 identifies a reactive-prop position to
-  lint the value passed there.
+  *type-system* power — but the TypeChecker exposes the alias symbol, so a
+  *compiler* pass could recognize props declared with core's `Reactive` precisely
+  (distinct from incidental thunks like event handlers). This was the detection
+  mechanism for both the auto-wrap and STW033 — both now dropped — so nothing uses
+  it today. Kept as a proven building block should a future feature need to
+  identify a `Reactive`-prop position.
 
 ## Consequences
 
-- **Zero new runtime API and no transform.** `Reactive<T>` is a type. The
-  convention (accessor-only + the `Reactive` alias) plus the STW033 lint is the
-  whole change.
+- **Zero new runtime API, no transform, no lint.** `Reactive<T>` is a type. The
+  convention (accessor-only + the `Reactive` alias) is the *whole* change — both
+  planned compiler pieces (auto-wrap, STW033) dissolved on inspection, and
+  TypeScript already enforces the decidable mistakes. This is the strongest
+  vindication of "no magic, compiler-optional": the feature needs no compiler
+  support at all.
 - **Compiler stays optional; correctness never depends on it.** Compiler-off
   code is more verbose (explicit `() =>`), never silently wrong — and now
   *trivially* so, since there is no auto-wrap transform to be absent. Stage 2
@@ -146,21 +156,19 @@ the `() => T` from signatures.** Concretely:
   Building it would be a no-op for well-typed code, or would presuppose the union
   we rejected (which reintroduces the arm hazard and compiler-off incorrectness).
   So it is not built. The idiom is explicit accessors (decision 3).
-- **Reactive-prop detection — validated (spike, 2026-07-20), now used by STW033.**
+- **Reactive-prop detection — validated by spike (2026-07-20), currently unused.**
   A TypeChecker spike confirmed a `Reactive` prop is detectable at the JSX/call
   site via `getContextualType(attributeInitializer).aliasSymbol`: it distinguishes
   `Reactive<T>` from a bare `() => T` and from a plain value, **survives generic
   instantiation** (`item: Reactive<T>` → `Reactive<string>` keeps the alias
-  symbol resolving to core), and survives cross-module import. A syntactic
-  fallback (resolve `TypeReferenceNode.typeName` to core's `Reactive`) also works.
-  This was the auto-wrap's detection mechanism; with auto-wrap dropped it becomes
-  STW033's — how the lint knows a value sits in a reactive-prop position. Narrow
-  open confirmation: JSX-attribute contextual typing matches the object-literal
-  proxy the spike used (same machinery — expected to transfer).
-- **Migration (mostly shipped):** `Reactive` export added; Work Queue's
-  `UserChip` migrated from `T | (() => T)` + `resolve()` to accessor-only
-  `Reactive<T>`; convention documented in the "Stewie way" and Components guides.
-  Remaining: the STW033 lint.
+  symbol resolving to core), and survives cross-module import. It was the
+  detection mechanism for the auto-wrap and STW033; with both dropped it has no
+  consumer, but the finding stands recorded for any future feature that needs it.
+- **Migration — shipped:** `Reactive` export added; Work Queue's `UserChip`
+  migrated from `T | (() => T)` + `resolve()` to accessor-only `Reactive<T>`;
+  convention documented in the "Stewie way" and Components guides; the app's
+  remaining bare `() => T` accessor props migrated to `Reactive<T>` for
+  consistency. Nothing remaining — no auto-wrap, no lint.
 - **The (b)/(c) gotcha catalog is preserved below** as the record of why they
   are shelved, so a future revisit doesn't re-derive it.
 

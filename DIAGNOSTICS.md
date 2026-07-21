@@ -250,27 +250,31 @@ function MyList() {
 
 **Message:** `Component '{name}' returns a function instead of a JSX element. Did you mean to return the JSX directly, or wrap the body in a lazy()/For/Show primitive?`
 
-### STW033 — `Reactive<T>` prop value reads no reactive sources (dead thunk)
-**Detection:** compiler-heuristic · **Severity:** warn · **Dual:** no
+### STW033 — *Descoped (2026-07-21): not statically decidable*
+**Detection:** none · **Severity:** — · **Dual:** n/a
 
-```tsx
-// Suspicious — passed to a Reactive<string> prop, but the thunk body
-// touches no signal/computed/store, so it will never update.
-<UserChip name={() => getRandomName()} />
-```
+Originally planned as a "dead thunk" lint: warn when a value passed to a
+`Reactive<T>` prop is a function that reads no reactive source (`<UserChip
+name={() => getRandomName()} />`) and so will never update. **Dropped — the
+distinction is undecidable with the information available.**
 
-The type system cannot distinguish a live accessor from a dead one — `() => T`
-is structurally a valid `Reactive<T>` regardless of what its body reads (see
-`decision-records/0004`). This is a best-effort lint that scans the arrow body
-for reactive reads using the same machinery as `containsReactiveRead`. It has
-false negatives (reads through helper functions) and must **not** fire on a
-deliberately-static escape hatch where the author clearly intends a constant —
-so it only warns on thunks that both read nothing reactive *and* call other
-functions / compute values (a bare `() => 'literal'` constant is fine and
-silent). Compiler-only: at runtime a thunk that reads nothing is indistinguishable
-from one whose dependencies simply haven't changed.
+In Stewie a plain function and a reactive accessor are *type-identical*: both are
+`() => T` with no `.peek()`. So `() => getRandomName()` (dead) and `() =>
+usersById()[id]` (a legitimate reactive accessor-chain — `usersById: () =>
+Record` is an accessor prop) are structurally the same shape. Any rule that flags
+the first also flags the second, and the second is idiomatic — it's exactly what
+`Reactive<T>` props exist for. Concretely, `examples/work-queue`'s
+`TaskRow` passes `user={() => { const id = task().assigneeId; return id ?
+usersById()[id] ?? null : null }}`, reading two bare `() => T` accessors; a
+signals-only check false-positives on it, while an accessor-inclusive check
+misses `getRandomName` entirely. Runtime detection is no better — a thunk that
+reads nothing is indistinguishable from one whose dependencies simply haven't
+changed.
 
-**Message:** `Value passed to reactive prop '{prop}' is a function that reads no signals, stores, or computed values — it will never update. If it should be reactive, read a signal inside it; if it's meant to be constant, this is fine and you can silence STW033.`
+The decidable reactive-prop mistakes are already caught by TypeScript via the
+accessor typing itself: passing a bare value or a snapshotted `signal()` where a
+`Reactive<T>` (`() => T`) is expected is a plain type error. No lint needed. See
+`decision-records/0004`.
 
 ---
 
