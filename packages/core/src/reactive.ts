@@ -37,9 +37,9 @@ export interface Computed<T> {
  * Callers pass an accessor: a signal/computed directly (`user={viewer}`), a
  * thunk (`user={() => lookup()}`), or a constant thunk as the static escape
  * hatch (`user={() => value}`). The consumer reads it by calling it
- * (`props.user()`), which subscribes to updates. (Auto-wrapping a plain
- * call-site expression like `user={viewer()}` is a planned compiler pass — see
- * the ADR — not yet shipped, so pass the accessor explicitly for now.)
+ * (`props.user()`), which subscribes to updates. This is explicit by design —
+ * there is no call-site auto-wrap for component props, so the pattern works the
+ * same with or without the compiler.
  *
  * See `decision-records/0004-reactive-props-and-the-Reactive-type.md`.
  */
