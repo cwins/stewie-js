@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import type { JSXElement } from '@stewie-js/core';
+import type { JSXElement, Reactive } from '@stewie-js/core';
 import type { TaskStatus, TaskPriority } from '../../data/types.js';
 
 // ---------------------------------------------------------------------------
@@ -13,19 +13,14 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 interface StatusBadgeProps {
-  // Accepts a plain value or an accessor so parents can pass reactive task
-  // fields (e.g. `() => task().status`) without the badge going stale on
-  // inline edits.
-  status: TaskStatus | (() => TaskStatus);
-}
-
-function resolve<T>(v: T | (() => T)): () => T {
-  return typeof v === 'function' ? (v as () => T) : () => v;
+  // Accessor-typed (ADR 0004) so parents can pass a reactive task field
+  // (`() => task().status`) or a constant thunk for a static value, without the
+  // badge going stale on inline edits.
+  status: Reactive<TaskStatus>;
 }
 
 export function StatusBadge({ status }: StatusBadgeProps): JSXElement {
-  const get = resolve(status);
-  return <span class={() => `badge badge-status badge-status-${get()}`}>{() => STATUS_LABELS[get()]}</span>;
+  return <span class={() => `badge badge-status badge-status-${status()}`}>{() => STATUS_LABELS[status()]}</span>;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,10 +34,9 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
 };
 
 interface PriorityBadgeProps {
-  priority: TaskPriority | (() => TaskPriority);
+  priority: Reactive<TaskPriority>;
 }
 
 export function PriorityBadge({ priority }: PriorityBadgeProps): JSXElement {
-  const get = resolve(priority);
-  return <span class={() => `badge badge-priority badge-priority-${get()}`}>{() => PRIORITY_LABELS[get()]}</span>;
+  return <span class={() => `badge badge-priority badge-priority-${priority()}`}>{() => PRIORITY_LABELS[priority()]}</span>;
 }

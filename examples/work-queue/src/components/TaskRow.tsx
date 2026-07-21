@@ -1,20 +1,20 @@
 /// <reference types="vite/client" />
-import type { JSXElement } from '@stewie-js/core';
+import type { JSXElement, Reactive } from '@stewie-js/core';
 import { StatusBadge, PriorityBadge } from './lib/Badge.js';
 import { UserChip } from './lib/UserChip.js';
 import type { Task, UserPublic } from '../data/types.js';
 
 interface TaskRowProps {
-  // Accessor rather than a plain Task so inline field edits from the parent's
+  // Reactive rather than a plain Task so inline field edits from the parent's
   // $tasks signal propagate into this row without remounting it. A static
   // Task prop would only reflect changes that cause For to reshuffle slots
   // (e.g. status changes that move the task between lists).
-  task: () => Task;
-  /** Accessor returning a lookup from user id to public user record. */
-  usersById: () => Record<string, UserPublic>;
+  task: Reactive<Task>;
+  /** Reactive lookup from user id to public user record. */
+  usersById: Reactive<Record<string, UserPublic>>;
   /** Called when the row is clicked to open the detail/edit panel. */
   onSelect: (task: Task) => void;
-  isSelected: () => boolean;
+  isSelected: Reactive<boolean>;
 }
 
 export function TaskRow({ task, usersById, onSelect, isSelected }: TaskRowProps): JSXElement {

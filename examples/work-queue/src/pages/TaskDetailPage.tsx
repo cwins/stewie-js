@@ -90,8 +90,8 @@ export function TaskDetailPage(): JSXElement {
           {task.title}
         </h1>
         <div class="page-header-badges">
-          <PriorityBadge priority={task.priority} />
-          <StatusBadge status={task.status} />
+          <PriorityBadge priority={() => task.priority} />
+          <StatusBadge status={() => task.status} />
         </div>
       </div>
 

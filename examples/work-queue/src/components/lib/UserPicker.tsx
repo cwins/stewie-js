@@ -6,12 +6,12 @@
 // and the validation. value is an accessor so the picker reflects writes
 // from peers (e.g. an action result that updates the signal).
 
-import type { JSXElement } from '@stewie-js/core';
+import type { JSXElement, Reactive } from '@stewie-js/core';
 import type { UserPublic } from '../../data/types.js';
 
 interface UserPickerProps {
   users: UserPublic[];
-  value: () => string | null;
+  value: Reactive<string | null>;
   onChange: (id: string | null) => void;
   /** Visible label. When omitted, the picker renders without a <label>. */
   label?: string;
