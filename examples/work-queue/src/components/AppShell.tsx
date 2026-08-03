@@ -11,6 +11,7 @@
 import type { JSXElement } from '@stewie-js/core';
 import { Outlet } from '@stewie-js/router';
 import { NavBar } from './NavBar.js';
+import { TeamPanel } from './TeamPanel.js';
 
 interface AppShellProps {
   children: JSXElement | JSXElement[];
@@ -41,8 +42,11 @@ export function AppShellLayout(): JSXElement {
   return (
     <div class="app-shell">
       <NavBar />
-      <div class="app-content">
-        <Outlet />
+      <div class="app-body">
+        <div class="app-content">
+          <Outlet />
+        </div>
+        <TeamPanel />
       </div>
     </div>
   );
