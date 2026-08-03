@@ -404,6 +404,28 @@ const data = resource(() => 'static', (k) => fetch(`/api/${k}`));
 
 **Message:** `Resource '{name}' is read without a loading guard and is not inside a <Suspense> boundary. The value may be undefined during load and after an error. Use <Suspense>, check user.loading(), or use user.read() to throw into Suspense.`
 
+### STW063 — `defineResource()` without a stable `id` used with SSR replay
+**Detection:** dev-runtime · **Severity:** warn · **Dual:** n/a
+
+```ts
+// Bad — no stable id; the auto id is not stable across the SSR and client builds
+const fetchUser = defineResource((id) => fetch(`/api/users/${id}`).then(r => r.json()))
+// ...used in an SSR/hydrated app, so a DataRegistry is present.
+```
+
+When `defineResource` is called without an explicit `{ id }`, an auto-counter id
+(`r1`, `r2`, …) is assigned by module-load order. That order is not guaranteed
+identical across the separate server and client builds, so the same resource can
+get different ids on each side — the SSR-serialized `${defId}:${args}` key would
+not match the client's lookup key. To stay correct, **auto-id resources do not
+participate in the DataRegistry at all** (no read, no write): they always fetch
+fresh, so an id mismatch can never surface stale or *wrong* data — the tradeoff
+is that SSR-resolved data is refetched on the client and cross-component dedup
+does not happen. Fires once per definition, only when a DataRegistry is present
+(i.e. an SSR/hydrated app), so pure-client `mount()` apps never see it.
+
+**Message:** `Resource used with SSR replay has no stable id, so its server-fetched data will be refetched on the client (and it won't dedupe across components). Pass an explicit id: defineResource(fn, { id: 'fetchUser' }).`
+
 ---
 
 ## Router

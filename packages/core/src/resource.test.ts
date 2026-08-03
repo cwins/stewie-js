@@ -499,4 +499,63 @@ describe('useResource + DataRegistry', () => {
 
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
+
+  // An auto-counter id is not stable across the separate SSR/client builds, so
+  // an unkeyed resource must never key into the registry — otherwise a
+  // coincidental cross-build key match could surface wrong data. Instead it
+  // bypasses the registry entirely (always fetches) and warns once (STW063).
+  it('an unkeyed resource does not write to the registry and warns (STW063)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fetcher = vi.fn((id: number, _opts: { signal: AbortSignal }) => Promise.resolve(`u${id}`));
+      const def = defineResource(fetcher); // no { id }
+      const registry = createDataRegistry();
+
+      reactiveScope(() => {
+        provide(DataRegistryContext, registry, () => {
+          useResource(def, () => 1);
+          return undefined;
+        });
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Fetched, but nothing keyed into the registry.
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(registry.keys()).toHaveLength(0);
+      // STW063 warned once.
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('STW063');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('two unkeyed resources with the same args do not dedupe (each fetches)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const fetcher = vi.fn((id: number, _opts: { signal: AbortSignal }) => Promise.resolve(`u${id}`));
+      const def = defineResource(fetcher); // no { id }
+      const registry = createDataRegistry();
+
+      for (let i = 0; i < 2; i++) {
+        reactiveScope(() => {
+          provide(DataRegistryContext, registry, () => {
+            useResource(def, () => 7);
+            return undefined;
+          });
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+      }
+
+      // No registry participation → no dedup.
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(registry.keys()).toHaveLength(0);
+      // Warned once per definition, not per use.
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });

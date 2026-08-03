@@ -11,9 +11,10 @@
 //   - actions fire on .run()
 // These are different primitives; the asymmetry is not incidental.
 
-import { signal, effect, onCleanup, untrack } from './reactive.js';
+import { signal, effect, onCleanup, untrack, isDev } from './reactive.js';
 import type { Signal } from './reactive.js';
 import { useDataRegistry, dataRegistryKey } from './data-registry.js';
+import { diagnosticDocsUrl } from './diagnostics.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,11 +37,19 @@ export interface ResourceDefinition<S, T> {
 // is held under a private symbol so userland cannot read or replace it.
 const FN = Symbol('stewie.resource.fn');
 const ID = Symbol('stewie.resource.id');
+// True when the id came from an explicit `{ id }`. Auto-counter ids are not
+// stable across the separate SSR/client builds, so they must not key into the
+// DataRegistry (see STW063 / the SSR-replay note on DefineResourceOptions.id).
+const EXPLICIT_ID = Symbol('stewie.resource.explicitId');
 
 interface InternalResourceDefinition<S, T> extends ResourceDefinition<S, T> {
   readonly [FN]: (source: S, opts: { signal: AbortSignal }) => Promise<T> | T;
   readonly [ID]: string;
+  readonly [EXPLICIT_ID]: boolean;
 }
+
+// One-shot dev-warning guard so STW063 fires at most once per definition.
+const _warnedUnstableId = new WeakSet<object>();
 
 let _resourceCounter = 0;
 
@@ -105,12 +114,17 @@ export interface Resource<T> {
  */
 export interface DefineResourceOptions {
   /**
-   * Stable id for this resource, used to namespace its DataRegistry entries.
-   * Required for SSR replay to work — server and client must agree on the id
-   * so the client can find the SSR-resolved data under the same key. Without
-   * an explicit id an auto-counter id is assigned which is *not* stable
-   * across SSR and CSR builds; client-side caching still works within a
-   * single runtime, but SSR-resolved data will be refetched on hydration.
+   * Stable id for this resource, used to key its DataRegistry entries.
+   * Required for SSR replay and cross-component dedup — server and client must
+   * agree on the id so the client can find the SSR-resolved data under the same
+   * key. Without an explicit id, an auto-counter id is assigned; because that id
+   * is *not* stable across the separate SSR and client builds, an unkeyed
+   * resource does **not** participate in the DataRegistry at all — it always
+   * fetches fresh (SSR-resolved data is refetched on hydration and no
+   * cross-component dedup happens). This is the safe default: a coincidental
+   * cross-build key match can never surface wrong data. In dev, using an unkeyed
+   * resource in an SSR/hydrated app warns once (STW063). Pure-client `mount()`
+   * apps have no registry and are unaffected either way.
    */
   id?: string;
 }
@@ -119,8 +133,9 @@ export function defineResource<S, T>(
   fn: (source: S, opts: { signal: AbortSignal }) => Promise<T> | T,
   options?: DefineResourceOptions
 ): ResourceDefinition<S, T> {
-  const id = options?.id ?? `r${++_resourceCounter}`;
-  return { [FN]: fn, [ID]: id } as InternalResourceDefinition<S, T>;
+  const explicit = options?.id !== undefined;
+  const id = explicit ? options!.id! : `r${++_resourceCounter}`;
+  return { [FN]: fn, [ID]: id, [EXPLICIT_ID]: explicit } as InternalResourceDefinition<S, T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +192,25 @@ export function useResource<S, T>(def: ResourceDefinition<S, T>, source: () => S
   // dedupes fetches across components and is seeded from the SSR payload
   // before this useResource call runs. Absent (no provider), the resource
   // behaves exactly as before — no caching, no replay.
-  const registry = useDataRegistry();
+  //
+  // Auto-counter ids are NOT stable across the separate SSR and client builds,
+  // so an unkeyed resource must not key into the registry — a coincidental key
+  // match across builds could surface *wrong* data. When a registry is present
+  // (an SSR/hydrated app) but the id is auto, we bypass the registry entirely
+  // (always fetch fresh — safe) and warn once (STW063). Explicitly-keyed
+  // resources use the registry normally; pure-client mount() apps have no
+  // registry and are unaffected.
+  const contextRegistry = useDataRegistry();
+  const registry = internal[EXPLICIT_ID] ? contextRegistry : null;
+  if (isDev && contextRegistry && !internal[EXPLICIT_ID] && !_warnedUnstableId.has(def as object)) {
+    _warnedUnstableId.add(def as object);
+    console.warn(
+      `[stewie] STW063: Resource used with SSR replay has no stable id, so its ` +
+        `server-fetched data will be refetched on the client (and it won't dedupe ` +
+        `across components). Pass an explicit id: defineResource(fn, { id: 'fetchUser' }). ` +
+        diagnosticDocsUrl('STW063')
+    );
+  }
 
   // Signals are created in the enclosing reactive scope (e.g. a component's
   // reactiveScope) — no need for a wrapper reactiveScope here.
