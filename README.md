@@ -1,12 +1,14 @@
 # Stewie
 
-<img src="stewie_ascii.png" width="320" alt="Stewie" />
+<img src="stewie_logo_med.png" width="200" alt="Stewie" />
 
 **Stewie** is a TypeScript-native UI framework for developers who want React's JSX ergonomics without the re-render tax, and Angular's built-in batteries without the weight. Fine-grained signal reactivity means DOM updates are surgical and predictable — no memoization, no cascades, no surprises. Built edge-first for WinterCG environments, with a compiler that handles the boilerplate so you don't have to.
 
+Just like Stewie Griffin, this framework is meant to be small, powerful, and awesome.
+
 >❗ **Work in progress.**
 >
->Stewie is under active development and not yet stable. APIs may change between releases. Not recommended for production use yet.
+>Stewie is under active development and may not be stable. APIs may change between releases. Not recommended for production use yet, but getting closer!
 
 ---
 
