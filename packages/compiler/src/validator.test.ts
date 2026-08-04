@@ -257,6 +257,48 @@ function App() { return <input $value={fieldSig} /> }
     expect(diags.filter((d) => d.code === 'STW090' || d.code === 'STW091')).toHaveLength(0);
   });
 
+  it('STW043 — signal write inside a computed() body', () => {
+    const source = `${SIGNAL_DECLS}
+declare const count: Signal<number>;
+function App() { const d = computed(() => { count.set(1); return count() * 2; }); return null }
+`;
+    const errors = validateWithChecker(source).filter((d) => d.code === 'STW043');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW043'));
+  });
+
+  it('STW043 — does not fire for a non-signal .set() (e.g. Map) inside computed', () => {
+    const source = `${SIGNAL_DECLS}
+declare const m: Map<string, number>;
+function App() { const d = computed(() => { m.set('a', 1); return m.size; }); return null }
+`;
+    expect(validateWithChecker(source).filter((d) => d.code === 'STW043')).toHaveLength(0);
+  });
+
+  it('STW043 — does not fire for a signal write outside a computed', () => {
+    const source = `${SIGNAL_DECLS}
+declare const count: Signal<number>;
+function App() { count.set(1); return null }
+`;
+    expect(validateWithChecker(source).filter((d) => d.code === 'STW043')).toHaveLength(0);
+  });
+
+  it('STW093 — $prop with an unrecognized binding name', () => {
+    const source = `function App() { const sig = signal(''); return <input $foo={sig} /> }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const errors = validateFile(parsed, analyzeFile(parsed)).filter((d) => d.code === 'STW093');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW093'));
+  });
+
+  it('STW093 — does not fire for $value or $checked', () => {
+    const source = `function App() { const s = signal(''); const b = signal(false); return <div><input $value={s} /><input $checked={b} /></div> }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    expect(validateFile(parsed, analyzeFile(parsed)).filter((d) => d.code === 'STW093')).toHaveLength(0);
+  });
+
   it('STW040 — signal() inside effect() body', () => {
     const source = `function App() {
   effect(() => {

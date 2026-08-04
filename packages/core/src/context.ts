@@ -1,6 +1,7 @@
 // context.ts — context system for @stewie-js/core
 
 import type { JSXElement } from './jsx-runtime.js';
+import { diagnosticDocsUrl } from './diagnostics.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,7 +94,12 @@ export function consume<T>(context: Context<T>): T {
   // as "no default" since createContext() with no arg sets it to undefined.
   // To distinguish, we check if the context object has a default set at construction.
   // Since we store undefined for "no default", we throw here.
-  throw new Error('[stewie] consume() called with no matching provider and no default value');
+  // STW050: no ancestor provide() and no default value.
+  throw new Error(
+    `[stewie] STW050: consume() found no ancestor provide() for this context, and it has no default value. ` +
+      `Wrap the consumer in a provider, or give the context a default: createContext(defaultValue). ` +
+      diagnosticDocsUrl('STW050')
+  );
 }
 
 // ---------------------------------------------------------------------------

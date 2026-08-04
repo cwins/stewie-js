@@ -80,7 +80,15 @@ With no owning scope, the cleanup callback is dropped and will never run. Call `
 
 Computeds must be pure. An effect created here is never cleaned up and can loop when the computed re-evaluates. Move the effect to a component body or `reactiveScope()`.
 
+### STW043 — Writing to a signal inside a `computed()` body {#stw043}
+
+`computed(() => { count.set(1); return ... })` mutates state during a pure computation — it can loop or produce surprising results. Move the write to an event handler, `effect()`, or an action. Type-aware (only genuine signal writes are flagged, not e.g. `map.set()`).
+
 ## Context
+
+### STW050 — `consume()` with no ancestor `provide()` {#stw050}
+
+The context has no provider above the consumer and no default value, so there's nothing to read. Wrap the consumer in a provider, or give the context a default: `createContext(defaultValue)`. Dev-runtime (throws).
 
 ### STW052 — `createContext()` called outside module scope {#stw052}
 
@@ -121,6 +129,10 @@ A `computed()` or a plain `() => T` accessor is callable but has no `.set()`, so
 ### STW092 — Both `$prop` and `prop` specified {#stw092}
 
 `$value` already implies `value`. Having both is contradictory — remove the plain `value` attribute.
+
+### STW093 — `$prop` is not a recognized two-way binding {#stw093}
+
+Only `$value` (input/textarea/select) and `$checked` (checkbox/radio) are recognized — they map to `input`/`change` events. Any other `$prop` has no event to write back through, so the binding is silently dead. For custom two-way flow, read the signal and write it back in an explicit event handler.
 
 ### STW094 — `$prop` on a `readonly` element {#stw094}
 

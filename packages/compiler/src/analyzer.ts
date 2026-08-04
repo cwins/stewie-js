@@ -113,6 +113,19 @@ export interface TwoWayTargetIssue {
   column: number;
 }
 
+export interface UnknownTwoWayBinding {
+  // STW093 — $prop whose name isn't a recognized two-way pair.
+  propName: string;
+  line: number;
+  column: number;
+}
+
+export interface SignalWriteInComputed {
+  // STW043 — sig.set()/sig.update() inside a computed() body.
+  line: number;
+  column: number;
+}
+
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[];
   twoWayBindings: TwoWayBinding[];
@@ -128,6 +141,8 @@ export interface AnalysisResult {
   uncalledSignalsInJsx: UncalledSignalInJsx[];
   eagerControlFlowReads: EagerControlFlowRead[];
   twoWayTargetIssues: TwoWayTargetIssue[];
+  unknownTwoWayBindings: UnknownTwoWayBinding[];
+  signalWritesInComputed: SignalWriteInComputed[];
 }
 
 // Callees whose call at module scope creates per-call-site signals and is
@@ -256,6 +271,8 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
   const uncalledSignalsInJsx: UncalledSignalInJsx[] = [];
   const eagerControlFlowReads: EagerControlFlowRead[] = [];
   const twoWayTargetIssues: TwoWayTargetIssue[] = [];
+  const unknownTwoWayBindings: UnknownTwoWayBinding[] = [];
+  const signalWritesInComputed: SignalWriteInComputed[] = [];
 
   // Stack of currently-active reactive bodies. Pushed when we descend into
   // the function argument of an effect()/computed() call; popped on exit.
@@ -449,6 +466,13 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
       if (attrName.startsWith('$')) {
         const propName = attrName.slice(1); // strip '$'
 
+        // STW093: only `value` and `checked` are recognized two-way pairs.
+        // Any other `$prop` has no input/change event to write back through,
+        // so the binding is silently dead.
+        if (propName !== 'value' && propName !== 'checked') {
+          unknownTwoWayBindings.push({ propName, line: pos.line, column: pos.column });
+        }
+
         let signalExpr = '';
         if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
           signalExpr = attr.initializer.expression.getText(sourceFile);
@@ -611,6 +635,25 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
       });
     }
 
+    // STW043: sig.set()/sig.update() inside a computed() body. Computeds must
+    // be pure. Type-aware — the receiver must be a Signal (map.set() etc. are
+    // structurally similar but not signals).
+    if (
+      checker &&
+      reactiveBodyStack[reactiveBodyStack.length - 1] === 'computed' &&
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      ts.isIdentifier(node.expression.name) &&
+      (node.expression.name.text === 'set' || node.expression.name.text === 'update')
+    ) {
+      const recvType = checker.getTypeAtLocation(node.expression.expression);
+      if (isSignalType(recvType)) {
+        const pos = getLineAndColumn(node, sourceFile);
+        signalWritesInComputed.push({ line: pos.line, column: pos.column });
+      }
+    }
+
+
     // STW083: window.X / document.X at module scope. Narrowed to
     // PropertyAccessExpression on window/document (e.g. `window.location`,
     // `document.title`) to avoid false positives on property keys and
@@ -665,6 +708,8 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     moduleScopeBrowserGlobals,
     uncalledSignalsInJsx,
     eagerControlFlowReads,
-    twoWayTargetIssues
+    twoWayTargetIssues,
+    unknownTwoWayBindings,
+    signalWritesInComputed
   };
 }

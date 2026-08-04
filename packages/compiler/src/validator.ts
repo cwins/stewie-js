@@ -184,6 +184,30 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
     });
   }
 
+  // STW043: signal write inside a computed() body
+  for (const w of analysis.signalWritesInComputed) {
+    diagnostics.push({
+      code: 'STW043',
+      severity: 'error',
+      message: `Signal written inside a computed() body. Computeds must be pure — a write here can loop or produce surprising results. Move the write to an event handler, effect(), or an action.`,
+      line: w.line,
+      column: w.column,
+      docsUrl: diagnosticDocsUrl('STW043')
+    });
+  }
+
+  // STW093: $prop that isn't a recognized two-way binding pair
+  for (const u of analysis.unknownTwoWayBindings) {
+    diagnostics.push({
+      code: 'STW093',
+      severity: 'error',
+      message: `'$${u.propName}' is not a recognized two-way binding. Known pairs: $value (input/textarea/select) and $checked (checkbox/radio). For other two-way data flow, read the signal and write it back in an explicit event handler.`,
+      line: u.line,
+      column: u.column,
+      docsUrl: diagnosticDocsUrl('STW093')
+    });
+  }
+
   for (const conflict of analysis.bindingConflicts) {
     if (conflict.type === 'conflict') {
       // STW092: both $prop and prop specified on the same element

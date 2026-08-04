@@ -20,9 +20,10 @@ describe('consume', () => {
     expect(consume(ctx)).toBe(42);
   });
 
-  it('throws when no provider and no default', () => {
+  it('STW050 — throws a coded error when no provider and no default', () => {
     const ctx = createContext<string>();
-    expect(() => consume(ctx)).toThrow('[stewie] consume() called with no matching provider and no default value');
+    expect(() => consume(ctx)).toThrow(/STW050/);
+    expect(() => consume(ctx)).toThrow(/no ancestor provide/);
   });
 });
 
