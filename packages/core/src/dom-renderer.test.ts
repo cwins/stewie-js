@@ -748,4 +748,24 @@ describe('mount — function root', () => {
     expect(c.querySelectorAll('span').length).toBe(0);
     expect(c.textContent).toBe('fresh');
   });
+
+  it('STW100 — warns when mount() runs without a document (server)', () => {
+    const c = container(); // create the element while document still exists
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubGlobal('document', undefined);
+    try {
+      // The warning is the first thing mount() does; DOM ops afterward will
+      // throw in this document-less environment, which is expected.
+      try {
+        mount(jsx('p', { children: 'x' }), c);
+      } catch {
+        /* expected: DOM operations fail without a document */
+      }
+      const stw100 = warn.mock.calls.filter((call) => String(call[0]).includes('STW100'));
+      expect(stw100).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+      warn.mockRestore();
+    }
+  });
 });

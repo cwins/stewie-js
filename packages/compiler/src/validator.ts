@@ -168,6 +168,22 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
     });
   }
 
+  // STW090 / STW091: $prop bound to a non-writable target
+  for (const t of analysis.twoWayTargetIssues) {
+    const message =
+      t.code === 'STW090'
+        ? `$${t.propName} two-way binding target is not a signal. $${t.propName} compiles to a .set() call, so it needs a writable signal(). Pass a signal, or use a one-way binding (${t.propName}={...}) for a plain value.`
+        : `$${t.propName} two-way binding target is read-only (a computed or plain accessor has no .set()). Use a writable signal() for two-way binding, or a one-way binding (${t.propName}={...}) to read it.`;
+    diagnostics.push({
+      code: t.code,
+      severity: 'error',
+      message,
+      line: t.line,
+      column: t.column,
+      docsUrl: diagnosticDocsUrl(t.code)
+    });
+  }
+
   for (const conflict of analysis.bindingConflicts) {
     if (conflict.type === 'conflict') {
       // STW092: both $prop and prop specified on the same element

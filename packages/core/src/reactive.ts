@@ -1,5 +1,7 @@
 // reactive.ts — signal, computed, effect, batch, scope internals
 
+import { diagnosticDocsUrl } from './diagnostics.js';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -663,6 +665,13 @@ export function onCleanup(fn: () => void): void {
   const owner = _ownerStack[_ownerStack.length - 1];
   if (owner) {
     owner.push({ dispose: fn });
+  } else if (isDev) {
+    // STW041: no owning scope — the callback is dropped and will never run.
+    console.warn(
+      `[stewie] STW041: onCleanup() called outside a reactive scope — the callback will never run. ` +
+        `Call it inside a component body or reactiveScope(). ` +
+        diagnosticDocsUrl('STW041')
+    );
   }
 }
 

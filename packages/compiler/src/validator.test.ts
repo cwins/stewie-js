@@ -219,6 +219,44 @@ function App() { const user = useResource(fetchUser, () => '1'); return null }
     expect(warnings[0].message).toContain('one-way binding');
   });
 
+  it('STW090 — $prop target is not a signal', () => {
+    const source = `${SIGNAL_DECLS}
+declare const fieldStr: string;
+function App() { return <input $value={fieldStr} /> }
+`;
+    const errors = validateWithChecker(source).filter((d) => d.code === 'STW090');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW090'));
+  });
+
+  it('STW091 — $prop target is read-only (computed)', () => {
+    const source = `${SIGNAL_DECLS}
+declare const fieldC: Computed<string>;
+function App() { return <input $value={fieldC} /> }
+`;
+    const errors = validateWithChecker(source).filter((d) => d.code === 'STW091');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW091'));
+  });
+
+  it('STW090/091 — does not fire for a writable signal target', () => {
+    const source = `${SIGNAL_DECLS}
+declare const fieldSig: Signal<string>;
+function App() { return <input $value={fieldSig} /> }
+`;
+    const diags = validateWithChecker(source);
+    expect(diags.filter((d) => d.code === 'STW090' || d.code === 'STW091')).toHaveLength(0);
+  });
+
+  it('STW090 — does not fire without a type checker (plain JS)', () => {
+    const source = `function App() { const fieldSig = 'x'; return <input $value={fieldSig} /> }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const diags = validateFile(parsed, analyzeFile(parsed));
+    expect(diags.filter((d) => d.code === 'STW090' || d.code === 'STW091')).toHaveLength(0);
+  });
+
   it('STW040 — signal() inside effect() body', () => {
     const source = `function App() {
   effect(() => {

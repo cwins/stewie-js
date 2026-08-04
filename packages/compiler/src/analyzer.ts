@@ -104,6 +104,15 @@ export interface EagerControlFlowRead {
   column: number;
 }
 
+export interface TwoWayTargetIssue {
+  // STW090 = target is not a signal at all (not callable);
+  // STW091 = target is callable but read-only (no .set — computed/accessor).
+  code: 'STW090' | 'STW091';
+  propName: string; // e.g. 'value' from '$value'
+  line: number;
+  column: number;
+}
+
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[];
   twoWayBindings: TwoWayBinding[];
@@ -118,6 +127,7 @@ export interface AnalysisResult {
   moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[];
   uncalledSignalsInJsx: UncalledSignalInJsx[];
   eagerControlFlowReads: EagerControlFlowRead[];
+  twoWayTargetIssues: TwoWayTargetIssue[];
 }
 
 // Callees whose call at module scope creates per-call-site signals and is
@@ -245,6 +255,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
   const moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[] = [];
   const uncalledSignalsInJsx: UncalledSignalInJsx[] = [];
   const eagerControlFlowReads: EagerControlFlowRead[] = [];
+  const twoWayTargetIssues: TwoWayTargetIssue[] = [];
 
   // Stack of currently-active reactive bodies. Pushed when we descend into
   // the function argument of an effect()/computed() call; popped on exit.
@@ -379,9 +390,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     // so a static helper call isn't a false positive. Type-aware only.
     if (checker && (elementName === 'Show' || elementName === 'For')) {
       const cfProp = elementName === 'Show' ? 'when' : 'each';
-      const cfAttr = attrs.find(
-        (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === cfProp
-      );
+      const cfAttr = attrs.find((a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === cfProp);
       if (cfAttr?.initializer && ts.isJsxExpression(cfAttr.initializer) && cfAttr.initializer.expression) {
         const expr = cfAttr.initializer.expression;
         const isFn = ts.isArrowFunction(expr) || ts.isFunctionExpression(expr);
@@ -443,6 +452,28 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
         let signalExpr = '';
         if (attr.initializer && ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
           signalExpr = attr.initializer.expression.getText(sourceFile);
+
+          // STW090 / STW091: the $prop target must be a writable signal (has
+          // `.set`). The compiler emits `expr.set(...)`, so a non-signal target
+          // fails at runtime. A callable-but-not-writable target (a computed or
+          // a plain `() => T` accessor) is read-only. Skip any/unknown to avoid
+          // false positives on untyped code. Type-aware only.
+          if (checker) {
+            const targetType = checker.getTypeAtLocation(attr.initializer.expression);
+            const isAnyOrUnknown = (targetType.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) !== 0;
+            if (!isAnyOrUnknown) {
+              const writable = targetType.getProperty('set') !== undefined;
+              if (!writable) {
+                const callable = targetType.getCallSignatures().length > 0;
+                twoWayTargetIssues.push({
+                  code: callable ? 'STW091' : 'STW090',
+                  propName,
+                  line: pos.line,
+                  column: pos.column
+                });
+              }
+            }
+          }
         }
 
         const hasReadonly = attrNames.has('readonly') || attrNames.has('readOnly');
@@ -633,6 +664,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     externalLinkTos,
     moduleScopeBrowserGlobals,
     uncalledSignalsInJsx,
-    eagerControlFlowReads
+    eagerControlFlowReads,
+    twoWayTargetIssues
   };
 }

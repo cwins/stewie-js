@@ -771,3 +771,28 @@ describe('withRenderIsolation', () => {
     expect(innerScopeSize).toBe(0);
   });
 });
+
+describe('onCleanup — STW041', () => {
+  it('warns when called outside a reactive scope', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      onCleanup(() => {});
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('STW041');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('does not warn when called inside a reactive scope', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      reactiveScope(() => {
+        onCleanup(() => {});
+      });
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes('STW041'))).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

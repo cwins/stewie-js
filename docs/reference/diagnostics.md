@@ -72,6 +72,10 @@ A `by` key function returning a constant or the identity of its parameter breaks
 
 The signal is re-created on every effect run, so its state resets each time and nothing outside the effect can read it. Hoist the `signal()` call above the `effect()`.
 
+### STW041 — `onCleanup()` called outside a reactive scope {#stw041}
+
+With no owning scope, the cleanup callback is dropped and will never run. Call `onCleanup()` inside a component body or `reactiveScope()` so it's tied to a lifecycle. Dev-runtime warning.
+
 ### STW042 — `effect()` created inside a `computed()` body {#stw042}
 
 Computeds must be pure. An effect created here is never cleaned up and can loop when the computed re-evaluates. Move the effect to a component body or `reactiveScope()`.
@@ -100,7 +104,19 @@ Without an explicit `{ id }`, an auto-counter id is assigned that is not stable 
 
 The module throws on import in SSR / non-browser environments. Move the access inside a component or `effect()`, or guard with `typeof window !== 'undefined'`.
 
+### STW100 — `mount()` called on the server {#stw100}
+
+`mount()` drives real DOM and is client-only. In a non-browser environment (no `document`) it fails. Use `renderToString()` / `renderToStream()` from `@stewie-js/server` for SSR. Dev-runtime warning.
+
 ## Two-way binding (`$prop`)
+
+### STW090 — `$prop` target is not a signal {#stw090}
+
+`$value={x}` compiles to `x.set(...)`, so the target must be a writable `signal()`. A plain value has no `.set()` and fails at runtime. Pass a signal, or use a one-way binding (`value={x}`) for a static value.
+
+### STW091 — `$prop` target is read-only {#stw091}
+
+A `computed()` or a plain `() => T` accessor is callable but has no `.set()`, so it can't be a two-way binding target. Use a writable `signal()` for `$prop`, or read it one-way (`value={x()}`).
 
 ### STW092 — Both `$prop` and `prop` specified {#stw092}
 

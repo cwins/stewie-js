@@ -23,6 +23,7 @@ import { HydrationCursor } from './hydration-cursor.js';
 import { _LazyBoundary } from './lazy.js';
 import type { _LazyBoundaryProps } from './lazy.js';
 import { useDataRegistry } from './data-registry.js';
+import { diagnosticDocsUrl } from './diagnostics.js';
 
 type ElementType = JSXElement['type'];
 import { Show, For, Switch, Match, Portal, ErrorBoundary, Suspense, ClientOnly } from './components.js';
@@ -1162,6 +1163,17 @@ export function _createNode(type: ElementType, props: Record<string, unknown>): 
  * Returns a dispose function that unmounts and cleans up all reactive effects.
  */
 export function mount(root: JSXElement | Node | (() => JSXElement | Node | null) | null, container: Element): Disposer {
+  // STW100: mount() drives real DOM and belongs on the client. In a non-browser
+  // environment (no document) it will fail; warn early with a clear pointer to
+  // renderToString/renderToStream for SSR. Dev-only.
+  if (isDev && typeof document === 'undefined') {
+    console.warn(
+      `[stewie] STW100: mount() called in a non-browser environment (no document). ` +
+        `mount() is client-only — use renderToString()/renderToStream() from @stewie-js/server for SSR. ` +
+        diagnosticDocsUrl('STW100')
+    );
+  }
+
   // Suppress the module-scope reactive creation warning from this point on.
   // Event handlers and other post-mount callbacks are safe to create reactive
   // primitives without a reactiveScope() wrapper — no SSR singleton-leak risk.
