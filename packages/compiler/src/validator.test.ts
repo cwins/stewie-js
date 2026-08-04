@@ -519,6 +519,52 @@ function App() { return <MyComp value={cls} /> }
     expect(diagnostics.filter((d) => d.code === 'STW011')).toHaveLength(0);
   });
 
+  it('STW020 — <Show when> with an eager signal read', () => {
+    const source = `${SIGNAL_DECLS}
+declare const isOpen: Signal<boolean>;
+function App() { return <Show when={isOpen()}>x</Show> }
+`;
+    const errors = validateWithChecker(source).filter((d) => d.code === 'STW020');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW020'));
+  });
+
+  it('STW020 — does not fire for a signal passed directly or a function', () => {
+    const source = `${SIGNAL_DECLS}
+declare const isOpen: Signal<boolean>;
+function App() { return <div><Show when={isOpen}>a</Show><Show when={() => isOpen()}>b</Show></div> }
+`;
+    expect(validateWithChecker(source).filter((d) => d.code === 'STW020')).toHaveLength(0);
+  });
+
+  it('STW020 — does not fire for a static (non-signal) helper call', () => {
+    const source = `${SIGNAL_DECLS}
+declare function isReady(): boolean;
+function App() { return <Show when={isReady()}>x</Show> }
+`;
+    expect(validateWithChecker(source).filter((d) => d.code === 'STW020')).toHaveLength(0);
+  });
+
+  it('STW021 — <For each> with an eager signal read', () => {
+    const source = `${SIGNAL_DECLS}
+declare const tasks: Signal<number[]>;
+function App() { return <For each={tasks()} by={(t) => t}>{(t) => <li>{t}</li>}</For> }
+`;
+    const errors = validateWithChecker(source).filter((d) => d.code === 'STW021');
+    expect(errors).toHaveLength(1);
+    expect(errors[0].severity).toBe('error');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW021'));
+  });
+
+  it('STW021 — does not fire for a signal passed directly', () => {
+    const source = `${SIGNAL_DECLS}
+declare const tasks: Signal<number[]>;
+function App() { return <For each={tasks} by={(t) => t}>{(t) => <li>{t}</li>}</For> }
+`;
+    expect(validateWithChecker(source).filter((d) => d.code === 'STW021')).toHaveLength(0);
+  });
+
   it('correct line number for module-scope reactive calls', () => {
     const source = `// comment\nconst s = signal(0)\n`;
     const parsed = parseFile(source, 'test.tsx');

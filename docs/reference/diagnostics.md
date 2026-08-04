@@ -54,6 +54,14 @@ These create reactive effects that write `document.head` and must be disposed on
 
 ## Control flow
 
+### STW020 — `<Show when>` given an eager signal read {#stw020}
+
+`when={isOpen()}` reads the signal once at mount, so the condition never re-evaluates. Pass the signal directly (`when={isOpen}`) or wrap it (`when={() => isOpen()}`). Only genuine `Signal`/`Computed` reads are flagged — a static helper call isn't.
+
+### STW021 — `<For each>` given an eager signal read {#stw021}
+
+`each={tasks()}` reads the signal once at mount, so the list never reacts to changes. Pass the signal directly (`each={tasks}`) or wrap it (`each={() => tasks()}`).
+
 ### STW022 — `<For by>` returns a non-unique key {#stw022}
 
 A `by` key function returning a constant or the identity of its parameter breaks keyed reconciliation — rows collapse or re-render incorrectly. Return a per-item unique id: `by={(item) => item.id}`.

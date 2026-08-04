@@ -152,6 +152,22 @@ export function validateFile(_parsed: ParsedFile, analysis: AnalysisResult): Com
     }
   }
 
+  // STW020 / STW021: eager signal read passed to <Show when> / <For each>
+  for (const cf of analysis.eagerControlFlowReads) {
+    const message =
+      cf.code === 'STW020'
+        ? `<Show when> received a value instead of a signal or function. It reads a signal eagerly, so the condition is captured once and will not re-evaluate. Pass the signal directly (when={sig}) or wrap it (when={() => sig()}).`
+        : `<For each> received a value instead of a signal or function. It reads a signal eagerly, so the list is captured once and will not react to changes. Pass the signal directly (each={sig}) or wrap it (each={() => sig()}).`;
+    diagnostics.push({
+      code: cf.code,
+      severity: 'error',
+      message,
+      line: cf.line,
+      column: cf.column,
+      docsUrl: diagnosticDocsUrl(cf.code)
+    });
+  }
+
   for (const conflict of analysis.bindingConflicts) {
     if (conflict.type === 'conflict') {
       // STW092: both $prop and prop specified on the same element

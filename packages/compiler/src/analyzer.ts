@@ -95,6 +95,15 @@ export interface UncalledSignalInJsx {
   column: number;
 }
 
+export interface EagerControlFlowRead {
+  // STW020 = Show `when`, STW021 = For `each`.
+  code: 'STW020' | 'STW021';
+  element: 'Show' | 'For';
+  attribute: 'when' | 'each';
+  line: number;
+  column: number;
+}
+
 export interface AnalysisResult {
   reactiveAttributes: ReactiveAttribute[];
   twoWayBindings: TwoWayBinding[];
@@ -108,6 +117,7 @@ export interface AnalysisResult {
   externalLinkTos: ExternalLinkTo[];
   moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[];
   uncalledSignalsInJsx: UncalledSignalInJsx[];
+  eagerControlFlowReads: EagerControlFlowRead[];
 }
 
 // Callees whose call at module scope creates per-call-site signals and is
@@ -179,6 +189,20 @@ function containsReactiveRead(node: ts.Node, checker: ts.TypeChecker): boolean {
   return ts.forEachChild(node, (child): true | undefined => (containsReactiveRead(child, checker) ? true : undefined)) === true;
 }
 
+/**
+ * Like `containsReactiveRead`, but matches *only* genuine Signal<T>/Computed<T>
+ * reads — not plain `() => T` accessors. Used for error-severity diagnostics
+ * (STW020/STW021) where flagging an ambiguous accessor call would be a false
+ * positive: `when={helper()}` for a static helper is type-identical to
+ * `when={sig()}`, so we only flag the unambiguous signal case.
+ */
+function containsSignalRead(node: ts.Node, checker: ts.TypeChecker): boolean {
+  if (ts.isCallExpression(node) && node.arguments.length === 0) {
+    if (isSignalType(checker.getTypeAtLocation(node.expression))) return true;
+  }
+  return ts.forEachChild(node, (child): true | undefined => (containsSignalRead(child, checker) ? true : undefined)) === true;
+}
+
 function isIntrinsicElement(name: string): boolean {
   return /^[a-z]/.test(name);
 }
@@ -220,6 +244,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
   const externalLinkTos: ExternalLinkTo[] = [];
   const moduleScopeBrowserGlobals: ModuleScopeBrowserGlobal[] = [];
   const uncalledSignalsInJsx: UncalledSignalInJsx[] = [];
+  const eagerControlFlowReads: EagerControlFlowRead[] = [];
 
   // Stack of currently-active reactive bodies. Pushed when we descend into
   // the function argument of an effect()/computed() call; popped on exit.
@@ -343,6 +368,32 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
               pattern: expr.getText(sourceFile)
             });
           }
+        }
+      }
+    }
+
+    // STW020 / STW021: <Show when={sig()}> / <For each={sig()}> — an eager
+    // signal read passed as the value. The read is captured once at mount, so
+    // the control flow never re-evaluates. Pass the signal directly or wrap in
+    // () =>. Restricted to genuine Signal/Computed reads (not plain accessors)
+    // so a static helper call isn't a false positive. Type-aware only.
+    if (checker && (elementName === 'Show' || elementName === 'For')) {
+      const cfProp = elementName === 'Show' ? 'when' : 'each';
+      const cfAttr = attrs.find(
+        (a): a is ts.JsxAttribute => ts.isJsxAttribute(a) && ts.isIdentifier(a.name) && a.name.text === cfProp
+      );
+      if (cfAttr?.initializer && ts.isJsxExpression(cfAttr.initializer) && cfAttr.initializer.expression) {
+        const expr = cfAttr.initializer.expression;
+        const isFn = ts.isArrowFunction(expr) || ts.isFunctionExpression(expr);
+        if (!isFn && containsSignalRead(expr, checker)) {
+          const pos = getLineAndColumn(cfAttr, sourceFile);
+          eagerControlFlowReads.push({
+            code: elementName === 'Show' ? 'STW020' : 'STW021',
+            element: elementName,
+            attribute: cfProp,
+            line: pos.line,
+            column: pos.column
+          });
         }
       }
     }
@@ -581,6 +632,7 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
     forByConstantKeys,
     externalLinkTos,
     moduleScopeBrowserGlobals,
-    uncalledSignalsInJsx
+    uncalledSignalsInJsx,
+    eagerControlFlowReads
   };
 }
