@@ -42,7 +42,8 @@ export default defineConfig({
         items: [
           { text: 'Core API', link: '/reference/core-api' },
           { text: 'Router API', link: '/reference/router-api' },
-          { text: 'Server API', link: '/reference/server-api' }
+          { text: 'Server API', link: '/reference/server-api' },
+          { text: 'Diagnostics', link: '/reference/diagnostics' }
         ]
       }
     ],

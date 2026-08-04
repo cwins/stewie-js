@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import ts from 'typescript';
+import { diagnosticDocsUrl } from '@stewie-js/core';
 import { parseFile } from './parser.js';
 import { analyzeFile } from './analyzer.js';
 import { validateFile } from './validator.js';
@@ -61,7 +62,7 @@ describe('validateFile()', () => {
     expect(errors[0].message).toContain('signal()');
     expect(errors[0].message).toContain('module scope');
     expect(errors[0].line).toBe(1);
-    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW001');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW001'));
   });
 
   it('STW002 — module-scope computed()', () => {
@@ -96,7 +97,7 @@ describe('validateFile()', () => {
     expect(errors[0].severity).toBe('error');
     expect(errors[0].message).toContain('useAction()');
     expect(errors[0].message).toContain('defineAction()');
-    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW005');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW005'));
   });
 
   it('STW005 — does not fire for defineAction() at module scope', () => {
@@ -125,7 +126,7 @@ function App() { const submit = useAction(saveTask); return null }
     expect(errors[0].severity).toBe('error');
     expect(errors[0].message).toContain('useResource()');
     expect(errors[0].message).toContain('defineResource()');
-    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW006');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW006'));
   });
 
   it('STW006 — does not fire for defineResource() at module scope', () => {
@@ -153,7 +154,7 @@ function App() { const user = useResource(fetchUser, () => '1'); return null }
     expect(errors).toHaveLength(1);
     expect(errors[0].severity).toBe('error');
     expect(errors[0].message).toContain('useTitle()');
-    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW007');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW007'));
   });
 
   it('STW007 — module-scope useMeta()', () => {
@@ -456,7 +457,7 @@ function App() { return <span>{count}</span> }
     expect(errors).toHaveLength(1);
     expect(errors[0].severity).toBe('error');
     expect(errors[0].message).toContain('JSX child');
-    expect(errors[0].docsUrl).toBe('https://stewie.dev/diagnostics/STW010');
+    expect(errors[0].docsUrl).toBe(diagnosticDocsUrl('STW010'));
   });
 
   it('STW010 — does not fire for called signal in JSX child', () => {

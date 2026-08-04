@@ -19,8 +19,11 @@ export interface Diagnostic {
   docsUrl?: string;
 }
 
-const DOCS_BASE = 'https://stewie.dev/diagnostics/';
+// Points at the published diagnostics reference. Each code is an anchor on that
+// page (e.g. #stw001), so a message's docs link deep-links to its own entry.
+// Update this base if the docs move to a custom domain.
+const DOCS_BASE = 'https://cwins.github.io/stewie-js/reference/diagnostics';
 
 export function diagnosticDocsUrl(code: string): string {
-  return DOCS_BASE + code;
+  return `${DOCS_BASE}#${code.toLowerCase()}`;
 }
