@@ -5,6 +5,9 @@ hero:
   name: Stewie
   text: A coherent TypeScript framework for the edge
   tagline: Fine-grained reactivity, SSR, routing, and a compiler — designed together, running on any WinterCG runtime.
+  image:
+    src: /stewie-logo.png
+    alt: Stewie
   actions:
     - theme: brand
       text: Get Started

@@ -1,0 +1,99 @@
+/**
+ * Stewie docs palette.
+ *
+ * Derived from the logo mark, whose stroke samples at #276CCD
+ * (hsl 217, 68%, 47%). Every value below is that hue held constant with
+ * lightness/saturation moved to hit the contrast each slot needs:
+ *
+ *   brand-1  link + heading accent  — must clear 4.5:1 on the page background
+ *   brand-2  hover / solid button hover
+ *   brand-3  the logo blue itself   — solid button fill, decorative fills
+ *   brand-soft  translucent wash    — badges, blockquote bars, hero glow
+ *
+ * Light mode darkens the logo blue for text contrast; dark mode lightens it.
+ * The logo blue stays untouched in `brand-3` so buttons match the mark.
+ */
+
+:root {
+  /* Logo blue and its neighbours on the same hue line. */
+  --stewie-blue-50: #eef4fd;
+  --stewie-blue-100: #d8e6fb;
+  --stewie-blue-200: #b3ccf6;
+  --stewie-blue-300: #83aeef;
+  --stewie-blue-400: #5289e4;
+  --stewie-blue-500: #276ccd; /* the logo */
+  --stewie-blue-600: #2159b0;
+  --stewie-blue-700: #1a4894;
+  --stewie-blue-800: #163a76;
+  --stewie-blue-900: #122c56;
+}
+
+:root {
+  --vp-c-brand-1: var(--stewie-blue-700);
+  --vp-c-brand-2: var(--stewie-blue-600);
+  --vp-c-brand-3: var(--stewie-blue-500);
+  --vp-c-brand-soft: rgba(39, 108, 205, 0.14);
+
+  /* VitePress still reads the legacy aliases in a few components. */
+  --vp-c-brand: var(--vp-c-brand-1);
+  --vp-c-brand-light: var(--stewie-blue-400);
+  --vp-c-brand-lighter: var(--stewie-blue-300);
+  --vp-c-brand-dark: var(--stewie-blue-800);
+  --vp-c-brand-darker: var(--stewie-blue-900);
+
+  /* Solid brand buttons ("Get Started"). */
+  --vp-button-brand-bg: var(--stewie-blue-500);
+  --vp-button-brand-hover-bg: var(--stewie-blue-600);
+  --vp-button-brand-active-bg: var(--stewie-blue-700);
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-active-text: #ffffff;
+
+  /* Tip / info callouts inherit the brand rather than VitePress green. */
+  --vp-custom-block-tip-border: var(--stewie-blue-200);
+  --vp-custom-block-tip-text: var(--stewie-blue-800);
+  --vp-custom-block-tip-bg: var(--stewie-blue-50);
+  --vp-custom-block-tip-code-bg: var(--stewie-blue-100);
+
+  /* Hero wordmark gradient — logo blue into the lighter tint. */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, var(--stewie-blue-500) 30%, var(--stewie-blue-300));
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(39, 108, 205, 0.35), rgba(131, 174, 239, 0.25));
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+.dark {
+  /* Lightened so links clear contrast on the dark background; the solid
+     button keeps a deeper fill so white label text stays readable. */
+  --vp-c-brand-1: var(--stewie-blue-300);
+  --vp-c-brand-2: var(--stewie-blue-400);
+  --vp-c-brand-3: var(--stewie-blue-500);
+  --vp-c-brand-soft: rgba(82, 137, 228, 0.16);
+
+  --vp-c-brand: var(--vp-c-brand-1);
+  --vp-c-brand-light: var(--stewie-blue-200);
+  --vp-c-brand-lighter: var(--stewie-blue-100);
+  --vp-c-brand-dark: var(--stewie-blue-600);
+  --vp-c-brand-darker: var(--stewie-blue-700);
+
+  --vp-button-brand-bg: var(--stewie-blue-600);
+  --vp-button-brand-hover-bg: var(--stewie-blue-500);
+  --vp-button-brand-active-bg: var(--stewie-blue-700);
+
+  --vp-custom-block-tip-border: var(--stewie-blue-700);
+  --vp-custom-block-tip-text: var(--stewie-blue-200);
+  --vp-custom-block-tip-bg: rgba(26, 72, 148, 0.28);
+  --vp-custom-block-tip-code-bg: rgba(26, 72, 148, 0.5);
+
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, rgba(39, 108, 205, 0.5), rgba(26, 72, 148, 0.3));
+}
+
+/* The mark is a thin outline; a touch of breathing room keeps it legible
+   next to the wordmark in the nav bar. */
+.VPNavBarTitle .logo {
+  height: 26px;
+  margin-right: 2px;
+}
