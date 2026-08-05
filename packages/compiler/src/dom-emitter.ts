@@ -51,25 +51,73 @@ function containsJsx(node: ts.Node): boolean {
 }
 
 /**
+ * Value type flags that render as text (a text node is safe). Anything outside
+ * this set — object types, JSX elements, DOM nodes, `any`/`unknown` — must NOT
+ * be compiled into a text node.
+ */
+const TEXT_TYPE_FLAGS =
+  ts.TypeFlags.StringLike |
+  ts.TypeFlags.NumberLike |
+  ts.TypeFlags.BooleanLike |
+  ts.TypeFlags.BigIntLike |
+  ts.TypeFlags.Null |
+  ts.TypeFlags.Undefined |
+  ts.TypeFlags.Void |
+  ts.TypeFlags.EnumLike;
+
+/**
+ * Resolve the *value* a child expression produces. For an arrow/function
+ * expression (`() => x`) this is the return type, not the function type, so
+ * `() => count()` resolves to `number` and `() => makeFooter()` to `JSXElement`.
+ */
+function resolveChildValueType(expr: ts.Expression, checker: ts.TypeChecker): ts.Type {
+  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
+    if (ts.isArrowFunction(expr) && !ts.isBlock(expr.body)) {
+      return checker.getTypeAtLocation(expr.body);
+    }
+    const sigs = checker.getTypeAtLocation(expr).getCallSignatures();
+    if (sigs.length > 0) return sigs[0].getReturnType();
+  }
+  return checker.getTypeAtLocation(expr);
+}
+
+/** True when every constituent of `type` renders as text (no node/object arms). */
+function isPrimitiveTextType(type: ts.Type, checker: ts.TypeChecker): boolean {
+  const parts = type.isUnion() ? type.types : [type];
+  return parts.every((p) => {
+    const t = checker.getBaseConstraintOfType(p) ?? p;
+    return (t.flags & TEXT_TYPE_FLAGS) !== 0;
+  });
+}
+
+/**
  * Returns true if `expr` is provably a scalar (text-producing) value that is
  * safe to compile into a `document.createTextNode(String(...))` or reactive
  * text effect.
  *
- * Anything that is NOT provably scalar (e.g. identifiers, property accesses,
- * calls with arguments) might return a JSX element object at runtime, and must
- * not be compiled into a text node — the parent element should fall back to
- * the JSX runtime so that `renderChildren` can handle it structurally.
+ * Anything that is NOT provably scalar (e.g. a helper call returning JSX) might
+ * be a DOM node at runtime, and must not be compiled into a text node — the
+ * parent element should fall back to the JSX runtime so that `renderChildren`
+ * can handle it structurally.
+ *
+ * The syntactic checks (literals, templates) are always safe. For everything
+ * else — crucially, zero-arg calls like `count()` vs `makeFooter()`, which are
+ * indistinguishable syntactically — a `TypeChecker` is required to verify the
+ * produced value is primitive. Without a checker we conservatively return false
+ * so a node-returning expression is never stringified (STW: `[object HTMLElement]`
+ * bug). Literals/templates keep working; the fine-grained text optimization for
+ * `{count()}` still applies whenever type info is available (always, under the
+ * Vite plugin).
  */
-function isProvenTextExpression(expr: ts.Expression): boolean {
+function isProvenTextExpression(expr: ts.Expression, checker?: ts.TypeChecker): boolean {
   // String and number literals are definitely scalar
   if (ts.isStringLiteral(expr) || ts.isNumericLiteral(expr)) return true;
   // Template literals (with or without substitutions) produce strings
   if (ts.isNoSubstitutionTemplateLiteral(expr) || ts.isTemplateExpression(expr)) return true;
-  // Reactive expressions (signal reads / arrow functions) — by Stewie convention
-  // these produce scalar values for reactive text content. Expressions that
-  // contain JSX are already excluded by the containsJsx() check upstream.
-  if (isReactive(expr)) return true;
-  return false;
+  // Everything else needs type info to prove it's text and not a node.
+  if (!isReactive(expr)) return false;
+  if (!checker) return false; // can't prove — fall back to the runtime path
+  return isPrimitiveTextType(resolveChildValueType(expr, checker), checker);
 }
 
 /**
@@ -152,7 +200,8 @@ function eventName(attrName: string): string {
  */
 export function canTransformJsx(
   node: ts.JsxChild | ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment,
-  sourceFile: ts.SourceFile
+  sourceFile: ts.SourceFile,
+  checker?: ts.TypeChecker
 ): boolean {
   if (ts.isJsxText(node)) return true;
   if (ts.isJsxExpression(node)) {
@@ -160,15 +209,16 @@ export function canTransformJsx(
     // Reject if the expression contains JSX syntax (e.g. items.map(i => <li/>))
     if (containsJsx(node.expression)) return false;
     // Reject if the expression is not provably scalar. Opaque identifiers,
-    // property accesses, and calls with arguments might return JSX objects at
-    // runtime. Compiling those as text nodes produces `[object Object]`.
-    if (!isProvenTextExpression(node.expression)) return false;
+    // property accesses, and calls that might return JSX/DOM nodes at runtime
+    // (e.g. a helper `makeFooter()`) must not be compiled to text nodes —
+    // stringifying a node produces `[object HTMLElement]`.
+    if (!isProvenTextExpression(node.expression, checker)) return false;
     return true;
   }
 
   if (ts.isJsxFragment(node)) {
     // Fragments at the top level — only transform if all children are native
-    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile));
+    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile, checker));
   }
 
   const opening = ts.isJsxElement(node) ? node.openingElement : node; // self-closing
@@ -188,7 +238,7 @@ export function canTransformJsx(
 
   // Recurse into children
   if (ts.isJsxElement(node)) {
-    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile));
+    return Array.from(node.children).every((c) => canTransformJsx(c, sourceFile, checker));
   }
 
   return true;
@@ -460,7 +510,7 @@ function isInsideJsxContext(node: ts.Node): boolean {
   return false;
 }
 
-export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[] {
+export function findJsxReplacements(sourceFile: ts.SourceFile, checker?: ts.TypeChecker): JsxReplacement[] {
   const replacements: JsxReplacement[] = [];
   const counter: Counter = { n: 0 };
 
@@ -484,7 +534,7 @@ export function findJsxReplacements(sourceFile: ts.SourceFile): JsxReplacement[]
     //   <div>{<span/>}</div>           grandparent is JSX (insideJsx)
     //   <For>{item => <div/>}</For>    inside a render-prop (insideReactiveFn)
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) {
-      if (!isInsideJsxContext(node) && !insideReactiveFn && canTransformJsx(node, sourceFile)) {
+      if (!isInsideJsxContext(node) && !insideReactiveFn && canTransformJsx(node, sourceFile, checker)) {
         const result = emitJsxToDom(node as ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment, sourceFile, counter);
 
         const setupCode = result.lines.join('\n    ');

@@ -1,5 +1,6 @@
 // transformer.ts — rewrites $prop bindings and (optionally) JSX-to-DOM
 
+import type ts from 'typescript';
 import type { ParsedFile } from './parser.js';
 import type { AnalysisResult } from './analyzer.js';
 import { findJsxReplacements } from './dom-emitter.js';
@@ -105,7 +106,11 @@ function buildTwoWayHandler(expr: string, elementName: string, propName: string)
   return `onInput={(e: InputEvent) => ${expr}.set((e.target as HTMLInputElement).value)}`;
 }
 
-export function transformFile(parsed: ParsedFile, analysis: AnalysisResult, options: { jsxToDom?: boolean } = {}): string {
+export function transformFile(
+  parsed: ParsedFile,
+  analysis: AnalysisResult,
+  options: { jsxToDom?: boolean; checker?: ts.TypeChecker } = {}
+): string {
   let source = parsed.source;
   const replacements: Replacement[] = [];
 
@@ -162,7 +167,7 @@ export function transformFile(parsed: ParsedFile, analysis: AnalysisResult, opti
   }
 
   // Collect JSX-to-DOM replacements (if enabled)
-  const jsxReplacements = options.jsxToDom ? findJsxReplacements(parsed.sourceFile) : [];
+  const jsxReplacements = options.jsxToDom ? findJsxReplacements(parsed.sourceFile, options.checker) : [];
 
   // Filter auto-wrap and $prop replacements that fall inside a jsxToDom range.
   // jsxToDom emits those expressions as DOM setup code — applying a text

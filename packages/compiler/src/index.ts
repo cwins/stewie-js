@@ -82,7 +82,7 @@ export function compile(source: string, options: CompileOptions): CompileResult 
     // Don't transform if there are errors — return original source
     code = source;
   } else {
-    code = transformFile(parsed, analysis, { jsxToDom: options.jsxToDom });
+    code = transformFile(parsed, analysis, { jsxToDom: options.jsxToDom, checker });
   }
 
   // 5. Optionally generate source map

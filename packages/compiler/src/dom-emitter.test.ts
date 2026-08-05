@@ -1,16 +1,52 @@
 import { describe, it, expect } from 'vitest';
+import ts from 'typescript';
 import { compile } from './index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Ambient declarations so the test sources resolve `signal`/`computed`/etc. to
+// proper Signal types without importing anything. Kept in a separate file so
+// test-source line numbers are unaffected. This mirrors the real Vite pipeline,
+// where the compiler always has a TypeChecker — which the JSX-to-DOM emitter
+// needs to tell a text-producing expression (`count()`) from a node-producing
+// one (`makeFooter()`); see the "[object HTMLElement]" regression tests below.
+const GLOBALS = `
+declare function signal<T>(v: T): { (): T; peek(): T; set(x: T): void; update(f: (p: T) => T): void };
+declare function computed<T>(f: () => T): { (): T; peek(): T };
+declare function store<T extends object>(o: T): T;
+declare function effect(f: () => void): () => void;
+type JSXElement = { readonly __jsx: unique symbol };
+`;
+
+const TEST_FILE = 'test.tsx';
+const GLOBALS_FILE = 'globals.d.ts';
+
+function buildProgram(source: string): ts.Program {
+  const files: Record<string, string> = { [TEST_FILE]: source, [GLOBALS_FILE]: GLOBALS };
+  const sfs: Record<string, ts.SourceFile> = {
+    [TEST_FILE]: ts.createSourceFile(TEST_FILE, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX),
+    [GLOBALS_FILE]: ts.createSourceFile(GLOBALS_FILE, GLOBALS, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS)
+  };
+  const dh = ts.createCompilerHost({});
+  const host: ts.CompilerHost = {
+    ...dh,
+    getSourceFile: (name, target) => sfs[name] ?? dh.getSourceFile(name, target),
+    fileExists: (name) => name in files || dh.fileExists(name),
+    readFile: (name) => files[name] ?? dh.readFile(name)
+  };
+  return ts.createProgram([GLOBALS_FILE, TEST_FILE], { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX, jsxImportSource: '@stewie-js/core', strict: true, noEmit: true, skipLibCheck: true }, host);
+}
+
 function compileJsx(source: string): string {
   const result = compile(source, {
-    filename: 'test.tsx',
+    filename: TEST_FILE,
     dev: false,
     sourcemap: false,
-    jsxToDom: true
+    jsxToDom: true,
+    // Provide a program so the emitter has type info — matches the Vite pipeline.
+    program: buildProgram(source)
   });
   // Fail the test if there are compile errors
   if (result.errors.length > 0) {
@@ -449,6 +485,31 @@ describe('JSX-to-DOM: opaque expression children are not stringified', () => {
     `);
     expect(code).not.toContain('document.createElement("div")');
     expect(code).not.toContain('String(renderItem(id))');
+  });
+
+  it('does NOT stringify a zero-arg JSX helper call (regression: [object HTMLElement])', () => {
+    // The reported bug: makeFooter() is a zero-arg call, syntactically identical
+    // to a signal read, but its return type is JSXElement. It must NOT compile to
+    // String(makeFooter()) — that renders "[object HTMLElement]".
+    const code = compileJsx(`
+      function makeFooter(): JSXElement { return <footer>Footer node</footer> }
+      function Page() { return <div>{makeFooter()}</div> }
+    `);
+    expect(code).not.toContain('String(makeFooter())');
+    // The <div> falls back to the JSX runtime (auto-wrapped accessor), which
+    // renders the node structurally via renderChildren — it is NOT DOM-emitted.
+    expect(code).not.toContain('document.createElement("div")');
+    expect(code).toContain('<div>{() => makeFooter()}</div>');
+  });
+
+  it('DOES optimize a zero-arg helper that returns text', () => {
+    // A helper whose return type is a primitive is safe to emit as a text node.
+    const code = compileJsx(`
+      function label(): string { return 'hi' }
+      function C() { return <p>{label()}</p> }
+    `);
+    expect(code).toContain('document.createElement("p")');
+    expect(code).toContain('String(label())');
   });
 
   it('does NOT transform the inner element when an outer ternary contains JSX and an opaque prop', () => {
