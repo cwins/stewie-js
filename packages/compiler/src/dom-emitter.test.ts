@@ -36,7 +36,19 @@ function buildProgram(source: string): ts.Program {
     fileExists: (name) => name in files || dh.fileExists(name),
     readFile: (name) => files[name] ?? dh.readFile(name)
   };
-  return ts.createProgram([GLOBALS_FILE, TEST_FILE], { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX, jsxImportSource: '@stewie-js/core', strict: true, noEmit: true, skipLibCheck: true }, host);
+  return ts.createProgram(
+    [GLOBALS_FILE, TEST_FILE],
+    {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      jsx: ts.JsxEmit.ReactJSX,
+      jsxImportSource: '@stewie-js/core',
+      strict: true,
+      noEmit: true,
+      skipLibCheck: true
+    },
+    host
+  );
 }
 
 function compileJsx(source: string): string {

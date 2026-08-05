@@ -653,7 +653,6 @@ export function analyzeFile(parsed: ParsedFile, checker?: ts.TypeChecker): Analy
       }
     }
 
-
     // STW083: window.X / document.X at module scope. Narrowed to
     // PropertyAccessExpression on window/document (e.g. `window.location`,
     // `document.title`) to avoid false positives on property keys and
