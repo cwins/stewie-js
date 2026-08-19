@@ -1,6 +1,6 @@
 # 0001 — No virtual DOM in the renderer
 
-Date: 2025-11-08
+Date: 2026-03-19
 
 ## Status
 

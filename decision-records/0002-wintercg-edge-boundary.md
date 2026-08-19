@@ -1,6 +1,6 @@
 # 0002 — `core` and `server` packages forbid Node.js APIs
 
-Date: 2026-01-22
+Date: 2026-04-28
 
 ## Status
 
