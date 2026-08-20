@@ -1,4 +1,34 @@
-import { defineConfig } from 'vitepress';
+import { defineConfig, type HeadConfig } from 'vitepress';
+
+/**
+ * Google Analytics (GA4) is injected at build time from the environment.
+ *
+ * The measurement ID is NOT confidential — it is served in the HTML of every
+ * page, so anyone can read it with view-source. Sourcing it from the
+ * environment instead of hardcoding it buys two things that do matter:
+ *
+ *   1. Forks don't inherit it. A fork that builds and deploys this site would
+ *      otherwise report into our property and corrupt the numbers.
+ *   2. Local and PR builds send nothing, because the variable is unset there.
+ *      Analytics only exist on the real deploy.
+ *
+ * Set GA_MEASUREMENT_ID in the workflow from a repository secret.
+ */
+const gaId = process.env.GA_MEASUREMENT_ID;
+
+const analyticsHead: HeadConfig[] = gaId
+  ? [
+      ['script', { async: '', src: `https://www.googletagmanager.com/gtag/js?id=${gaId}` }],
+      [
+        'script',
+        {},
+        `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${gaId}');`
+      ]
+    ]
+  : [];
 
 // VitePress site config for the Stewie docs.
 // `docs/` is the site root; `index.md` is the landing page.
@@ -19,7 +49,8 @@ export default defineConfig({
     ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/stewie-js/favicon-16x16.png' }],
     ['link', { rel: 'apple-touch-icon', sizes: '180x180', href: '/stewie-js/apple-touch-icon.png' }],
     ['meta', { name: 'theme-color', content: '#276ccd' }],
-    ['meta', { property: 'og:image', content: 'https://cwins.github.io/stewie-js/stewie-logo.png' }]
+    ['meta', { property: 'og:image', content: 'https://cwins.github.io/stewie-js/stewie-logo.png' }],
+    ...analyticsHead
   ],
 
   themeConfig: {

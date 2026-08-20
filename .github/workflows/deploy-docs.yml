@@ -46,8 +46,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # GA_MEASUREMENT_ID is scoped to this step, so it reaches the VitePress
+      # config and nothing else. If the secret is unset the build still
+      # succeeds and simply emits no analytics — see docs/.vitepress/config.ts.
       - name: Build docs
         run: pnpm docs:build
+        env:
+          GA_MEASUREMENT_ID: ${{ secrets.GA_MEASUREMENT_ID }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
