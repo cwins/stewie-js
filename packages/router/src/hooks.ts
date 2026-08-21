@@ -14,6 +14,48 @@ export function useLocation(): RouterStore {
 }
 
 /**
+ * Wrap a store-backed flat string map in a view that re-resolves the map on
+ * every property access.
+ *
+ * `location.query` and `location.params` are replaced wholesale on navigation
+ * (`location.query = parsed.query`). Returning the object itself would hand the
+ * caller a reference to whichever object was current at call time: the store
+ * notifies only the exact path that was written (`query`), never its
+ * descendants (`query.id`), and the captured proxy stays bound to the old raw
+ * target — so a consumer that did `const q = useQuery()` at setup would read
+ * stale values forever, even though a fresh `location.query.id` read is
+ * correct.
+ *
+ * Re-reading `read()` inside each trap fixes both halves: it subscribes to the
+ * parent path (which *is* notified on replacement) and it resolves against the
+ * current object.
+ */
+function liveView<T extends Record<string, string | undefined>>(read: () => Record<string, string>): T {
+  return new Proxy({} as T, {
+    get(_target, key) {
+      if (typeof key === 'symbol') return undefined;
+      return read()[key];
+    },
+    has(_target, key) {
+      if (typeof key === 'symbol') return false;
+      return key in read();
+    },
+    ownKeys() {
+      return Reflect.ownKeys(read());
+    },
+    getOwnPropertyDescriptor(_target, key) {
+      if (typeof key === 'symbol') return undefined;
+      const current = read();
+      if (!(key in current)) return undefined;
+      // Must be configurable: the proxy target is an empty object, and a
+      // non-configurable report for a property the target lacks is a
+      // TypeError under the proxy invariants.
+      return { value: current[key], enumerable: true, configurable: true, writable: true };
+    }
+  });
+}
+
+/**
  * Returns the matched route's URL params.
  *
  * Three call shapes are supported:
@@ -34,7 +76,8 @@ export function useLocation(): RouterStore {
 export function useParams<R extends TypedRoute<any, any>>(route: R): NonNullable<R['__params']>;
 export function useParams<T = Record<string, string>>(): ParamsOf<T>;
 export function useParams(_route?: unknown): unknown {
-  return useRouter().location.params;
+  const router = useRouter();
+  return liveView(() => router.location.params);
 }
 
 /**
@@ -45,7 +88,8 @@ export function useParams(_route?: unknown): unknown {
 export function useQuery<R extends TypedRoute<any, any>>(route: R): NonNullable<R['__query']>;
 export function useQuery<T = Record<string, string | undefined>>(): QueryOf<T>;
 export function useQuery(_route?: unknown): unknown {
-  return useRouter().location.query;
+  const router = useRouter();
+  return liveView(() => router.location.query);
 }
 
 /**
