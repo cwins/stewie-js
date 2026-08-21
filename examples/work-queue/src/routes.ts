@@ -14,6 +14,7 @@
 // second generic argument when needed.
 
 import { createRoute, type RouteGuard, type TypedRoute } from '@stewie-js/router';
+import type { TaskStatus } from './data/types.js';
 import { lazy } from '@stewie-js/core';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { ProjectsPage } from './pages/ProjectsPage.js';
@@ -51,7 +52,13 @@ export const NewProjectRoute = createRoute('/projects/new', { component: NewProj
 
 export const ProjectEditRoute = createRoute('/projects/:projectId/edit', { component: EditProjectPage, load: projectEditLoader });
 
-export const ProjectDetailRoute = createRoute('/projects/:projectId', { component: ProjectDetailPage, load: projectDetailLoader });
+// `status` filters the task list. It is a pure view concern: the loader does
+// not read it, so the filter is applied with `router.setQuery()` — no guards,
+// no loaders, no re-mount. See the filter bar in ProjectDetailPage.
+export const ProjectDetailRoute = createRoute<{ projectId: string }, { status?: TaskStatus | 'all' }>('/projects/:projectId', {
+  component: ProjectDetailPage,
+  load: projectDetailLoader
+});
 
 export const TaskDetailRoute = createRoute('/tasks/:taskId', { component: TaskDetailPage, load: taskDetailLoader });
 

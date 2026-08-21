@@ -167,3 +167,96 @@ describe('Create project', () => {
     expect(await page.getByTestId('create-project-submit').isDisabled()).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Status filter — query-param view state
+// ---------------------------------------------------------------------------
+
+/**
+ * proj_1 seed: 5 tasks — 2 done, 1 in_progress, 2 todo.
+ *
+ * These cover the query-param path that no other browser test reaches. The
+ * filter is applied with `router.setQuery()`, so the route does not re-mount:
+ * the page must react purely through its `useQuery()` view. A regression that
+ * makes `useQuery()` snapshot at setup shows up here as a filter that changes
+ * the URL but not the list.
+ */
+describe('Task status filter', () => {
+  const rows = () => page.locator('[data-testid^="task-row-"]');
+
+  it('applies ?status= from a direct URL (server-rendered)', async () => {
+    await page.goto(`${BROWSER_TEST_URL}/projects/proj_1?status=done`);
+    await visible('task-filter-bar');
+    expect(await rows().count()).toBe(2);
+    expect(await text('task-filter-count')).toBe('2 of 5');
+    await page.getByTestId('tasks-todo').waitFor({ state: 'detached' });
+  });
+
+  it('clicking a filter updates the list without re-navigating', async () => {
+    await page.goto(`${BROWSER_TEST_URL}/projects/proj_1`);
+    await visible('task-filter-bar');
+    expect(await rows().count()).toBe(5);
+
+    // Survives only if the document is never reloaded.
+    await page.evaluate(() => {
+      (window as unknown as { __noReload?: boolean }).__noReload = true;
+    });
+
+    await page.getByTestId('task-filter-todo').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid^="task-row-"]').length === 2);
+
+    expect(page.url()).toContain('status=todo');
+    expect(await text('task-filter-count')).toBe('2 of 5');
+    expect(await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload)).toBe(true);
+  });
+
+  it('switching between two filters keeps the list in sync', async () => {
+    // Query-only → query-only. The route never re-mounts on either move, so
+    // this is the case a setup-time snapshot gets wrong.
+    await page.goto(`${BROWSER_TEST_URL}/projects/proj_1`);
+    await visible('task-filter-bar');
+
+    await page.getByTestId('task-filter-done').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid^="task-row-"]').length === 2);
+    expect(page.url()).toContain('status=done');
+
+    await page.getByTestId('task-filter-in_progress').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid^="task-row-"]').length === 1);
+    expect(page.url()).toContain('status=in_progress');
+    expect(await text('task-filter-count')).toBe('1 of 5');
+  });
+
+  it('choosing All removes the query param', async () => {
+    await page.goto(`${BROWSER_TEST_URL}/projects/proj_1?status=done`);
+    await visible('task-filter-bar');
+
+    await page.getByTestId('task-filter-all').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid^="task-row-"]').length === 5);
+    expect(page.url()).not.toContain('status=');
+  });
+
+  it('falls back to All for an unrecognised status', async () => {
+    await page.goto(`${BROWSER_TEST_URL}/projects/proj_1?status=banana`);
+    await visible('task-filter-bar');
+    expect(await rows().count()).toBe(5);
+    expect(await page.getByTestId('task-filter-all').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('filtering does not push history entries', async () => {
+    // setQuery defaults to replaceState, so repeated filtering does not bury
+    // the page the user arrived from under a stack of filter states. Back goes
+    // back to the projects list, not to the previous filter.
+    await page.goto(`${BROWSER_TEST_URL}/projects`);
+    await page.getByTestId('project-list-item-proj_1').click();
+    await visible('task-filter-bar');
+
+    await page.getByTestId('task-filter-todo').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid^="task-row-"]').length === 2);
+    await page.getByTestId('task-filter-done').click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid^="task-row-"]').length === 2);
+    expect(page.url()).toContain('status=done');
+
+    await page.goBack();
+    await visible('project-list');
+  });
+});

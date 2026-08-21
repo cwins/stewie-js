@@ -16,7 +16,7 @@
 
 import type { JSXElement } from '@stewie-js/core';
 import { signal, computed, For, Show, useAction } from '@stewie-js/core';
-import { useRouteData, useParams, Link } from '@stewie-js/router';
+import { useRouteData, useParams, useQuery, useRouter, Link } from '@stewie-js/router';
 import { TaskRow } from '../components/TaskRow.js';
 import { EmptyState } from '../components/lib/EmptyState.js';
 import { UserChip } from '../components/lib/UserChip.js';
@@ -294,12 +294,46 @@ function CreateTaskForm({ projectId, users, onCreated, onCancel }: CreateTaskFor
 }
 
 // ---------------------------------------------------------------------------
+// Status filter — the query-param view pattern
+// ---------------------------------------------------------------------------
+
+type StatusFilter = TaskStatus | 'all';
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'todo', label: 'To Do' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'done', label: 'Done' }
+];
+
+function isStatusFilter(value: string | undefined): value is StatusFilter {
+  return value !== undefined && STATUS_FILTERS.some((f) => f.value === value);
+}
+
+// ---------------------------------------------------------------------------
 // ProjectDetailPage
 // ---------------------------------------------------------------------------
 
 export function ProjectDetailPage(): JSXElement {
   const { projectId } = useParams(ProjectDetailRoute);
   const data = useRouteData<ProjectDetailData>();
+
+  // Query-param view state. `query` is read once here and stays live — the
+  // router returns a view over location.query, not a snapshot, so this
+  // computed re-runs when the filter changes even though the route never
+  // re-mounts.
+  const query = useQuery(ProjectDetailRoute);
+  const router = useRouter();
+
+  // Unknown values (?status=banana) fall back to 'all' rather than showing an
+  // empty list, so a hand-edited URL can't produce a dead-looking page.
+  const activeFilter = computed<StatusFilter>(() => (isStatusFilter(query.status) ? query.status : 'all'));
+
+  // `null` removes the key, keeping the canonical "everything" URL clean.
+  // No guards or loaders run: this is a URL annotation, not a navigation.
+  const applyFilter = (value: StatusFilter) => {
+    router.setQuery({ status: value === 'all' ? null : value });
+  };
 
   // Local mutable copies of loader data.
   // The loader provides the authoritative initial state; signals make it reactive
@@ -313,11 +347,16 @@ export function ProjectDetailPage(): JSXElement {
   const usersById: Record<string, UserPublic> = Object.fromEntries(data.users.map((u) => [u.id, u]));
   const getUsersById = () => usersById;
 
-  // Derived task groups
-  const todoTasks = computed(() => $tasks().filter((t) => t.status === 'todo'));
-  const inProgressTasks = computed(() => $tasks().filter((t) => t.status === 'in_progress'));
-  const doneTasks = computed(() => $tasks().filter((t) => t.status === 'done'));
+  // Derived task groups, narrowed by the active filter.
+  const visibleTasks = computed(() => {
+    const filter = activeFilter();
+    return filter === 'all' ? $tasks() : $tasks().filter((t) => t.status === filter);
+  });
+  const todoTasks = computed(() => visibleTasks().filter((t) => t.status === 'todo'));
+  const inProgressTasks = computed(() => visibleTasks().filter((t) => t.status === 'in_progress'));
+  const doneTasks = computed(() => visibleTasks().filter((t) => t.status === 'done'));
   const hasTasks = computed(() => $tasks().length > 0);
+  const hasVisibleTasks = computed(() => visibleTasks().length > 0);
 
   const closeSheet = () => $selectedTask.set(null);
 
@@ -396,87 +435,123 @@ export function ProjectDetailPage(): JSXElement {
           )}
         </Show>
 
+        <Show when={hasTasks}>
+          {() => (
+            <div class="task-filter-bar" role="group" aria-label="Filter tasks by status" data-testid="task-filter-bar">
+              <For each={() => STATUS_FILTERS} by={(f) => f.value}>
+                {(getFilter) => (
+                  <button
+                    type="button"
+                    class={() => `btn btn-sm ${activeFilter() === getFilter().value ? 'btn-primary' : 'btn-ghost'}`}
+                    aria-pressed={() => String(activeFilter() === getFilter().value)}
+                    onClick={() => applyFilter(getFilter().value)}
+                    data-testid={`task-filter-${getFilter().value}`}
+                  >
+                    {() => getFilter().label}
+                  </button>
+                )}
+              </For>
+              <span class="task-filter-count" data-testid="task-filter-count">
+                {() => `${visibleTasks().length} of ${$tasks().length}`}
+              </span>
+            </div>
+          )}
+        </Show>
+
         <Show
           when={hasTasks}
           fallback={<EmptyState title="No tasks yet" description="Add your first task to get started." testId="tasks-empty" />}
         >
           {() => (
-            <div class="task-sections">
-              <Show when={() => inProgressTasks().length > 0}>
-                {() => (
-                  <section aria-labelledby="in-progress-heading">
-                    <h2 class="task-section-title" id="in-progress-heading">
-                      In Progress
-                    </h2>
-                    <div data-testid="tasks-in-progress">
-                      <For each={inProgressTasks} by={(t) => t.id}>
-                        {(getTask) => (
-                          <TaskRow
-                            task={getTask}
-                            usersById={getUsersById}
-                            isSelected={() => $selectedTask()?.id === getTask().id}
-                            onSelect={(task) => {
-                              $showCreateForm.set(false);
-                              $selectedTask.set(task);
-                            }}
-                          />
-                        )}
-                      </For>
-                    </div>
-                  </section>
-                )}
-              </Show>
+            <Show
+              when={hasVisibleTasks}
+              fallback={
+                <EmptyState
+                  title="No matching tasks"
+                  description="No tasks have this status. Choose a different filter to see more."
+                  testId="tasks-filtered-empty"
+                />
+              }
+            >
+              {() => (
+                <div class="task-sections">
+                  <Show when={() => inProgressTasks().length > 0}>
+                    {() => (
+                      <section aria-labelledby="in-progress-heading">
+                        <h2 class="task-section-title" id="in-progress-heading">
+                          In Progress
+                        </h2>
+                        <div data-testid="tasks-in-progress">
+                          <For each={inProgressTasks} by={(t) => t.id}>
+                            {(getTask) => (
+                              <TaskRow
+                                task={getTask}
+                                usersById={getUsersById}
+                                isSelected={() => $selectedTask()?.id === getTask().id}
+                                onSelect={(task) => {
+                                  $showCreateForm.set(false);
+                                  $selectedTask.set(task);
+                                }}
+                              />
+                            )}
+                          </For>
+                        </div>
+                      </section>
+                    )}
+                  </Show>
 
-              <Show when={() => todoTasks().length > 0}>
-                {() => (
-                  <section aria-labelledby="todo-heading">
-                    <h2 class="task-section-title" id="todo-heading">
-                      To Do
-                    </h2>
-                    <div data-testid="tasks-todo">
-                      <For each={todoTasks} by={(t) => t.id}>
-                        {(getTask) => (
-                          <TaskRow
-                            task={getTask}
-                            usersById={getUsersById}
-                            isSelected={() => $selectedTask()?.id === getTask().id}
-                            onSelect={(task) => {
-                              $showCreateForm.set(false);
-                              $selectedTask.set(task);
-                            }}
-                          />
-                        )}
-                      </For>
-                    </div>
-                  </section>
-                )}
-              </Show>
+                  <Show when={() => todoTasks().length > 0}>
+                    {() => (
+                      <section aria-labelledby="todo-heading">
+                        <h2 class="task-section-title" id="todo-heading">
+                          To Do
+                        </h2>
+                        <div data-testid="tasks-todo">
+                          <For each={todoTasks} by={(t) => t.id}>
+                            {(getTask) => (
+                              <TaskRow
+                                task={getTask}
+                                usersById={getUsersById}
+                                isSelected={() => $selectedTask()?.id === getTask().id}
+                                onSelect={(task) => {
+                                  $showCreateForm.set(false);
+                                  $selectedTask.set(task);
+                                }}
+                              />
+                            )}
+                          </For>
+                        </div>
+                      </section>
+                    )}
+                  </Show>
 
-              <Show when={() => doneTasks().length > 0}>
-                {() => (
-                  <section aria-labelledby="done-heading">
-                    <h2 class="task-section-title" id="done-heading">
-                      Done
-                    </h2>
-                    <div data-testid="tasks-done">
-                      <For each={doneTasks} by={(t) => t.id}>
-                        {(getTask) => (
-                          <TaskRow
-                            task={getTask}
-                            usersById={getUsersById}
-                            isSelected={() => $selectedTask()?.id === getTask().id}
-                            onSelect={(task) => {
-                              $showCreateForm.set(false);
-                              $selectedTask.set(task);
-                            }}
-                          />
-                        )}
-                      </For>
-                    </div>
-                  </section>
-                )}
-              </Show>
-            </div>
+                  <Show when={() => doneTasks().length > 0}>
+                    {() => (
+                      <section aria-labelledby="done-heading">
+                        <h2 class="task-section-title" id="done-heading">
+                          Done
+                        </h2>
+                        <div data-testid="tasks-done">
+                          <For each={doneTasks} by={(t) => t.id}>
+                            {(getTask) => (
+                              <TaskRow
+                                task={getTask}
+                                usersById={getUsersById}
+                                isSelected={() => $selectedTask()?.id === getTask().id}
+                                onSelect={(task) => {
+                                  $showCreateForm.set(false);
+                                  $selectedTask.set(task);
+                                }}
+                              />
+                            )}
+                          </For>
+                        </div>
+                      </section>
+                    )}
+                  </Show>
+                </div>
+              )}
+            </Show>
           )}
         </Show>
       </div>
