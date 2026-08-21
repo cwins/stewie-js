@@ -103,3 +103,11 @@ jobs:
       - name: Browser tests
         run: pnpm test:browser
         working-directory: examples/${{ matrix.example }}
+
+      # Progressive asset streaming — needs its own harness (a server started
+      # with STEWIE_CSS_DELAY so the lazy() CSS gate is observable), so it is
+      # a separate config from the browser suite. work-queue only.
+      - name: Gating tests
+        if: matrix.example == 'work-queue'
+        run: pnpm test:gating
+        working-directory: examples/${{ matrix.example }}
