@@ -1,0 +1,105 @@
+name: CI
+
+# Until now the only workflow that ran tests was release.yml, which is
+# workflow_dispatch-only — so nothing was verified on push or PR, and the
+# browser suites (excluded from the root `pnpm test` by vitest.config.ts)
+# were never run by CI at all.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# A newer push to the same branch supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint / Typecheck / Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Guards the WinterCG boundary — core and server must not import Node
+      # APIs. CLAUDE.md describes this as CI-enforced; this is where that
+      # becomes true.
+      - name: Edge API guardrail
+        run: pnpm check:edge
+
+      - name: Build
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm test
+
+  browser:
+    name: Browser tests (${{ matrix.example }})
+    runs-on: ubuntu-latest
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [work-queue, ssr-and-routing]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The example's own build resolves @stewie-js/* to each package's dist,
+      # so the workspace has to be built first. A src-only change is invisible
+      # to these tests without this step.
+      - name: Build workspace packages
+        run: pnpm build
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: examples/${{ matrix.example }}
+
+      # browser-setup.ts builds the example for production and boots its
+      # server before the suite runs.
+      - name: Browser tests
+        run: pnpm test:browser
+        working-directory: examples/${{ matrix.example }}
