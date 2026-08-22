@@ -1,5 +1,5 @@
 // @stewie-js/router-spi — router interface definitions
-export const version = '0.10.0';
+export const version = '0.10.1';
 
 export interface ReactiveLocation {
   pathname: string;

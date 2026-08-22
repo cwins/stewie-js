@@ -1,3 +1,10 @@
+## [0.10.1](https://github.com/cwins/stewie-js/compare/v0.10.0...v0.10.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **router:** useQuery/useParams return live views, not setup-time snapshots ([76d730d](https://github.com/cwins/stewie-js/commit/76d730df624d8ce7b6746625500b2a0ff47bc5b1))
+
 # [0.10.0](https://github.com/cwins/stewie-js/compare/v0.9.0...v0.10.0) (2026-08-05)
 
 
