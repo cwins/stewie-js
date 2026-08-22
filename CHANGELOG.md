@@ -1,3 +1,20 @@
+# [0.10.0](https://github.com/cwins/stewie-js/compare/v0.9.0...v0.10.0) (2026-08-05)
+
+
+### Bug Fixes
+
+* **compiler:** don't stringify JSX-returning helper calls in native elements ([dfee22a](https://github.com/cwins/stewie-js/commit/dfee22a1fda5ac68b13d82a9783e9abc48282537))
+* **core:** point diagnostic docs links at the live site; add reference page ([089bd97](https://github.com/cwins/stewie-js/commit/089bd978eca72bb42b701177158f648012b870d6)), closes [.../reference/diagnostics#stwNNN](https://github.com/.../reference/diagnostics/issues/stwNNN)
+* **core:** unkeyed resources bypass the DataRegistry (STW063) ([c4c2803](https://github.com/cwins/stewie-js/commit/c4c2803344726b65452c41b002caf17532b6a276))
+
+
+### Features
+
+* **compiler:** STW020/STW021 — eager signal read in Show when / For each ([45c091d](https://github.com/cwins/stewie-js/commit/45c091dc18d82c0a40e90be69ff21b7611d9fcb7))
+* **core:** add Reactive<T> type for reactive props ([0951331](https://github.com/cwins/stewie-js/commit/09513315e5689d426625b8b89ac2f3bda7749912))
+* STW043 (write in computed), STW093 (unknown $prop), STW050 (no provider) ([e7c9f00](https://github.com/cwins/stewie-js/commit/e7c9f0000f7162c430cb84c064ac8b7453696c5f))
+* STW090/091 ($prop target), STW100 (mount on server), STW041 (onCleanup) ([4568c00](https://github.com/cwins/stewie-js/commit/4568c00954c01f35b0b907d2be976e705c42c760))
+
 # [0.9.0](https://github.com/cwins/stewie-js/compare/v0.8.0...v0.9.0) (2026-06-15)
 
 
