@@ -336,13 +336,46 @@ Renders children into a different DOM node.
 
 ### `<ErrorBoundary fallback>`
 
-Catches errors thrown during rendering of its children and renders `fallback` instead.
+Catches errors thrown during the **initial** render of its children and renders `fallback` instead.
 
 ```tsx
 <ErrorBoundary fallback={(err) => <p>Error: {String(err)}</p>}>
   <RiskyComponent />
 </ErrorBoundary>
 ```
+
+::: warning Initial render only
+`ErrorBoundary` wraps the first render of its children in a `try`/`catch`. Every
+reactive update after that runs inside its own effect, which the boundary is not
+part of — so a throw during an update is **not** caught.
+
+```tsx
+const count = signal(0)
+
+<ErrorBoundary fallback={<p>caught</p>}>
+  <div>{() => {
+    if (count() === 1) throw new Error('boom')   // NOT caught
+    return count()
+  }}</div>
+</ErrorBoundary>
+```
+
+Such an error propagates out to whatever wrote the signal — `count.set(1)` throws
+at the call site — and the DOM is left mid-update. When the update was a route
+change, that can mean a blank region, because the outgoing content is removed
+before the incoming render throws.
+
+Until this is addressed, guard inside the reactive expression rather than relying
+on the boundary:
+
+```tsx
+<div>{() => {
+  try { return render(data()) } catch { return <p>couldn't render</p> }
+}}</div>
+```
+
+Tracked as an open decision in `CLAUDE.md`.
+:::
 
 ---
 

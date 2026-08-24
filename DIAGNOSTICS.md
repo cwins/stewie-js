@@ -693,6 +693,7 @@ Blocked on features that don't exist yet or aren't stable:
 - STW070–071 — router loader/guard shape: stable but low-frequency; revisit after phase 2
 - STW085 — head/meta primitives: blocked on roadmap item 22
 - STW100–101 — testing matchers: blocked on `@stewie-js/testing` adding a signal-aware matcher surface
+- Uncaught error during a reactive re-render: `ErrorBoundary` only wraps the initial render, so a throw during an update escapes to whoever wrote the signal and leaves the DOM mid-update. A dev warning here would be papering over the containment gap — blocked on the `ErrorBoundary` decision in CLAUDE.md ("does not catch re-render errors"), which may make the warning unnecessary.
 
 ### Priorities within each phase
 
