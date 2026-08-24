@@ -85,16 +85,15 @@ export function stewie(options?: StewiePluginOptions): Plugin {
 
     // Configure the JSX transform's import source so JSX in .tsx files compiles
     // to @stewie-js/core's descriptor runtime without relying on per-file
-    // pragma comments. Vite 8+ uses oxc by default and deprecates the
-    // `esbuild` config key here, so set both for compat.
+    // pragma comments.
+    //
+    // Only `oxc` is set. Vite 8 transforms with oxc and warns when a plugin
+    // sets the `esbuild` key ("deprecated, please use `oxc`"); oxc takes
+    // precedence when both are present, so setting both bought nothing and
+    // printed a warning on every build. This package peer-depends on
+    // vite@^8.0.0, so the esbuild path was already outside its support range.
     config() {
       return {
-        // Vite 8+ uses oxc. Older versions used esbuild. The esbuild key here
-        // is the legacy path; oxc takes precedence when both are set, but
-        // keeping esbuild lets the plugin run on Vite 7 too.
-        esbuild: {
-          jsxImportSource: '@stewie-js/core'
-        },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         oxc: {
           jsx: {

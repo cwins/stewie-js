@@ -25,10 +25,20 @@ describe('stewie vite plugin', () => {
     expect(result.code).toContain('const x');
   });
 
-  it('config: sets jsxImportSource to @stewie-js/core for all builds', () => {
+  it('config: sets the JSX import source via oxc on Vite 8+', () => {
     const plugin = stewie();
     const config = plugin.config as Function;
-    expect(config().esbuild.jsxImportSource).toBe('@stewie-js/core');
+    expect(config().oxc.jsx.importSource).toBe('@stewie-js/core');
+    expect(config().oxc.jsx.runtime).toBe('automatic');
+  });
+
+  it('config: omits the deprecated esbuild key on Vite 8+', () => {
+    // Vite 8 warns when a plugin sets `esbuild` ("deprecated, please use
+    // `oxc`"), and oxc wins anyway — so setting both produced a warning on
+    // every build for no benefit. The package peer-depends on ^8.0.0.
+    const plugin = stewie();
+    const config = plugin.config as Function;
+    expect(config().esbuild).toBeUndefined();
   });
 
   it('transform: surfaces compiler errors via this.error', async () => {
