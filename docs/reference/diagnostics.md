@@ -106,6 +106,20 @@ Without an explicit `{ id }`, an auto-counter id is assigned that is not stable 
 
 `<Link>` is for internal client-side navigation. An `http(s)://` target should be a plain `<a href rel="noopener noreferrer">`.
 
+### STW076 — `useParams()` read a key the matched route does not declare {#stw076}
+
+The generic on `useParams<{ slug: string }>()` is a phantom-type carrier — it is never checked against the route's path. Reading a key the matched route does not declare returns `undefined` under a type that says it is present, and that `undefined` then flows into app code as if it were a string.
+
+Prefer the value form, where the param names come from the path literal and a wrong key is a compile error:
+
+```tsx
+const ProductRoute = createRoute('/products/:productId', { component: ProductPage })
+
+const { productId } = useParams(ProductRoute)   // inferred from the path
+```
+
+Warns on property reads only — `'key' in params`, `Object.keys(params)`, and spreading stay silent. Dev-only.
+
 ## SSR / hydration
 
 ### STW083 — `window` / `document` accessed at module scope {#stw083}

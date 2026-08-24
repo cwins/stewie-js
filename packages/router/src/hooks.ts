@@ -1,6 +1,6 @@
 // hooks.ts — router utility functions
 
-import { consume } from '@stewie-js/core';
+import { consume, diagnosticDocsUrl, isDev } from '@stewie-js/core';
 import { useRouter } from './router.js';
 import { OutletContext } from './router.js';
 import type { OutletContextValue } from './router.js';
@@ -95,10 +95,40 @@ export function useParams(_route?: unknown): unknown {
   } catch {
     // Not inside a route render (e.g. called directly under <Router>).
   }
-  if (ctx) return ctx.params;
+  if (ctx) return isDev ? guardUnknownParams(ctx.params, ctx.chain.leafPath) : ctx.params;
 
   // Fallback for callers outside a matched route render.
   return liveView(() => router.location.params);
+}
+
+/**
+ * STW076 — dev-only guard over the params snapshot.
+ *
+ * `useParams<{ slug: string }>()` types every key as present, but nothing
+ * checks that annotation against the route's path. Reading a key the route
+ * never declares hands back `undefined` under a non-nullable type, which then
+ * flows into app code as if it were a string. Warn at the point of access,
+ * naming the route pattern that was actually matched.
+ *
+ * Only the `get` trap warns: `in` checks, `Object.keys`, and spreading are
+ * legitimate ways to ask what is present and must stay silent.
+ */
+function guardUnknownParams(params: Record<string, string>, leafPath: string): Record<string, string> {
+  const warned = new Set<string>();
+  return new Proxy(params, {
+    get(target, key) {
+      if (typeof key === 'string' && !(key in target) && !warned.has(key)) {
+        warned.add(key);
+        console.warn(
+          `[stewie] STW076: useParams() read "${key}", which the matched route "${leafPath}" does not declare. ` +
+            `The value is undefined even though the type says otherwise. ` +
+            `Declared params: ${Object.keys(target).length > 0 ? Object.keys(target).join(', ') : '(none)'}. ` +
+            diagnosticDocsUrl('STW076')
+        );
+      }
+      return (target as Record<string | symbol, unknown>)[key];
+    }
+  });
 }
 
 /**

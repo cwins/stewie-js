@@ -484,6 +484,23 @@ Detection fires the first time `setQuery()` is called on a route whose chain con
 
 **Message:** `setQuery({{ {key}: ... }}) was called on route '{path}', whose load() reads its query argument. setQuery does not re-run loaders — useRouteData() will keep the previous value. If you want this to refetch, either call navigate() with the new URL (re-runs guards + loaders) or move the query-dependent fetch into a useResource at the consumer.`
 
+### STW076 — `useParams()` read a key the matched route does not declare
+**Detection:** dev-runtime · **Severity:** warn (one-shot per key) · **Implemented**
+
+`useParams<{ slug: string }>()` types every key as present, but nothing checks that annotation against the route's path — the generic is a phantom-type carrier. Reading a key the route never declares returns `undefined` under a non-nullable type, which then flows into app code as if it were a string:
+
+```tsx
+// Route is <Route path="/detail/:slug" />
+const params = useParams<{ pokemon: string }>()
+const model = getPokemon(params.pokemon)   // undefined, typed string
+```
+
+This is the shape that crashed an external demo app: a non-defensive helper received `undefined` and threw deep in a computed, far from the typo. Prefer `useParams(SomeRoute)` with a `createRoute` value, where the param names are inferred from the path literal and a wrong key is a compile error.
+
+Fires on property *reads* only. `'key' in params`, `Object.keys(params)`, and spreading are legitimate ways to ask what is present and stay silent. Dev-only — production returns the bare snapshot with no proxy overhead.
+
+**Message:** `useParams() read "{key}", which the matched route "{path}" does not declare. The value is undefined even though the type says otherwise. Declared params: {list}.`
+
 ---
 
 ## SSR and hydration
@@ -664,6 +681,7 @@ No static equivalent; these require execution context.
 | STW072 | `useParams`/`useQuery`/`useRouteData` outside a router |
 | STW074 | `navigate()` during render |
 | STW075 | `setQuery()` on a route whose `load()` reads its query argument |
+| STW076 | `useParams()` read a key the matched route does not declare |
 | STW080–082 | Hydration mismatches (text, attribute, structural) |
 | STW084 | Browser-only API during SSR render |
 
