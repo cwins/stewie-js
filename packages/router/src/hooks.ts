@@ -69,14 +69,35 @@ function liveView<T extends Record<string, string | undefined>>(read: () => Reco
  * const { projectId } = useParams<{ projectId: string }>();
  * ```
  *
- * The argument is a phantom-type carrier; it is ignored at runtime. The
- * actual params come from the active router's location.
+ * The argument is a phantom-type carrier; it is ignored at runtime.
+ *
+ * Params are fixed for the lifetime of the component, so destructuring is
+ * safe. They derive from the pathname, and a pathname change re-mounts the
+ * route component — `/users/1` → `/users/2` yields a new component instance
+ * rather than mutating the old one. Contrast `useQuery`, which is reactive
+ * because `setQuery` deliberately does not re-mount.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useParams<R extends TypedRoute<any, any>>(route: R): NonNullable<R['__params']>;
 export function useParams<T = Record<string, string>>(): ParamsOf<T>;
 export function useParams(_route?: unknown): unknown {
   const router = useRouter();
+
+  // Prefer the params captured for this render. They are frozen for the life
+  // of the component instance, which is correct: params derive from the
+  // pathname, and a pathname change re-mounts the route component, so a
+  // mounted component never needs to observe a param change. Reading the live
+  // store instead let an *outgoing* component's computeds re-run with the
+  // incoming route's params before that subtree was disposed.
+  let ctx: OutletContextValue | null = null;
+  try {
+    ctx = consume(OutletContext);
+  } catch {
+    // Not inside a route render (e.g. called directly under <Router>).
+  }
+  if (ctx) return ctx.params;
+
+  // Fallback for callers outside a matched route render.
   return liveView(() => router.location.params);
 }
 

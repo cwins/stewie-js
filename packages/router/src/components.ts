@@ -401,7 +401,7 @@ export function Router(props: RouterProps): JSXElement {
     // Each <Outlet /> will bump depth before rendering the next level.
     // Use the Provider JSX form so the SSR renderer can thread context across
     // async boundaries (plain provide() scope closes before async children render).
-    const rootContext: OutletContextValue = { chain: best.chain, depth: 0 };
+    const rootContext: OutletContextValue = { chain: best.chain, depth: 0, params: best.params };
     const rootLevel = best.chain.levels[0];
     return jsx(OutletContext.Provider as unknown as Component, {
       value: rootContext,
@@ -464,7 +464,9 @@ export function Outlet(props: OutletProps = {}): JSXElement | null {
     return null;
   }
 
-  const nextContext: OutletContextValue = { chain: ctx.chain, depth: nextDepth };
+  // Nested levels inherit the params captured for this render, not the live
+  // location — see OutletContextValue.params.
+  const nextContext: OutletContextValue = { chain: ctx.chain, depth: nextDepth, params: ctx.params };
 
   // Retrieve the router for params forwarding
   let router: Router | null = null;

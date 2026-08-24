@@ -146,7 +146,6 @@ import { useParams } from '@stewie-js/router'
 
 function UserDetail() {
   const { id } = useParams(UserRoute)   // typed from the route's path literal
-  // id is reactive — reading it subscribes to param changes
   return <p>User: {id}</p>
 }
 ```
@@ -156,6 +155,16 @@ For raw `<Route>` definitions, annotate the shape instead:
 ```tsx
 const { id } = useParams<{ id: string }>()
 ```
+
+Params are **fixed for the lifetime of the component**, so destructuring them is
+safe. They are derived from the pathname, and a pathname change re-mounts the
+route component — navigating `/users/1` → `/users/2` gives you a *new*
+`UserDetail` instance with `id` of `'2'`, rather than mutating the old one. That
+is why there is nothing to subscribe to.
+
+This is the opposite of [`useQuery`](#query-string), which *is* reactive: a
+`setQuery` call deliberately does not re-mount the route, so a mounted component
+has to observe query changes in place.
 
 ---
 

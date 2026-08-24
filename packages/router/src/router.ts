@@ -217,6 +217,18 @@ export interface OutletContextValue {
   chain: FlatRouteChain;
   /** The depth of the level currently being rendered (0 = root). */
   depth: number;
+  /**
+   * The URL params for *this* render, captured when the chain was matched.
+   *
+   * Params are render-scoped rather than read live from `location.params`.
+   * They are derived from the pathname, and a pathname change always re-runs
+   * `matchedContent` and re-mounts the route component — so a mounted
+   * component can never legitimately need to observe a param change. Reading
+   * them live meant the *outgoing* component's computeds re-ran with the
+   * incoming route's params (or `{}`) before that subtree was disposed. See
+   * `useParams` and route-params-disposal.test.ts.
+   */
+  params: Record<string, string>;
 }
 
 /**
