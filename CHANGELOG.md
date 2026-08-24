@@ -1,3 +1,16 @@
+## [0.10.2](https://github.com/cwins/stewie-js/compare/v0.10.1...v0.10.2) (2026-08-24)
+
+
+### Bug Fixes
+
+* **router:** scope route params to the render, not the live location ([8410504](https://github.com/cwins/stewie-js/commit/84105046dc195dae856928322a52cc9fc36efca1))
+* **vite:** stop setting the deprecated esbuild key on Vite 8 ([8c0daef](https://github.com/cwins/stewie-js/commit/8c0daef8c4e7e8ee459859621a7bc80e3ca4b500))
+
+
+### Features
+
+* **router:** STW076 — warn when useParams() reads an undeclared key ([e9b971b](https://github.com/cwins/stewie-js/commit/e9b971b2f5e87f8b6eeab5e758d8168de000a027))
+
 ## [0.10.1](https://github.com/cwins/stewie-js/compare/v0.10.0...v0.10.1) (2026-08-22)
 
 

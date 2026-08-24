@@ -3,6 +3,6 @@ import { version } from './index.js';
 
 describe('create-stewie', () => {
   it('exports version', () => {
-    expect(version).toBe('0.10.1');
+    expect(version).toBe('0.10.2');
   });
 });
