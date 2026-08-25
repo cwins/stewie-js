@@ -16,8 +16,33 @@ export function flashAnchorParent(anchor: Comment): void {
   flashElement(parent);
 }
 
+// Effects are per-attribute, so one element commonly has several (a `class`
+// binding and a text child, say). Flashing on each would stack overlays on the
+// same node for a single update. Collect per frame and flash each element once
+// — which also means the rect is measured after the DOM has settled.
+const pendingFlash = new Set<Element>();
+let flashFrame: number | null = null;
+
 export function flashElement(el: Element): void {
   if (!highlightEnabled) return;
+  pendingFlash.add(el);
+  if (flashFrame !== null) return;
+
+  const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn: () => void) => setTimeout(fn, 0);
+  flashFrame = schedule(() => {
+    flashFrame = null;
+    const els = [...pendingFlash];
+    pendingFlash.clear();
+    for (const e of els) paintFlash(e);
+  }) as unknown as number;
+}
+
+/** Number of elements waiting to flash. Test-only. */
+export function _pendingFlashCount(): number {
+  return pendingFlash.size;
+}
+
+function paintFlash(el: Element): void {
   if (!document.body.contains(el)) return;
 
   const rect = el.getBoundingClientRect();

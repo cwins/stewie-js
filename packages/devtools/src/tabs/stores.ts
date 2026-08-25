@@ -1,5 +1,7 @@
 // stores.ts — stores tab: live log of signal and store write events
 
+import { markDirty, registerRenderer, unregisterRenderer } from '../scheduler.js';
+
 const MAX_ENTRIES = 100;
 
 interface WriteEntry {
@@ -85,16 +87,23 @@ function push(entry: WriteEntry): void {
   if (entries.length >= MAX_ENTRIES) entries.shift();
   entries.push(entry);
 
-  if (countEl) countEl.textContent = `${totalWrites} total writes`;
+  markDirty('stores');
+}
 
-  if (listEl) {
-    if (emptyEl) emptyEl.style.display = 'none';
-    const entryEl = createEntry(entry);
-    listEl.insertBefore(entryEl, listEl.firstChild);
-    while (listEl.childElementCount > MAX_ENTRIES) {
-      listEl.lastElementChild?.remove();
-    }
+/** Rebuild the write list from `entries`. Called at most once per frame. */
+function renderList(): void {
+  if (countEl) countEl.textContent = `${totalWrites} total writes`;
+  if (!listEl || !emptyEl) return;
+  listEl.innerHTML = '';
+  if (entries.length === 0) {
+    emptyEl.style.display = '';
+    listEl.appendChild(emptyEl);
+    return;
   }
+  emptyEl.style.display = 'none';
+  const frag = document.createDocumentFragment();
+  for (const e of entries.slice().reverse()) frag.appendChild(createEntry(e));
+  listEl.appendChild(frag);
 }
 
 export function addSignalEntry(oldValue: unknown, newValue: unknown, label?: string, caller?: string): void {
@@ -122,8 +131,7 @@ export function buildStoresTab(container: HTMLElement): void {
     entries.length = 0;
     totalWrites = 0;
     if (countEl) countEl.textContent = '0 total writes';
-    if (listEl) listEl.innerHTML = '';
-    if (emptyEl) emptyEl.style.display = '';
+    renderList();
   });
 
   headerRow.appendChild(countEl);
@@ -137,20 +145,14 @@ export function buildStoresTab(container: HTMLElement): void {
   emptyEl.className = '__sdt-empty';
   emptyEl.textContent = 'No writes yet. Reactive state changes will appear here.';
 
-  if (entries.length === 0) {
-    listEl.appendChild(emptyEl);
-  } else {
-    emptyEl.style.display = 'none';
-    entries
-      .slice()
-      .reverse()
-      .forEach((e) => listEl!.appendChild(createEntry(e)));
-  }
+  renderList();
 
   container.appendChild(listEl);
+  registerRenderer('stores', renderList);
 }
 
 export function clearStoresTabRef(): void {
+  unregisterRenderer('stores');
   listEl = null;
   emptyEl = null;
   countEl = null;

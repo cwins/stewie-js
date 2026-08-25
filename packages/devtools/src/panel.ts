@@ -5,6 +5,8 @@ import { buildStoresTab, addSignalEntry, addStoreEntry, clearStoresTabRef } from
 import { buildRoutesTab, clearRoutesTabRef, onNavigation } from './tabs/routes.js';
 import { buildGraphTab, clearGraphTabRef, onGraphNodeCreate, onGraphNodeDispose, onGraphDepsUpdate } from './tabs/graph.js';
 import type { DevEffectMeta } from '@stewie-js/core';
+import { setActiveTab, setPanelVisible, resetScheduler } from './scheduler.js';
+import type { TabId } from './scheduler.js';
 
 export interface Trigger {
   kind: 'signal' | 'store';
@@ -36,8 +38,6 @@ export function getCurrentTrigger(): Trigger | null {
   return _currentTrigger;
 }
 
-type TabId = 'renders' | 'stores' | 'routes' | 'graph';
-
 let panelEl: HTMLElement | null = null;
 let toggleBtn: HTMLElement | null = null;
 let visible = false;
@@ -48,6 +48,8 @@ const tabBtns: Record<TabId, HTMLElement> = {} as Record<TabId, HTMLElement>;
 
 function switchTab(tab: TabId): void {
   activeTab = tab;
+  // Let the scheduler render whatever accumulated while this pane was hidden.
+  setActiveTab(tab);
   (Object.keys(panes) as TabId[]).forEach((id) => {
     panes[id].classList.toggle('__sdt-visible', id === tab);
     tabBtns[id].classList.toggle('__sdt-active', id === tab);
@@ -125,11 +127,13 @@ export function togglePanel(): void {
 
 export function showPanel(): void {
   visible = true;
+  setPanelVisible(true);
   if (panelEl) panelEl.style.display = 'flex';
 }
 
 export function hidePanel(): void {
   visible = false;
+  setPanelVisible(false);
   if (panelEl) panelEl.style.display = 'none';
 }
 
@@ -156,6 +160,7 @@ export function notifyStoreWrite(path: string, oldValue: unknown, newValue: unkn
 export { onNavigation };
 
 export function destroyPanel(): void {
+  resetScheduler();
   clearRendersTabRef();
   clearStoresTabRef();
   clearRoutesTabRef();

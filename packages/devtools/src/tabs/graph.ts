@@ -1,5 +1,7 @@
 // graph.ts — signal graph tab: live dependency tree of reactive nodes
 
+import { markDirty, registerRenderer, unregisterRenderer } from '../scheduler.js';
+
 interface GraphNode {
   id: number;
   kind: 'signal' | 'computed' | 'effect';
@@ -17,7 +19,7 @@ let _containerEl: HTMLElement | null = null;
 
 export function onGraphNodeCreate(id: number, kind: 'signal' | 'computed' | 'effect', label?: string): void {
   nodes.set(id, { id, kind, label, deps: [], disposed: false });
-  _renderIfVisible();
+  markDirty('graph');
 }
 
 export function onGraphNodeDispose(id: number): void {
@@ -27,17 +29,17 @@ export function onGraphNodeDispose(id: number): void {
     // Prune disposed leaves after a short delay so the user can see them go
     setTimeout(() => {
       nodes.delete(id);
-      _renderIfVisible();
+      markDirty('graph');
     }, 1500);
   }
-  _renderIfVisible();
+  markDirty('graph');
 }
 
 export function onGraphDepsUpdate(id: number, deps: number[]): void {
   const node = nodes.get(id);
   if (node) {
     node.deps = deps;
-    _renderIfVisible();
+    markDirty('graph');
   }
 }
 
@@ -47,20 +49,20 @@ export function onGraphDepsUpdate(id: number, deps: number[]): void {
 
 export function buildGraphTab(container: HTMLElement): void {
   _containerEl = container;
+  registerRenderer('graph', () => {
+    if (_containerEl) _render(_containerEl);
+  });
   _render(container);
 }
 
 export function clearGraphTabRef(): void {
+  unregisterRenderer('graph');
   _containerEl = null;
 }
 
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
-
-function _renderIfVisible(): void {
-  if (_containerEl) _render(_containerEl);
-}
 
 function _render(container: HTMLElement): void {
   container.innerHTML = '';
@@ -81,7 +83,7 @@ function _render(container: HTMLElement): void {
     for (const [id, node] of nodes) {
       if (node.disposed) nodes.delete(id);
     }
-    _renderIfVisible();
+    markDirty('graph');
   });
 
   headerRow.appendChild(info);

@@ -3,6 +3,7 @@
 import { flashElement, flashAnchorParent, setHighlightEnabled, isHighlightEnabled } from '../highlight.js';
 import type { DevEffectMeta } from '@stewie-js/core';
 import type { Trigger } from '../panel.js';
+import { markDirty, registerRenderer, unregisterRenderer } from '../scheduler.js';
 
 const MAX_ENTRIES = 100;
 
@@ -122,14 +123,7 @@ export function addRenderEntry(meta: DevEffectMeta | undefined, trigger?: Trigge
   if (entries.length >= MAX_ENTRIES) entries.shift();
   entries.push(entry);
 
-  if (listEl) {
-    if (emptyEl) emptyEl.style.display = 'none';
-    const entryEl = createEntry(entry);
-    listEl.insertBefore(entryEl, listEl.firstChild);
-    while (listEl.childElementCount > MAX_ENTRIES) {
-      listEl.lastElementChild?.remove();
-    }
-  }
+  markDirty('renders');
 
   if (meta.element) {
     flashElement(meta.element);
@@ -183,20 +177,29 @@ export function buildRendersTab(container: HTMLElement): void {
   emptyEl.className = '__sdt-empty';
   emptyEl.textContent = 'No reactive updates yet. Interact with the page to see updates here.';
 
-  if (entries.length === 0) {
-    listEl.appendChild(emptyEl);
-  } else {
-    emptyEl.style.display = 'none';
-    entries
-      .slice()
-      .reverse()
-      .forEach((e) => listEl!.appendChild(createEntry(e)));
-  }
+  renderList();
 
   container.appendChild(listEl);
+  registerRenderer('renders', renderList);
+}
+
+/** Rebuild the entry list from `entries`. Called at most once per frame. */
+function renderList(): void {
+  if (!listEl || !emptyEl) return;
+  listEl.innerHTML = '';
+  if (entries.length === 0) {
+    emptyEl.style.display = '';
+    listEl.appendChild(emptyEl);
+    return;
+  }
+  emptyEl.style.display = 'none';
+  const frag = document.createDocumentFragment();
+  for (const e of entries.slice().reverse()) frag.appendChild(createEntry(e));
+  listEl.appendChild(frag);
 }
 
 export function clearRendersTabRef(): void {
+  unregisterRenderer('renders');
   listEl = null;
   emptyEl = null;
 }

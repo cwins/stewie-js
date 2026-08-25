@@ -1,5 +1,7 @@
 // routes.ts — routes tab: current URL, params, query, navigation history
 
+import { markDirty, registerRenderer, unregisterRenderer } from '../scheduler.js';
+
 const MAX_HISTORY = 20;
 
 interface HistoryEntry {
@@ -87,14 +89,18 @@ export function onNavigation(): void {
     if (navHistory.length >= MAX_HISTORY) navHistory.shift();
     navHistory.push({ pathname: location.pathname, time: Date.now() });
   }
-  if (containerEl) renderRouteContent(containerEl);
+  markDirty('routes');
 }
 
 export function buildRoutesTab(container: HTMLElement): void {
   containerEl = container;
+  registerRenderer('routes', () => {
+    if (containerEl) renderRouteContent(containerEl);
+  });
   renderRouteContent(container);
 }
 
 export function clearRoutesTabRef(): void {
+  unregisterRenderer('routes');
   containerEl = null;
 }
