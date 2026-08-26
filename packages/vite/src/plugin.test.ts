@@ -114,4 +114,35 @@ describe('stewie vite plugin', () => {
     expect(result).not.toBeNull();
     expect(result.code).toContain('document.createElement');
   });
+  // ---------------------------------------------------------------------------
+  // DevTools injection
+  // ---------------------------------------------------------------------------
+
+  /** Run the transformIndexHtml hook as Vite would. */
+  function injectTags(plugin: ReturnType<typeof stewie>, ctx: { server?: unknown }) {
+    const hook = plugin.transformIndexHtml as { handler: Function };
+    return hook.handler('<html></html>', ctx);
+  }
+
+  it('transformIndexHtml: injects devtools on the dev server by default', () => {
+    const tags = injectTags(stewie(), { server: {} });
+    expect(tags).toHaveLength(1);
+    expect(tags[0].children).toContain('@stewie-js/devtools');
+  });
+
+  it('transformIndexHtml: never injects devtools into a production build', () => {
+    expect(injectTags(stewie(), {})).toBeUndefined();
+  });
+
+  it('transformIndexHtml: devtools:false opts out on the dev server', () => {
+    // Keeps the package out of the page entirely, so instrumentation that is
+    // never loaded cannot be mistaken for application cost while profiling.
+    expect(injectTags(stewie({ devtools: false }), { server: {} })).toBeUndefined();
+  });
+
+  it('transformIndexHtml: devtools:true is the same as the default', () => {
+    const tags = injectTags(stewie({ devtools: true }), { server: {} });
+    expect(tags).toHaveLength(1);
+    expect(tags[0].children).toContain('initDevtools');
+  });
 });

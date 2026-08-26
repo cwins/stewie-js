@@ -56,6 +56,18 @@ export interface StewiePluginOptions {
    * Defaults to `true`. Set to `false` to opt out (e.g. for debugging).
    */
   jsxToDom?: boolean;
+
+  /**
+   * Inject the Stewie DevTools panel into the dev server's HTML.
+   *
+   * Defaults to `true`. Production builds never receive it either way.
+   *
+   * Set to `false` to keep the package out of the page entirely — useful when
+   * profiling, since instrumentation that is never loaded cannot be mistaken
+   * for application cost. `destroyDevtools()` removes it at runtime instead,
+   * but that still loads and initializes the package first.
+   */
+  devtools?: boolean;
 }
 
 export function stewie(options?: StewiePluginOptions): Plugin {
@@ -172,6 +184,7 @@ export function stewie(options?: StewiePluginOptions): Plugin {
       order: 'pre' as const,
       handler(_html: string, ctx: { server?: unknown }) {
         if (!ctx.server) return; // prod build — skip
+        if (options?.devtools === false) return; // opted out
         return [
           {
             tag: 'script',
