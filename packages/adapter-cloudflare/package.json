@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/adapter-cloudflare",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Cloudflare Workers adapter for the Stewie framework",
   "keywords": [
     "adapter",

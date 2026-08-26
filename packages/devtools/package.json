@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/devtools",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Browser overlay devtools for the Stewie framework",
   "keywords": [
     "debugging",

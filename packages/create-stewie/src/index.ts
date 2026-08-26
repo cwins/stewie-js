@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-export const version = '0.10.2';
+export const version = '0.10.3';
 
 // Exports for programmatic use
 export { generateFiles } from './templates.js';

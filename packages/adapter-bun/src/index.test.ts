@@ -3,6 +3,6 @@ import { version } from './index.js';
 
 describe('@stewie-js/adapter-bun', () => {
   it('exports version', () => {
-    expect(version).toBe('0.10.2');
+    expect(version).toBe('0.10.3');
   });
 });

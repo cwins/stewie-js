@@ -1,3 +1,15 @@
+## [0.10.3](https://github.com/cwins/stewie-js/compare/v0.10.2...v0.10.3) (2026-08-26)
+
+
+### Features
+
+* **vite:** add a `devtools` plugin option to opt out of injection ([71217bd](https://github.com/cwins/stewie-js/commit/71217bd714b2d713c44e41e1dad7308a7fd98530))
+
+
+### Performance Improvements
+
+* **devtools:** coalesce panel updates into one flush per frame ([b39cb91](https://github.com/cwins/stewie-js/commit/b39cb917fd5ac07fc578a4c3263bc3c759271781))
+
 ## [0.10.2](https://github.com/cwins/stewie-js/compare/v0.10.1...v0.10.2) (2026-08-24)
 
 

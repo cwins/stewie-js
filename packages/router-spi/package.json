@@ -1,6 +1,6 @@
 {
   "name": "@stewie-js/router-spi",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Router interface definitions (types only) for the Stewie framework",
   "keywords": [
     "router",

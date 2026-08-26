@@ -1,5 +1,5 @@
 // @stewie-js/server — WinterCG-compatible SSR renderer
-export const version = '0.10.2';
+export const version = '0.10.3';
 
 export { renderToString, renderToStream } from './stream.js';
 export { createHydrationRegistry, HydrationRegistryContext, useHydrationRegistry } from './hydration.js';
