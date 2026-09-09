@@ -114,31 +114,36 @@ import { signal, computed, effect } from '@stewie-js/core'
 
 function Stats() {
   const count = signal(0)
-  const doubled = computed(() => count() * 2)
+  const disabled = computed(() => count() >= 5)
 
   effect(() => {
-    console.log('count:', count(), 'doubled:', doubled())
-  })
+    console.log('count:', count(), 'disabled:', disabled())
+  });
 
-  count.set(5) // logs: count: 5 doubled: 10
-
-  return <p>Count: {count}</p>
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button disabled={disabled()} onClick={() => count.update((n) => n + 1)}>Add 1</button>
+    </div>
+  )
 }
 ```
 
 ### Store
 
 ```tsx
-import { store } from '@stewie-js/core'
-
 function Profile() {
-  const state = store({ user: { name: 'Alice', age: 30 }, todos: [] as string[] })
-
-  // Only the DOM bindings that read user.name update — nothing else
-  state.user.name = 'Bob'
+  const state = store({ user: { name: 'Alice', favoriteColor: 'purple' }, todos: [] as string[] })
   state.todos.push('Learn Stewie')
 
-  return <p>{state.user.name}</p>
+  return (
+    <div>
+      {/* Only the DOM bindings that read `state.todos` will update when `state.todos` is mutated */}
+      <p>Welcome {state.user.name}</p>
+      <p>Remaining Tasks: {state.todos.length}</p>
+      <NewTodoItem onAddItem={(label) => state.todos.push(label)} />
+    </div>
+  )
 }
 ```
 
