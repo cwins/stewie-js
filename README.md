@@ -50,7 +50,7 @@ Angular's string templates require an IDE extension to catch scope errors. Stewi
 
 ### Edge-first by design
 
-`@stewie-js/server` targets [WinterCG](https://wintercg.org/) — it uses only `ReadableStream`, `TransformStream`, and standard `fetch` APIs with no Node.js dependencies. First-party adapters ship for **Node.js** and **Bun** today. Cloudflare Workers and Deno Deploy adapters are on the roadmap — the standards-first server design means no fundamental rework is needed to add them.
+`@stewie-js/server` targets [WinterCG](https://wintercg.org/) — it uses only `ReadableStream`, `TransformStream`, and standard `fetch` APIs with no Node.js dependencies. First-party adapters ship for **Node.js**, **Bun**, and **Cloudflare Workers** today. A Deno Deploy adapter is on the roadmap — the standards-first server design means no fundamental rework is needed to add it.
 
 ---
 
@@ -61,11 +61,13 @@ Angular's string templates require an IDE extension to catch scope errors. Stewi
 | [`@stewie-js/core`](packages/core) | Signals, computed, effects, store, JSX runtime, context, control flow, hydration |
 | [`@stewie-js/server`](packages/server) | `renderToString` and `renderToStream` — WinterCG-compatible SSR |
 | [`@stewie-js/router`](packages/router) | Reactive URL-as-store routing with `<Router>`, `<Route>`, `<Link>` |
+| [`@stewie-js/router-spi`](packages/router-spi) | Interface-only SPI for swappable router implementations |
 | [`@stewie-js/vite`](packages/vite) | Vite plugin — JSX transform, HMR |
 | [`@stewie-js/adapter-node`](packages/adapter-node) | Node.js HTTP adapter |
 | [`@stewie-js/adapter-bun`](packages/adapter-bun) | Bun HTTP adapter |
+| [`@stewie-js/adapter-cloudflare`](packages/adapter-cloudflare) | Cloudflare Workers HTTP adapter |
 | [`@stewie-js/testing`](packages/testing) | `mount`, DOM queries, signal assertions, SSR helpers |
-| [`@stewie-js/devtools`](packages/devtools) | Browser overlay devtools — renders, stores, routes |
+| [`@stewie-js/devtools`](packages/devtools) | Browser overlay devtools — renders, stores, routes, live signal dependency graph |
 | [`@stewie-js/compiler`](packages/compiler) | TSX → fine-grained reactive output compiler |
 | [`create-stewie`](packages/create-stewie) | Project scaffolding CLI |
 
@@ -105,29 +107,44 @@ bun run dev
 
 ### Signals
 
+Signals, computeds, effects, and stores must be created inside a component (or `reactiveScope()`) — never at module scope. Component bodies are already reactive scopes, so this is the natural place they live:
+
 ```tsx
 import { signal, computed, effect } from '@stewie-js/core'
 
-const count = signal(0)
-const doubled = computed(() => count() * 2)
+function Stats() {
+  const count = signal(0)
+  const disabled = computed(() => count() >= 5)
 
-effect(() => {
-  console.log('count:', count(), 'doubled:', doubled())
-})
+  effect(() => {
+    console.log('count:', count(), 'disabled:', disabled())
+  });
 
-count.set(5) // logs: count: 5 doubled: 10
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button disabled={disabled()} onClick={() => count.update((n) => n + 1)}>Add 1</button>
+    </div>
+  )
+}
 ```
 
 ### Store
 
 ```tsx
-import { store } from '@stewie-js/core'
+function Profile() {
+  const state = store({ user: { name: 'Alice', favoriteColor: 'purple' }, todos: [] as string[] })
+  state.todos.push('Learn Stewie')
 
-const state = store({ user: { name: 'Alice', age: 30 }, todos: [] as string[] })
-
-// Only the DOM bindings that read user.name update — nothing else
-state.user.name = 'Bob'
-state.todos.push('Learn Stewie')
+  return (
+    <div>
+      {/* Only the DOM bindings that read `state.todos` will update when `state.todos` is mutated */}
+      <p>Welcome {state.user.name}</p>
+      <p>Remaining Tasks: {state.todos.length}</p>
+      <NewTodoItem onAddItem={(label) => state.todos.push(label)} />
+    </div>
+  )
+}
 ```
 
 ### Components & JSX
@@ -165,7 +182,7 @@ function TodoList({ items }: { items: string[] }) {
 ### Context
 
 ```tsx
-import { createContext, inject } from '@stewie-js/core'
+import { createContext, consume } from '@stewie-js/core'
 
 const ThemeContext = createContext('light')
 
@@ -178,7 +195,7 @@ function App() {
 }
 
 function Page() {
-  const theme = inject(ThemeContext) // 'dark'
+  const theme = consume(ThemeContext) // 'dark'
   return <div class={`theme-${theme}`}>...</div>
 }
 ```
@@ -187,7 +204,7 @@ function Page() {
 
 ## Server-Side Rendering
 
-`renderToString` returns `{ html, stateScript }` separately so you control where each lands in your document:
+`renderToString` returns `{ html, stateScript, headHtml }` separately so you control where each lands in your document:
 
 ```tsx
 // src/server.ts
@@ -201,8 +218,9 @@ import { jsx } from '@stewie-js/core'
 const template = readFileSync('dist/client/index.html', 'utf-8')
 
 const handler = createNodeHandler(async (_req) => {
-  const { html, stateScript } = await renderToString(jsx(App, {}))
+  const { html, stateScript, headHtml } = await renderToString(jsx(App, {}))
   const page = template
+    .replace('<!--ssr-head-->', headHtml)
     .replace('<!--ssr-outlet-->', html)
     .replace('</body>', `  ${stateScript}\n  </body>`)
   return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } })
@@ -219,7 +237,7 @@ import App from './App.js'
 hydrate(<App />, document.getElementById('app')!)
 ```
 
-The `stateScript` injects `window.__STEWIE_STATE__` — a single serialized payload that `hydrate()` reads to initialize client state from server values, avoiding a second round-trip fetch.
+The `stateScript` injects `window.__STEWIE_STATE__` — a single serialized payload that `hydrate()` reads to initialize client state from server values, avoiding a second round-trip fetch. `headHtml` carries anything registered via `useTitle` / `useMeta` / `<Head>` (see `<!--ssr-head-->` above) — without injecting it, head/title content set during SSR never reaches the response.
 
 ---
 
