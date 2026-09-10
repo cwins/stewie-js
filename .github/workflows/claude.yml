@@ -19,7 +19,7 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
       issues: write
       id-token: write
@@ -57,4 +57,6 @@ jobs:
           # Optional: Add claude_args to customize behavior and configuration
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-          claude_args: '--model opusplan --allowed-tools "Bash(gh pr *), Bash(pnpm install), Bash(pnpm build), Bash(pnpm test), Bash(pnpm typecheck), Bash(pnpm check:edge), Bash(pnpm lint), Bash(pnpm lint:fix), Bash(pnpm format), Bash(pnpm format:check), Bash(pnpm docs:build), Bash(pnpm docs:preview), Bash(pnpm clean)"'
+          claude_args: |
+            --model opusplan
+            --allowed-tools "Bash(gh pr *), Bash(gh issue *), Bash(pnpm install), Bash(pnpm build), Bash(pnpm test), Bash(pnpm typecheck), Bash(pnpm check:edge), Bash(pnpm lint), Bash(pnpm lint:fix), Bash(pnpm format), Bash(pnpm format:check), Bash(pnpm docs:build), Bash(pnpm docs:preview), Bash(pnpm clean)"'
