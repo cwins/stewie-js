@@ -106,7 +106,7 @@ const { html, stateScript } = await renderToString(
 
 **You usually don't need to touch this directly.** Both route loaders and `useResource` already write their results into the registry under stable keys (`route:${path}:${paramsHash}` and `${defId}:${argsHash}` respectively), and `hydrate()` seeds the registry on the client from the inline `__STEWIE_DATA__` payload. A component calling `useResource(fetchMe, () => undefined)` on the server publishes its result; the same call on the client reads it back with no refetch.
 
-The lower-level `useHydrationRegistry` / `useDataRegistry` hooks exist for primitives that want to participate in the same SSR-replay mechanism without going through `useResource` — most app code should not need them.
+The lower-level `useHydrationRegistry` / `useDataRegistry` functions exist for primitives that want to participate in the same SSR-replay mechanism without going through `useResource` — most app code should not need them.
 
 For most use cases, prefer route-level data loading (see [Routing — data loading](routing.md#route-level-data-loading)) for must-have-before-render data and `useResource` for component-local fetches. Both round-trip through SSR automatically.
 

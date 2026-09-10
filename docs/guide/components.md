@@ -300,7 +300,7 @@ The component renders nothing while the module loads, then renders normally. Wor
 
 ## Lifecycle
 
-There are no `onMount` / `onUnmount` lifecycle hooks. Use `effect` with a cleanup function instead:
+There are no `onMount` / `onUnmount` lifecycle functions. Use `effect` with a cleanup function instead:
 
 ```ts
 function LiveClock() {
