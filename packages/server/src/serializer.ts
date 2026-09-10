@@ -48,7 +48,13 @@ export function escapeHtml(str: string): string {
  *
  * Every emitter that interpolates app-controlled data into a `<script>` must route
  * through this function — `buildStateScript`, the per-boundary data patch, and the
- * head patch all do.
+ * head patch all do. Safe for any script element including data blocks
+ * (`type="application/json"`, JSON-LD), since `JSON.parse` accepts `\u003C`.
+ *
+ * NOT valid anywhere else. `\u003C` is a JavaScript escape, so it renders literally
+ * in an HTML attribute (use {@link escapeHtml}) and is not a CSS escape, so it does
+ * not work inside `<style>`. An inline event handler attribute needs both JS and
+ * HTML-attribute escaping; neither helper alone is correct there.
  */
 export function jsStringInScript(value: unknown): string {
   return JSON.stringify(value ?? '').replace(/</g, '\\u003C');
