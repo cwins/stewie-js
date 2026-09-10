@@ -37,6 +37,31 @@ export function escapeHtml(str: string): string {
 // Converts camelCase keys to kebab-case: fontSize → font-size
 // ---------------------------------------------------------------------------
 
+/**
+ * Serialize a value as a JavaScript string literal that is safe to embed inside an
+ * inline `<script>` element.
+ *
+ * `JSON.stringify` escapes quotes and backslashes but NOT `<`, so a value containing
+ * `</script>` closes the script element early and everything after it is parsed as
+ * HTML. Escaping every `<` as `\u003C` closes that hole and also neutralizes `<!--`,
+ * which the HTML spec's script-data escaping rules treat specially.
+ *
+ * Every emitter that interpolates app-controlled data into a `<script>` must route
+ * through this function — `buildStateScript`, the per-boundary data patch, and the
+ * head patch all do.
+ */
+export function jsStringInScript(value: unknown): string {
+  return JSON.stringify(value ?? '').replace(/</g, '\\u003C');
+}
+
+/**
+ * Escape an already-serialized JSON string for embedding inside an inline `<script>`.
+ * Same rationale as {@link jsStringInScript}, for callers that have JSON in hand.
+ */
+export function jsonInScript(json: string): string {
+  return json.replace(/</g, '\\u003C');
+}
+
 export function styleObjectToString(style: Record<string, string | number>): string {
   return Object.entries(style)
     .map(([key, value]) => {

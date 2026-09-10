@@ -48,7 +48,7 @@ import type { DataRegistry, HeadCollector } from '@stewie-js/core';
 import type { ContextProvider, ContextSnapshot, _LazyBoundaryProps } from '@stewie-js/core';
 import type { RenderToStreamOptions, RenderToStringOptions, RenderResult, SSRManifest } from './types.js';
 import { createHydrationRegistry, HydrationRegistryContext, type HydrationRegistry } from './hydration.js';
-import { VOID_ELEMENTS, escapeHtml, serializeAttrs } from './serializer.js';
+import { VOID_ELEMENTS, escapeHtml, jsonInScript, serializeAttrs } from './serializer.js';
 import { serializeHeadEntries, serializeHeadPatch } from './head-serializer.js';
 
 // ---------------------------------------------------------------------------
@@ -382,7 +382,7 @@ async function streamNode(node: unknown, opts: StreamOpts): Promise<void> {
       if (newKeys.length > 0) {
         const patchObj: Record<string, unknown> = {};
         for (const k of newKeys) patchObj[k] = opts.dataRegistry.get(k);
-        const patchJson = JSON.stringify(patchObj).replace(/<\//g, '<\\/');
+        const patchJson = jsonInScript(JSON.stringify(patchObj));
         dataPatchScript = `<script${nonceAttr}>(window.__STEWIE_DATA__=window.__STEWIE_DATA__||{});Object.assign(window.__STEWIE_DATA__,${patchJson})</script>`;
       }
 
@@ -512,8 +512,8 @@ async function runRender(
 
 function buildStateScript(handle: RenderHandle, nonce: string | undefined, mergeExisting: boolean): string {
   // Escape </script> to prevent XSS breakout.
-  const stateJson = handle.registry.serialize().replace(/<\//g, '<\\/');
-  const dataJson = handle.dataRegistry.serialize().replace(/<\//g, '<\\/');
+  const stateJson = jsonInScript(handle.registry.serialize());
+  const dataJson = jsonInScript(handle.dataRegistry.serialize());
   const nonceAttr = nonce ? ` nonce="${escapeHtml(nonce)}"` : '';
   // Streaming mode: per-boundary patches may have populated window.__STEWIE_DATA__
   // before this final assignment lands, so merge into any existing object.
@@ -530,7 +530,7 @@ function buildStateScript(handle: RenderHandle, nonce: string | undefined, merge
     for (const id of handle.renderedLazyIds) {
       if (handle.manifest[id]) filtered[id] = handle.manifest[id];
     }
-    const manifestJson = JSON.stringify(filtered).replace(/<\//g, '<\\/');
+    const manifestJson = jsonInScript(JSON.stringify(filtered));
     manifestExpr = `;window.__STEWIE_MANIFEST__ = ${manifestJson}`;
   }
 
