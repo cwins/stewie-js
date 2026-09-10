@@ -102,9 +102,9 @@ Modifier key clicks (Ctrl, Cmd, Alt, Shift) are passed through to the browser so
 
 ---
 
-## Hooks
+## Functions
 
-Hooks must be called inside a component that is rendered within a `<Router>`.
+These are plain functions with no call-order rules and no restrictions on calling them conditionally. The only requirement is scope: each must be called inside a component that is rendered within a `<Router>`, so that a router context is available to read from.
 
 ---
 
