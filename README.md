@@ -2,7 +2,7 @@
 
 <img src="stewie_logo_med.png" width="200" alt="Stewie" />
 
-**Stewie** is a TypeScript-native UI framework for developers who want React's JSX ergonomics without the re-render tax, and Angular's built-in batteries without the weight. Fine-grained signal reactivity means DOM updates are surgical and predictable — no memoization, no cascades, no surprises. Built edge-first for WinterCG environments, with a compiler that handles the boilerplate so you don't have to.
+**Stewie** is a small, coherent TypeScript web framework for modern edge runtimes. Reactivity, rendering, SSR, routing, a compiler, testing utilities, and devtools are designed together as one system, not assembled from a pile of independently-versioned third-party pieces. `@stewie-js/core` and `@stewie-js/server` are built on standard Web APIs from the ground up, so the same app runs on Node.js, Bun, and Cloudflare Workers with no shim layer.
 
 Just like Stewie Griffin, this framework is meant to be small, powerful, and awesome.
 
@@ -14,43 +14,52 @@ Just like Stewie Griffin, this framework is meant to be small, powerful, and awe
 
 ## Why Stewie?
 
-### No component re-renders. No memoization.
+### Edge-first, and it's enforced
 
-In React, `setState` re-renders the component and every child. You fight this with `memo`, `useMemo`, and `useCallback` — manually, everywhere, forever. Get it wrong and performance craters.
+`@stewie-js/core` and `@stewie-js/server` use only standard Web APIs — `Request`, `Response`, `ReadableStream`, `fetch` — with zero Node.js dependencies. That's a hard boundary, not a stated intention: [`scripts/check-edge-packages.mjs`](scripts/check-edge-packages.mjs) statically checks it in CI, so a stray `import { readFileSync } from 'fs'` fails the build before it ships. First-party adapters run the same app on **Node.js**, **Bun**, and **Cloudflare Workers** today. A Deno adapter is on the roadmap — the standards-first design means no fundamental rework is needed to add it.
 
-In Stewie, `signal.set()` updates **exactly the DOM nodes that depend on it**. Component functions do not re-run. There is no render cycle to optimize. You never write `useMemo`. Cascading re-renders are not a failure mode that exists.
+### A first-party data story, end to end
+
+Route loaders fetch data on navigation. `renderToString` / `renderToStream` serialize each result inline, next to the component that used it, instead of as one blob at the end of the stream — so an early Suspense boundary doesn't wait on a later one's data. `hydrate()` replays that data into the same registry `useResource` reads from, so the client picks up without a second fetch. Loaders, SSR state transfer, hydration, and the client cache are one designed contract, not several libraries you have to wire together yourself.
+
+### `createRoute`: one declaration, three jobs
 
 ```tsx
-// React — manual memoization required to avoid re-render cascades
-const expensiveValue = useMemo(() => compute(a, b), [a, b])
-const stableCallback = useCallback(() => doThing(id), [id])
+export const ProjectEditRoute = createRoute('/projects/:projectId/edit', {
+  component: EditProjectPage,
+  load: projectEditLoader,
+})
+```
 
-// Stewie — just write code. Fine-grained reactivity handles it.
+`ProjectEditRoute` is simultaneously the JSX mount point (`<ProjectEditRoute />` inside `<Router>`), the type carrier for its path params, and the argument to `useParams(ProjectEditRoute)` / `useQuery(ProjectEditRoute)` anywhere in the tree — no separate route-types file to keep in sync, no generic to remember at the call site.
+
+### Localized updates, not re-render cascades
+
+A signal update writes to exactly the DOM nodes that read it. Component functions run once, at setup — there's no render cycle above them to re-run, so there's nothing to reach for `memo` / `useMemo` / `useCallback` to guard against. The compiler is responsible for breaking a component into fine-grained reactive pieces; you just write the obvious code:
+
+```tsx
 const expensiveValue = computed(() => compute(a(), b()))
 ```
 
 ### TypeScript-native from day one
 
-React ships with Flow types internally; `@types/react` is a separately maintained package. Stewie is written in TypeScript and ships TypeScript. No `@types/*` package needed — types are part of the framework.
+Stewie is written in TypeScript and ships TypeScript — no separately maintained `@types/*` package to fall out of sync with the framework.
 
-### Batteries included, not bolted on
+### JSX with full TypeScript scope
 
-Routing, reactivity, SSR, testing utilities, and devtools are coordinated first-party packages — not community add-ons that may conflict, lag behind, or disappear.
+TypeScript knows exactly what's in scope at every point in a `.tsx` file, so your editor flags errors inline, and `<PrimaryButton />` is a real identifier you can search, refactor, and jump to.
 
-| Need | React ecosystem | Stewie |
-|------|----------------|--------|
-| Routing | React Router / TanStack Router | `@stewie-js/router` |
-| Global state | Zustand / Jotai / MobX | `store()` built-in |
-| SSR | Next.js / Remix | `@stewie-js/server` |
-| Testing | React Testing Library | `@stewie-js/testing` |
+### Small and coherent, not a pile of parts
 
-### JSX with TypeScript scope — everywhere
+| Need | Stewie |
+|------|--------|
+| Routing | `@stewie-js/router` |
+| Global state | `store()`, built in |
+| SSR | `@stewie-js/server` |
+| Testing | `@stewie-js/testing` |
+| Devtools | `@stewie-js/devtools` |
 
-Angular's string templates require an IDE extension to catch scope errors. Stewie uses JSX: TypeScript knows exactly what's in scope at every point, your editor flags errors inline, and `<PrimaryButton />` is a real identifier you can search, refactor, and navigate.
-
-### Edge-first by design
-
-`@stewie-js/server` targets [WinterCG](https://wintercg.org/) — it uses only `ReadableStream`, `TransformStream`, and standard `fetch` APIs with no Node.js dependencies. First-party adapters ship for **Node.js**, **Bun**, and **Cloudflare Workers** today. A Deno Deploy adapter is on the roadmap — the standards-first server design means no fundamental rework is needed to add it.
+Each of these is designed against the others, rather than picked up separately and hoped into compatibility — it's why the data story above is one contract instead of four. This is the hardest of Stewie's bets to put a number on; coherence is felt over the life of a project, not benchmarked.
 
 ---
 
