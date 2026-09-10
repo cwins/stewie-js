@@ -2,7 +2,7 @@
 
 <img src="stewie_logo_med.png" width="200" alt="Stewie" />
 
-**Stewie** is a TypeScript-native UI framework for developers who want React's JSX ergonomics without the re-render tax, and Angular's built-in batteries without the weight. Fine-grained signal reactivity means DOM updates are surgical and predictable — no memoization, no cascades, no surprises. Built edge-first for WinterCG environments, with a compiler that handles the boilerplate so you don't have to.
+**Stewie** is a TypeScript framework built edge-first for [WinterCG](https://wintercg.org/) runtimes: `@stewie-js/core` and `@stewie-js/server` use only standard Web APIs, so the same app runs on Node.js, Bun, and Cloudflare Workers without a shim layer. Routing, SSR, testing, devtools, and a compiler are designed together as one coherent framework, with route loaders → SSR state transfer → hydration as a single first-party data contract.
 
 Just like Stewie Griffin, this framework is meant to be small, powerful, and awesome.
 
@@ -14,43 +14,59 @@ Just like Stewie Griffin, this framework is meant to be small, powerful, and awe
 
 ## Why Stewie?
 
-### No component re-renders. No memoization.
+### Edge-first, enforced
 
-In React, `setState` re-renders the component and every child. You fight this with `memo`, `useMemo`, and `useCallback` — manually, everywhere, forever. Get it wrong and performance craters.
+`@stewie-js/core` and `@stewie-js/server` use only standard Web APIs — `Request`, `Response`, `ReadableStream`, `fetch`. No Node.js-specific imports are allowed in either package, and `scripts/check-edge-packages.mjs` enforces that boundary in CI via static analysis, not just by convention. First-party adapters ship for **Node.js**, **Bun**, and **Cloudflare Workers** today. A Deno Deploy adapter is on the roadmap — the standards-first design means no fundamental rework is needed to add it.
 
-In Stewie, `signal.set()` updates **exactly the DOM nodes that depend on it**. Component functions do not re-run. There is no render cycle to optimize. You never write `useMemo`. Cascading re-renders are not a failure mode that exists.
+### `createRoute`: one declaration, not three
 
 ```tsx
-// React — manual memoization required to avoid re-render cascades
-const expensiveValue = useMemo(() => compute(a, b), [a, b])
-const stableCallback = useCallback(() => doThing(id), [id])
-
-// Stewie — just write code. Fine-grained reactivity handles it.
-const expensiveValue = computed(() => compute(a(), b()))
+export const ProjectEditRoute = createRoute(
+  '/projects/:projectId/edit',
+  { component: EditProjectPage, load: projectEditLoader }
+)
+// params typed from the path literal: { projectId: string }
 ```
+
+The value returned by `createRoute` is at once the JSX mount point (`<ProjectEditRoute />`), the type carrier that `useParams(route)` / `useQuery(route)` read to recover param and query types, and the place the loader and guard for that route live. There's no separate route config object, route type, and path string to keep in sync by hand.
+
+### Localized updates, not a render cycle
+
+Signals subscribe directly to the DOM expressions that read them. `signal.set()` updates exactly those expressions; component functions run once at setup, not on every state change, so there's no render cycle to opt out of with memoization helpers:
+
+```tsx
+function Counter() {
+  const count = signal(0)
+  const doubled = computed(() => count() * 2)
+
+  return (
+    <button onClick={() => count.update((n) => n + 1)}>
+      {count} / {doubled}
+    </button>
+  )
+}
+```
+
+A Vite compiler plugin (`@stewie-js/vite`) breaks components like this down further into fine-grained reactive output automatically, but it's optional — plain JSX via `jsxImportSource` produces a fully working app without it.
 
 ### TypeScript-native from day one
 
-React ships with Flow types internally; `@types/react` is a separately maintained package. Stewie is written in TypeScript and ships TypeScript. No `@types/*` package needed — types are part of the framework.
+Stewie is written in TypeScript and ships TypeScript directly — no separately maintained `@types/*` package to fall out of sync with the runtime.
 
-### Batteries included, not bolted on
+### JSX with real scope
 
-Routing, reactivity, SSR, testing utilities, and devtools are coordinated first-party packages — not community add-ons that may conflict, lag behind, or disappear.
+Stewie uses JSX: TypeScript knows exactly what's in scope at every point, your editor flags errors inline, and `<PrimaryButton />` is a real identifier you can search, refactor, and navigate — not a string template that needs a separate tool to catch scope errors.
 
-| Need | React ecosystem | Stewie |
-|------|----------------|--------|
-| Routing | React Router / TanStack Router | `@stewie-js/router` |
-| Global state | Zustand / Jotai / MobX | `store()` built-in |
-| SSR | Next.js / Remix | `@stewie-js/server` |
-| Testing | React Testing Library | `@stewie-js/testing` |
+### Small, coherent by design
 
-### JSX with TypeScript scope — everywhere
+Routing, reactivity, SSR, testing utilities, and devtools are coordinated first-party packages, designed together, rather than assembled from third-party pieces that may conflict, lag behind, or disappear:
 
-Angular's string templates require an IDE extension to catch scope errors. Stewie uses JSX: TypeScript knows exactly what's in scope at every point, your editor flags errors inline, and `<PrimaryButton />` is a real identifier you can search, refactor, and navigate.
-
-### Edge-first by design
-
-`@stewie-js/server` targets [WinterCG](https://wintercg.org/) — it uses only `ReadableStream`, `TransformStream`, and standard `fetch` APIs with no Node.js dependencies. First-party adapters ship for **Node.js**, **Bun**, and **Cloudflare Workers** today. A Deno Deploy adapter is on the roadmap — the standards-first server design means no fundamental rework is needed to add it.
+| Need | Stewie |
+|------|--------|
+| Routing | `@stewie-js/router` |
+| Global state | `store()` built-in |
+| SSR | `@stewie-js/server` |
+| Testing | `@stewie-js/testing` |
 
 ---
 
