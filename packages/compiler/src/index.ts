@@ -1,5 +1,5 @@
 // @stewie-js/compiler — TSX to fine-grained reactive output
-export const version = '0.10.3';
+export const version = '0.10.4';
 
 import ts from 'typescript';
 import { dirname } from 'node:path';

@@ -60,16 +60,16 @@ export function serializeHeadPatch(entries: HeadEntry[], nonce?: string): string
     lines.push(
       `(function(){` +
         `function setMeta(k,v,c){` +
-          // Scan existing <meta> elements instead of building a querySelector
-          // string: an attribute value containing a quote would produce an
-          // invalid selector and throw, aborting the rest of the patch.
-          `var l=document.head.getElementsByTagName('meta'),m=null;` +
-          `for(var i=0;i<l.length;i++){if(l[i].getAttribute(k)===v){m=l[i];break;}}` +
-          `if(!m){m=document.createElement('meta');m.setAttribute(k,v);document.head.appendChild(m);}` +
-          `m.setAttribute('content',c);` +
+        // Scan existing <meta> elements instead of building a querySelector
+        // string: an attribute value containing a quote would produce an
+        // invalid selector and throw, aborting the rest of the patch.
+        `var l=document.head.getElementsByTagName('meta'),m=null;` +
+        `for(var i=0;i<l.length;i++){if(l[i].getAttribute(k)===v){m=l[i];break;}}` +
+        `if(!m){m=document.createElement('meta');m.setAttribute(k,v);document.head.appendChild(m);}` +
+        `m.setAttribute('content',c);` +
         `}` +
         metaCalls.join('') +
-      `})();`
+        `})();`
     );
   }
 

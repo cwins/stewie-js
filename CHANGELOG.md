@@ -1,3 +1,29 @@
+## [0.10.4](https://github.com/cwins/stewie-js/compare/v0.10.3...v0.10.4) (2026-09-17)
+
+
+### Security
+
+* **server:** escape app data embedded in inline head patch scripts ([fad5520](https://github.com/cwins/stewie-js/commit/fad5520eacb16130d61fc3e5143886b4acea6630))
+
+  `serializeHeadPatch` built an inline `<script>` with `JSON.stringify`, which escapes
+  quotes but not `<`. A title containing `</script>` closed the script element early and
+  the remainder was parsed as HTML. Titles routinely derive from user data
+  (`useTitle(() => \`Results for ${q()}\`)`), which is the documented pattern, so this was
+  reachable from ordinary application code under `renderToStream`. The meta branch had a
+  second defect: the attribute value was concatenated into a `querySelector` string, so an
+  embedded quote produced an invalid selector that threw and aborted the rest of the patch.
+
+  All three script emitters now route through a single `jsStringInScript` / `jsonInScript`
+  choke point that escapes every `<`, and the meta lookup iterates `document.head` instead
+  of building a selector. **Affects `renderToStream` only** — `renderToString` emits real
+  `<title>` / `<meta>` markup and was never vulnerable.
+
+
+### Code Refactoring
+
+* **server:** hoist the meta upsert into a per-patch IIFE ([a247959](https://github.com/cwins/stewie-js/commit/a24795923cf7cd96fdbc3be6601252404083748d))
+
+
 ## [0.10.3](https://github.com/cwins/stewie-js/compare/v0.10.2...v0.10.3) (2026-08-26)
 
 
