@@ -186,7 +186,29 @@ pnpm format                # oxfmt
 
 Tests use `--reporter=agent` (not `--reporter=verbose`).
 
-When bumping versions, update all `packages/*/package.json`, `examples/*/package.json`, and `packages/create-stewie/src/templates.ts`. Commit and tag before starting the next batch of changes.
+### Releasing
+
+Use the `version-bump` skill — it covers every location and the verification step. The
+short version, because the list is longer than it looks:
+
+1. `packages/*/package.json` — the `version` field (12 packages).
+2. **`packages/*/src/index.ts` — the `export const version` constant (12 packages).**
+3. `packages/create-stewie/src/templates.ts` — the `^x.y.z` dependency ranges it scaffolds.
+4. `CLAUDE.md` — the **Current version** line at the top of this file.
+5. `CHANGELOG.md` — a new entry.
+
+`examples/*/package.json` need nothing; they depend on `workspace:*` and carry their own
+unrelated versions.
+
+Items 2 and 4 are the ones that get missed. 0.10.4 was nearly published with
+`version === '0.10.3'` exported from every package — `pnpm test`, `pnpm lint` and the
+release workflow all passed, because the version tests asserted a hardcoded literal that
+matched the stale constant. Those tests now read `package.json`, so that specific drift
+fails loudly; run `pnpm test` after bumping and trust it.
+
+Then: commit, tag, and publish via the **Release** workflow (`workflow_dispatch`, `ref` +
+`dry_run`). It checks out the ref from the remote, so the tag must be pushed before it can
+build — you cannot publish before pushing. Tag before starting the next batch of changes.
 
 `DIAGNOSTICS.md` at the repo root is the living inventory that drives roadmap item 18 (dev-mode / build-time diagnostics). When you add a primitive, change the semantics of an existing one, or remove something, update the relevant `STW###` entries in the same change — add new footguns, revise proposed messages, or drop entries that no longer apply. It is not user-facing docs; it is the implementation blueprint, and it only stays useful if it tracks the current API surface.
 

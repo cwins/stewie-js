@@ -1,2 +1,9 @@
 pnpm lint
 pnpm format
+
+# `pnpm format` is `oxfmt --write` — it rewrites files but does not stage them,
+# so without this any commit where formatting changed something lands dirty and
+# fails CI's `pnpm format:check`, leaving the fix unstaged in the working tree.
+# `-u` only touches files already tracked and already modified, so it cannot
+# sweep in anything unrelated to this commit.
+git add -u

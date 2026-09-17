@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { initDevtools, destroyDevtools } from '../src/index.js';
+import { initDevtools, destroyDevtools, version } from '../src/index.js';
+import pkg from '../package.json';
 import { __devHooks } from '@stewie-js/core';
 import { isVisible } from '../src/panel.js';
 import { addRenderEntry } from '../src/tabs/renders.js';
@@ -128,5 +129,17 @@ describe('navigation detection', () => {
       history.pushState(null, '', '/');
     }).not.toThrow();
     void called;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Version
+// ---------------------------------------------------------------------------
+
+describe('@stewie-js/devtools', () => {
+  it('exports a version matching package.json', () => {
+    // Read package.json rather than assert a literal — a literal only proves the
+    // constant matches the test, and stays green while shipping a stale version.
+    expect(version).toBe(pkg.version);
   });
 });
