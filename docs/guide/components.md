@@ -123,6 +123,8 @@ Wiring a form input to a signal by hand means reading it in one place and writin
 <input value={name()} onInput={e => name.set((e.target as HTMLInputElement).value)} />
 ```
 
+(The compiler auto-wraps that bare `name()` read into `() => name()`, same as any other reactive attribute — see [Reactive expressions](#reactive-expressions) above. Without the compiler, write the `() =>` yourself.)
+
 The compiler gives you a shorthand: prefix the prop with `$` and pass the signal. `$value={name}` expands to exactly the read-plus-write pair above:
 
 ```tsx

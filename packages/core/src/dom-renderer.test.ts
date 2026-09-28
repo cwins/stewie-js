@@ -155,6 +155,20 @@ describe('mount — reactive props', () => {
     expect(c.firstElementChild?.getAttribute('class')).toBe('updated');
   });
 
+  it('updates value attribute when wrapped signal read changes (compiler auto-wrap output shape)', () => {
+    // Mirrors what the compiler now emits for `value={name()}` — a
+    // `() => name()` accessor — confirming a programmatic `.set()` (e.g.
+    // clearing a form, prefilling from a loader) updates the DOM, not just
+    // the initial render.
+    const name = sig('initial');
+    const c = container();
+    mount(jsx('input', { value: () => name() }), c);
+    const input = c.firstElementChild as HTMLInputElement;
+    expect(input.value).toBe('initial');
+    name.set('updated');
+    expect(input.value).toBe('updated');
+  });
+
   it('updates text content when signal changes', () => {
     const text = sig('hello');
     const c = container();

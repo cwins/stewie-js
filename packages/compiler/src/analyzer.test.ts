@@ -187,6 +187,32 @@ describe('analyzeFile()', () => {
     expect(result.autoWrapCandidates).toHaveLength(0);
   });
 
+  it('auto-wrap — detects bare signal read attribute (value={sig()})', () => {
+    // Regression test: `isReactiveExpression` used to treat any zero-arg
+    // call as "already reactive" and skip it, so a bare `sig()` attribute
+    // (the most common reactive-attribute shape) was never wrapped.
+    const source = `function App() { const name = signal('a'); return <input value={name()} /> }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const result = analyzeFile(parsed);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('name()');
+  });
+
+  it('auto-wrap — detects bare signal read attribute (class={sig()})', () => {
+    const source = `function App() { const theme = signal('dark'); return <div class={theme()} /> }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const result = analyzeFile(parsed);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('theme()');
+  });
+
+  it('auto-wrap — skips attribute already wrapped in arrow function (value={() => sig()})', () => {
+    const source = `function App() { const name = signal('a'); return <input value={() => name()} /> }\n`;
+    const parsed = parseFile(source, 'test.tsx');
+    const result = analyzeFile(parsed);
+    expect(result.autoWrapCandidates).toHaveLength(0);
+  });
+
   it('store path tracking — reads store.a.b', () => {
     const source = `
 function App() {
@@ -279,6 +305,30 @@ function App() { return <li class={getItem().done ? 'done' : ''}>{getItem().text
     // getItem is `() => Row` (plain accessor) — both reads should be wrapped
     // so the surrounding effect re-runs whenever the accessor's source changes.
     expect(result.autoWrapCandidates).toHaveLength(2);
+  });
+
+  it('DOES wrap class={theme()} attribute when theme is a Signal<string>', () => {
+    const source = `${SIGNAL_DECLS}
+declare const theme: Signal<string>;
+function App() { return <div class={theme()} /> }
+`;
+    const { program, parsed } = createInMemoryProgram('test.tsx', source);
+    const checker = program.getTypeChecker();
+    const result = analyzeFile(parsed, checker);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('theme()');
+  });
+
+  it('DOES wrap class={label()} attribute when label is a Computed<string>', () => {
+    const source = `${SIGNAL_DECLS}
+declare const label: Computed<string>;
+function App() { return <div class={label()} /> }
+`;
+    const { program, parsed } = createInMemoryProgram('test.tsx', source);
+    const checker = program.getTypeChecker();
+    const result = analyzeFile(parsed, checker);
+    expect(result.autoWrapCandidates).toHaveLength(1);
+    expect(result.autoWrapCandidates[0].expressionText).toBe('label()');
   });
 
   it('heuristic fallback — still wraps without TypeChecker (existing behavior preserved)', () => {
