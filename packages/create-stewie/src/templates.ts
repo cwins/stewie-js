@@ -494,8 +494,12 @@ const AboutPage = lazy(() => import('./pages/about.js').then((m) => m.AboutPage)
 // Router must have only <Route> elements as direct children —
 // the Router scans them to build the route table.
 // Layout (nav + wrapper) lives inside each page so it has RouterContext.
-export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {${ctx.mode === 'ssr' ? `
-  useTitle('${ctx.projectName}')` : ''}
+export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {${
+        ctx.mode === 'ssr'
+          ? `
+  useTitle('${ctx.projectName}')`
+          : ''
+      }
   return (
     <Router initialUrl={initialUrl}>
       <Route path="/" component={HomePage} />
@@ -541,8 +545,12 @@ const fetchTip = defineResource(async (_src: void, _opts: { signal: AbortSignal 
   return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
 })
 
-export function App(): JSXElement {${ctx.mode === 'ssr' ? `
-  useTitle('${ctx.projectName}')` : ''}
+export function App(): JSXElement {${
+        ctx.mode === 'ssr'
+          ? `
+  useTitle('${ctx.projectName}')`
+          : ''
+      }
   let count!: ReturnType<typeof signal<number>>
   let doubled!: ReturnType<typeof computed<number>>
   let resets!: ReturnType<typeof signal<number>>
