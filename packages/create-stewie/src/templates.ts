@@ -78,6 +78,7 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
       content: `import { stewie, defineConfig } from '@stewie-js/vite'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { RenderResult } from '@stewie-js/server'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -177,7 +178,7 @@ export default defineConfig({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${ctx.projectName}</title>
+    ${ctx.mode === 'ssr' ? '<!--head-outlet-->' : `<title>${ctx.projectName}</title>`}
   </head>
   <body>
     <div id="app">${ctx.mode === 'ssr' ? '<!--ssr-outlet-->' : ''}</div>
@@ -209,6 +210,7 @@ hydrate(<App />, document.getElementById('app')!)
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { RenderResult } from '@stewie-js/server'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
@@ -223,9 +225,10 @@ if (isProd) {
   // Bun.serve() keeps the process alive and handles connections natively.
   ;(globalThis as any).Bun.serve(createBunHandler(async (req: Request) => {
     const url = new URL(req.url).pathname
-    const { html, stateScript } = await renderApp(url)
+    const { html, stateScript, headHtml } = await renderApp(url)
     const page = template
-      .replace('<!--ssr-outlet-->', html)
+      .replace('<!--head-outlet-->', () => headHtml)
+      .replace('<!--ssr-outlet-->', () => html)
       .replace('</body>', \`  \${stateScript}\\n  </body>\`)
     return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } })
   }, { port: PORT }))
@@ -240,13 +243,14 @@ if (isProd) {
     vite.middlewares(req, res, () => {
       ;(async () => {
         const { renderApp } = (await vite.ssrLoadModule('/src/app.tsx')) as {
-          renderApp: (url: string) => Promise<{ html: string; stateScript: string }>
+          renderApp: (url: string) => Promise<RenderResult>
         }
         const rawTemplate = readFileSync(resolve(root, 'index.html'), 'utf-8')
         const template = await vite.transformIndexHtml(req.url ?? '/', rawTemplate)
-        const { html, stateScript } = await renderApp(req.url ?? '/')
+        const { html, stateScript, headHtml } = await renderApp(req.url ?? '/')
         const page = template
-          .replace('<!--ssr-outlet-->', html)
+          .replace('<!--head-outlet-->', () => headHtml)
+      .replace('<!--ssr-outlet-->', () => html)
           .replace('</body>', \`  \${stateScript}\\n  </body>\`)
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
         res.end(page)
@@ -269,6 +273,7 @@ if (isProd) {
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { RenderResult } from '@stewie-js/server'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
@@ -280,9 +285,10 @@ if (isProd) {
   const template = readFileSync(resolve(root, 'dist/client/index.html'), 'utf-8')
 
   createServer(async (req, res) => {
-    const { html, stateScript } = await renderApp(req.url ?? '/')
+    const { html, stateScript, headHtml } = await renderApp(req.url ?? '/')
     const page = template
-      .replace('<!--ssr-outlet-->', html)
+      .replace('<!--head-outlet-->', () => headHtml)
+      .replace('<!--ssr-outlet-->', () => html)
       .replace('</body>', \`  \${stateScript}\\n  </body>\`)
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
     res.end(page)
@@ -298,13 +304,14 @@ if (isProd) {
     vite.middlewares(req, res, () => {
       ;(async () => {
         const { renderApp } = (await vite.ssrLoadModule('/src/app.tsx')) as {
-          renderApp: (url: string) => Promise<{ html: string; stateScript: string }>
+          renderApp: (url: string) => Promise<RenderResult>
         }
         const rawTemplate = readFileSync(resolve(root, 'index.html'), 'utf-8')
         const template = await vite.transformIndexHtml(req.url ?? '/', rawTemplate)
-        const { html, stateScript } = await renderApp(req.url ?? '/')
+        const { html, stateScript, headHtml } = await renderApp(req.url ?? '/')
         const page = template
-          .replace('<!--ssr-outlet-->', html)
+          .replace('<!--head-outlet-->', () => headHtml)
+      .replace('<!--ssr-outlet-->', () => html)
           .replace('</body>', \`  \${stateScript}\\n  </body>\`)
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
         res.end(page)
@@ -475,7 +482,7 @@ export async function renderApp(url: string = '/'): Promise<RenderResult> {
     files.push({
       path: 'src/app.tsx',
       content: `import { Router, Route } from '@stewie-js/router'
-import { lazy } from '@stewie-js/core'
+import { lazy, useTitle } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
 import './styles.css'
 
@@ -489,6 +496,7 @@ const AboutPage = lazy(() => import('./pages/about.js').then((m) => m.AboutPage)
 // the Router scans them to build the route table.
 // Layout (nav + wrapper) lives inside each page so it has RouterContext.
 export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
+  useTitle('${ctx.projectName}')
   return (
     <Router initialUrl={initialUrl}>
       <Route path="/" component={HomePage} />
@@ -514,7 +522,7 @@ export async function renderApp(_url: string = '/'): Promise<RenderResult> {
 
     files.push({
       path: 'src/app.tsx',
-      content: `import { signal, store, computed, batch, reactiveScope, defineResource, useResource } from '@stewie-js/core'
+      content: `import { signal, store, computed, batch, reactiveScope, defineResource, useResource, useTitle } from '@stewie-js/core'
 import { Show, For, Switch, Match } from '@stewie-js/core'
 import type { Resource, JSXElement } from '@stewie-js/core'
 import './styles.css'
@@ -535,6 +543,7 @@ const fetchTip = defineResource(async (_src: void, _opts: { signal: AbortSignal 
 })
 
 export function App(): JSXElement {
+  useTitle('${ctx.projectName}')
   let count!: ReturnType<typeof signal<number>>
   let doubled!: ReturnType<typeof computed<number>>
   let resets!: ReturnType<typeof signal<number>>
