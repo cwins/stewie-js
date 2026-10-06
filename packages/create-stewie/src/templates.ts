@@ -78,7 +78,6 @@ export function generateFiles(ctx: TemplateContext): Array<{ path: string; conte
       content: `import { stewie, defineConfig } from '@stewie-js/vite'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { RenderResult } from '@stewie-js/server'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -250,7 +249,7 @@ if (isProd) {
         const { html, stateScript, headHtml } = await renderApp(req.url ?? '/')
         const page = template
           .replace('<!--head-outlet-->', () => headHtml)
-      .replace('<!--ssr-outlet-->', () => html)
+          .replace('<!--ssr-outlet-->', () => html)
           .replace('</body>', \`  \${stateScript}\\n  </body>\`)
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
         res.end(page)
@@ -311,7 +310,7 @@ if (isProd) {
         const { html, stateScript, headHtml } = await renderApp(req.url ?? '/')
         const page = template
           .replace('<!--head-outlet-->', () => headHtml)
-      .replace('<!--ssr-outlet-->', () => html)
+          .replace('<!--ssr-outlet-->', () => html)
           .replace('</body>', \`  \${stateScript}\\n  </body>\`)
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
         res.end(page)
@@ -482,7 +481,7 @@ export async function renderApp(url: string = '/'): Promise<RenderResult> {
     files.push({
       path: 'src/app.tsx',
       content: `import { Router, Route } from '@stewie-js/router'
-import { lazy, useTitle } from '@stewie-js/core'
+import { lazy${ctx.mode === 'ssr' ? ', useTitle' : ''} } from '@stewie-js/core'
 import type { JSXElement } from '@stewie-js/core'
 import './styles.css'
 
@@ -495,8 +494,8 @@ const AboutPage = lazy(() => import('./pages/about.js').then((m) => m.AboutPage)
 // Router must have only <Route> elements as direct children —
 // the Router scans them to build the route table.
 // Layout (nav + wrapper) lives inside each page so it has RouterContext.
-export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {
-  useTitle('${ctx.projectName}')
+export function App({ initialUrl }: { initialUrl?: string } = {}): JSXElement {${ctx.mode === 'ssr' ? `
+  useTitle('${ctx.projectName}')` : ''}
   return (
     <Router initialUrl={initialUrl}>
       <Route path="/" component={HomePage} />
@@ -522,7 +521,7 @@ export async function renderApp(_url: string = '/'): Promise<RenderResult> {
 
     files.push({
       path: 'src/app.tsx',
-      content: `import { signal, store, computed, batch, reactiveScope, defineResource, useResource, useTitle } from '@stewie-js/core'
+      content: `import { signal, store, computed, batch, reactiveScope, defineResource, useResource${ctx.mode === 'ssr' ? ', useTitle' : ''} } from '@stewie-js/core'
 import { Show, For, Switch, Match } from '@stewie-js/core'
 import type { Resource, JSXElement } from '@stewie-js/core'
 import './styles.css'
@@ -542,8 +541,8 @@ const fetchTip = defineResource(async (_src: void, _opts: { signal: AbortSignal 
   return { tip: 'Only the DOM nodes that changed are updated — no virtual DOM diffing.' }
 })
 
-export function App(): JSXElement {
-  useTitle('${ctx.projectName}')
+export function App(): JSXElement {${ctx.mode === 'ssr' ? `
+  useTitle('${ctx.projectName}')` : ''}
   let count!: ReturnType<typeof signal<number>>
   let doubled!: ReturnType<typeof computed<number>>
   let resets!: ReturnType<typeof signal<number>>
