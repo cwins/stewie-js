@@ -317,7 +317,7 @@ describe('generateFiles — SSR mode (node)', () => {
       includeRouter: false
     });
     const server = files.find((f) => f.path === 'src/server.ts')!;
-    expect(server.content).toContain('{ html, stateScript }');
+    expect(server.content).toContain('{ html, stateScript, headHtml }');
     expect(server.content).toContain('stateScript');
     expect(server.content).toContain('</body>');
   });
@@ -372,6 +372,39 @@ describe('generateFiles — SSR mode (node)', () => {
   });
 });
 
+describe('generateFiles — SSR head metadata wiring', () => {
+  for (const ssrRuntime of ['node', 'bun'] as const) {
+    for (const includeRouter of [false, true]) {
+      it(`${ssrRuntime}${includeRouter ? ' + router' : ''}: head outlet, headHtml injection, RenderResult, useTitle`, () => {
+        const files = generateFiles({ projectName: 'head-app', mode: 'ssr', ssrRuntime, includeRouter });
+        const html = files.find((f) => f.path === 'index.html')!.content;
+        const server = files.find((f) => f.path === 'src/server.ts')!.content;
+        const app = files.find((f) => f.path === 'src/app.tsx')!.content;
+
+        expect(html).toContain('<!--head-outlet-->');
+        // A shell <title> would precede the outlet and beat useTitle (first <title> wins).
+        expect(html).not.toContain('<title>');
+
+        // Both the prod and dev branches must inject headHtml.
+        expect(server.match(/\{ html, stateScript, headHtml \}/g)).toHaveLength(2);
+        expect(server.match(/<!--head-outlet-->', \(\) => headHtml/g)).toHaveLength(2);
+
+        expect(server).not.toContain('{ html: string; stateScript: string }');
+        expect(server).toContain('Promise<RenderResult>');
+
+        expect(app).toContain('useTitle(');
+      });
+    }
+  }
+
+  it('static mode keeps the shell <title>', () => {
+    const files = generateFiles({ projectName: 'static-app', mode: 'static', includeRouter: false });
+    const html = files.find((f) => f.path === 'index.html')!.content;
+    expect(html).toContain('<title>static-app</title>');
+    expect(html).not.toContain('head-outlet');
+  });
+});
+
 describe('generateFiles — SSR mode (bun)', () => {
   it('generates server.ts with createBunHandler', () => {
     const files = generateFiles({
@@ -392,7 +425,7 @@ describe('generateFiles — SSR mode (bun)', () => {
       includeRouter: false
     });
     const server = files.find((f) => f.path === 'src/server.ts')!;
-    expect(server.content).toContain('{ html, stateScript }');
+    expect(server.content).toContain('{ html, stateScript, headHtml }');
   });
 
   it('package.json does not include tsx for bun', () => {
