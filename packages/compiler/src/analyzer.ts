@@ -237,16 +237,14 @@ function getLineAndColumn(node: ts.Node, sourceFile: ts.SourceFile): { line: num
   return { line: line + 1, column: character + 1 };
 }
 
+// Whether `expr` is already an accessor — i.e. calling it defers evaluation.
+// Only arrow/function expressions qualify. A zero-arg call like `mySignal()`
+// is a *read*, not an accessor: it evaluates the signal right now and is
+// exactly what auto-wrap needs to wrap, not a reason to skip it (see
+// `attrHasReactiveRead`/`containsReactiveRead` below, which does the
+// checker-backed detection of that case).
 function isReactiveExpression(expr: ts.Expression): boolean {
-  // Arrow function or function expression => reactive
-  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
-    return true;
-  }
-  // Call expression with no args => likely a signal read (e.g. mySignal())
-  if (ts.isCallExpression(expr) && expr.arguments.length === 0) {
-    return true;
-  }
-  return false;
+  return ts.isArrowFunction(expr) || ts.isFunctionExpression(expr);
 }
 
 function getJsxElementName(node: ts.JsxOpeningLikeElement): string {

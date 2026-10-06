@@ -234,6 +234,47 @@ function App() {
     expect(result.code).not.toContain('() => () =>');
   });
 
+  it('auto-wrap — bare signal read attribute becomes arrow function (value={sig()})', () => {
+    // Regression test for the P1 bug: `isReactiveExpression` treated any
+    // zero-arg call as "already reactive" and skipped it, so the most common
+    // reactive-attribute shape (`value={sig()}`) was silently never wrapped —
+    // producing a permanent snapshot instead of a reactive binding.
+    const source = `
+function App() {
+  const name = signal('a')
+  return <input value={name()} />
+}
+`;
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false });
+    expect(result.errors).toHaveLength(0);
+    expect(result.code).toContain('value={() => name()}');
+  });
+
+  it('auto-wrap — bare computed read attribute becomes arrow function (class={computed()})', () => {
+    const source = `
+function App() {
+  const theme = computed(() => 'dark')
+  return <div class={theme()} />
+}
+`;
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false });
+    expect(result.errors).toHaveLength(0);
+    expect(result.code).toContain('class={() => theme()}');
+  });
+
+  it('auto-wrap — bare signal read attribute already wrapped is left unchanged (value={() => sig()})', () => {
+    const source = `
+function App() {
+  const name = signal('a')
+  return <input value={() => name()} />
+}
+`;
+    const result = compile(source, { filename: 'test.tsx', dev: false, sourcemap: false });
+    expect(result.errors).toHaveLength(0);
+    expect(result.code).toContain('value={() => name()}');
+    expect(result.code).not.toContain('() => () =>');
+  });
+
   it('auto-wrap — event handler is not wrapped', () => {
     const source = `
 function App() {
